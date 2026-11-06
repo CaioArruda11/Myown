@@ -1,0 +1,981 @@
+Pagina IFI HTML =
+// ===========================================================================
+// PAGINA IFI  (v3 - mesma linguagem visual da pagina BSC v3)
+// HTML Content ocupando a pagina. Fundo do visual: TRANSPARENTE.
+// As consultas e medidas sao as mesmas da versao anterior; mudou a
+// apresentacao:
+//   - KPIs: IFI com limite, medidor e variacao vs. mes anterior; altas e
+//     reparos com minigrafico do periodo; Atingimento BSC vira medidor (no
+//     lugar da rosca) e o podio vira um Top 3 compacto;
+//   - grafico: barras a partir do zero (altura proporcional de verdade),
+//     linha de limite, cor por status (dentro/acima do limite), rotulo so no
+//     pico e no ultimo ponto, outlier cortado com marcador, variacao vs.
+//     periodo anterior movida para o tooltip;
+//   - tabela: valores acima do limite marcados, comparativo com icone,
+//     share como barra de dados, medalha nas ATs do Top 3;
+//   - interacao so com CSS (o HTML Content nao executa JavaScript):
+//       * mouse no card do IFI ou na legenda "acima do limite" -> destaca no
+//         grafico os periodos acima do limite;
+//       * mouse numa AT do Top 3 -> destaca a linha dela na tabela.
+// ===========================================================================
+VAR _periodoIFI =
+    [IFI Periodo Selecionado]
+
+VAR _granularidade =
+    [IFI Granularidade Selecionada]
+
+VAR _detalhamento =
+    [IFI Detalhamento Selecionado]
+
+VAR _ifi =
+    [IFI Percentual Selecionado]
+
+VAR _altas =
+    SWITCH(
+        TRUE(),
+        _periodoIFI = "IFI 7D", CALCULATE([Contagem Alta Enc. 7D]),
+        _periodoIFI = "IFI 15D", CALCULATE([Contagem Alta Enc.]),
+        CALCULATE([Contagem Alta Enc.])
+    )
+
+VAR _abertos =
+    [IFI Reparos Abertos Selecionado]
+VAR _reparosContagem =
+    IF(
+        _periodoIFI = "IFI 7D",
+        [Contagem Reparos E 7D],
+        [Contagem Reparos E]
+    )
+
+VAR _atingimento =
+    [IFI Atingimento BSC]
+
+VAR _ifiTexto =
+    IF(
+        ISBLANK(_ifi),
+        "--",
+        FORMAT(_ifi, "0.0%")
+    )
+VAR _limiteAlertaIFI =
+    IF(_periodoIFI = "IFI 7D", 0.02, 0.04)
+
+VAR _altasTexto =
+    IF(
+        ISBLANK(_altas),
+        "--",
+        FORMAT(_altas, "#,##0")
+    )
+
+VAR _abertosTexto =
+    IF(
+        ISBLANK(_abertos),
+        "--",
+        FORMAT(_abertos, "#,##0")
+    )
+
+VAR _atingimentoTexto =
+    IF(
+        ISBLANK(_atingimento),
+        "--",
+        FORMAT(_atingimento, "0.0%")
+    )
+
+// ---------------------------------------------------------------------------
+// LIMITE E STATUS (mesma escala de status da pagina BSC)
+// ---------------------------------------------------------------------------
+// (_limiteAlertaIFI vem do bloco original acima: 2% no IFI 7D, 4% no IFI 15D)
+VAR _limiteTexto = FORMAT(_limiteAlertaIFI, "0.0%")
+VAR _ifiAcimaLimite = NOT ISBLANK(_ifi) && _ifi > _limiteAlertaIFI
+
+VAR _stAtingimento =
+    SWITCH(
+        TRUE(),
+        ISBLANK(_atingimento), "s0",
+        _atingimento >= 1, "s1",
+        _atingimento >= 0.90, "s2",
+        _atingimento >= 0.80, "s3",
+        "s4"
+    )
+// Medidor do atingimento: escala ate 130% (teto do BSC); traco = 100%
+VAR _tetoAtingimento = 1.30
+
+// ---------------------------------------------------------------------------
+// GRAFICO DE BARRAS DE VIDRO
+// Usa a dCalendario para Dia, Semana e Mes.
+// >>> ALTERADO: agora o eixo do grafico diario vai do dia 01 ate o ULTIMO dia
+//     do mes (EOMONTH), e nao mais so ate a ultima data com dado. Dias futuros
+//     do mes aparecem como barras "vazias" (classe .empty) mostrando "--".
+// ---------------------------------------------------------------------------
+VAR _dataMaxima =
+    MAX(dCalendario[Data])
+VAR _inicioMesGrafico =
+    DATE(YEAR(_dataMaxima), MONTH(_dataMaxima), 1)
+VAR _fimMesGrafico =
+    EOMONTH(_dataMaxima, 0)                       // <<< ultimo dia do mes (dia 30/31/28...)
+VAR _datasGrafico =
+    FILTER(
+        ALLSELECTED(dCalendario[Data]),
+        dCalendario[Data] >= _inicioMesGrafico
+            && dCalendario[Data] <= _fimMesGrafico   // <<< antes era _dataMaxima
+    )
+VAR _dadosDiaBase =
+    ADDCOLUMNS(
+        _datasGrafico,
+        "__Rotulo", FORMAT(dCalendario[Data], "dd/MM"),
+        "__RotuloCurto", FORMAT(dCalendario[Data], "dd"),   // <<< rotulo curto p/ caber 31 barras
+        "__Ordem", RANKX(_datasGrafico, dCalendario[Data],, ASC, DENSE),
+        "__IFI", CALCULATE([IFI Percentual Selecionado]),
+        "__Anterior", CALCULATE([IFI Percentual Selecionado], DATEADD(dCalendario[Data], -1, DAY)),
+        "__Altas", CALCULATE(
+                SWITCH(
+                    TRUE(),
+                    _periodoIFI = "IFI 7D", [Contagem Alta Enc. 7D],
+                    _periodoIFI = "IFI 15D", [Contagem Alta Enc.],
+                    [Contagem Alta Enc.]
+                )
+            ),
+        "__Reparos", CALCULATE(IF(_periodoIFI = "IFI 7D", [Contagem Reparos E 7D], [Contagem Reparos E]))
+    )
+VAR _semanasBase =
+    CALCULATETABLE(
+        SUMMARIZE(
+            dCalendario,
+            dCalendario[Semana_Range],
+            "__DataInicio", MIN(dCalendario[Data])
+        ),
+        _datasGrafico
+    )
+VAR _dadosSemanaBase =
+    ADDCOLUMNS(
+        _semanasBase,
+        "__Rotulo", dCalendario[Semana_Range],
+        "__Ordem", RANKX(_semanasBase, [__DataInicio],, ASC, DENSE),
+        "__IFI", CALCULATE([IFI Percentual Selecionado]),
+        "__Anterior", CALCULATE([IFI Percentual Selecionado], DATEADD(dCalendario[Data], -7, DAY)),
+        "__Altas", CALCULATE(
+                SWITCH(
+                    TRUE(),
+                    _periodoIFI = "IFI 7D", [Contagem Alta Enc. 7D],
+                    _periodoIFI = "IFI 15D", [Contagem Alta Enc.],
+                    [Contagem Alta Enc.]
+                )
+            ),
+        "__Reparos", CALCULATE(IF(_periodoIFI = "IFI 7D", [Contagem Reparos E 7D], [Contagem Reparos E]))
+    )
+VAR _mesesBase =
+    CALCULATETABLE(
+        SUMMARIZE(
+            dCalendario,
+            dCalendario[Mês e Ano],
+            "__DataInicio", MIN(dCalendario[Data])
+        ),
+        DATESINPERIOD(dCalendario[Data], _dataMaxima, -6, MONTH)
+    )
+VAR _dadosMesBase =
+    ADDCOLUMNS(
+        _mesesBase,
+        "__Rotulo", dCalendario[Mês e Ano],
+        "__Ordem", RANKX(_mesesBase, [__DataInicio],, ASC, DENSE),
+        "__IFI", CALCULATE([IFI Percentual Selecionado]),
+        "__Anterior", CALCULATE([IFI Percentual Selecionado], DATEADD(dCalendario[Data], -1, MONTH)),
+        "__Altas", CALCULATE(
+                SWITCH(
+                    TRUE(),
+                    _periodoIFI = "IFI 7D", [Contagem Alta Enc. 7D],
+                    _periodoIFI = "IFI 15D", [Contagem Alta Enc.],
+                    [Contagem Alta Enc.]
+                )
+            ),
+        "__Reparos", CALCULATE(IF(_periodoIFI = "IFI 7D", [Contagem Reparos E 7D], [Contagem Reparos E]))
+    )
+
+// ---------------------------------------------------------------------------
+// GRAFICO (v3)
+// Junta as tres bases e fica so com a granularidade escolhida, para que
+// escala, rotulos, resumo e barras saiam de uma unica tabela.
+// - escala comeca no zero (altura proporcional de verdade);
+// - se um ponto for muito maior que o resto (outlier), a escala e cortada
+//   e a barra recebe um marcador de corte + rotulo com o valor real;
+// - rotulo fixo so no pico e no ultimo ponto; o resto fica no tooltip.
+// ---------------------------------------------------------------------------
+VAR _gran = IF(_granularidade IN {"Semana", "Mês"}, _granularidade, "Dia")
+VAR _rotuloGran = SWITCH(_gran, "Semana", "Semanal", "Mês", "Mensal", "Diário")
+VAR _unidadeGran = SWITCH(_gran, "Semana", "semanas", "Mês", "meses", "dias")
+VAR _rotuloAnterior = SWITCH(_gran, "Semana", "vs. semana anterior", "Mês", "vs. mês anterior", "vs. dia anterior")
+
+VAR _dadosGraficoUniao =
+    UNION(
+        SELECTCOLUMNS(
+            _dadosDiaBase,
+            "__Gran", "Dia",
+            "__Rotulo", "" & [__Rotulo],
+            "__RotuloEixo", "" & [__RotuloCurto],
+            "__Ordem", [__Ordem],
+            "__IFIBruto", [__IFI],
+            "__Anterior", [__Anterior],
+            "__Altas", [__Altas],
+            "__Reparos", [__Reparos]
+        ),
+        SELECTCOLUMNS(
+            _dadosSemanaBase,
+            "__Gran", "Semana",
+            "__Rotulo", "" & [__Rotulo],
+            "__RotuloEixo", "" & [__Rotulo],
+            "__Ordem", [__Ordem],
+            "__IFIBruto", [__IFI],
+            "__Anterior", [__Anterior],
+            "__Altas", [__Altas],
+            "__Reparos", [__Reparos]
+        ),
+        SELECTCOLUMNS(
+            _dadosMesBase,
+            "__Gran", "Mês",
+            "__Rotulo", "" & [__Rotulo],
+            "__RotuloEixo", "" & [__Rotulo],
+            "__Ordem", [__Ordem],
+            "__IFIBruto", [__IFI],
+            "__Anterior", [__Anterior],
+            "__Altas", [__Altas],
+            "__Reparos", [__Reparos]
+        )
+    )
+
+// -- guarda contra BLANK / NaN / infinito vindos de divisao por zero
+VAR _dadosGrafico =
+    ADDCOLUMNS(
+        FILTER(_dadosGraficoUniao, [__Gran] = _gran),
+        "__V",
+            VAR _b = [__IFIBruto]
+            RETURN
+                IF(
+                    ISBLANK(_b) || SEARCH("n", FORMAT(_b, "0.000000", "en-US"), 1, 0) > 0,
+                    BLANK(),
+                    _b
+                )
+    )
+VAR _qtdPontos = COUNTROWS(_dadosGrafico) + 0
+VAR _comValor = FILTER(_dadosGrafico, NOT ISBLANK([__V]))
+VAR _qtdComValor = COUNTROWS(_comValor) + 0
+VAR _maxV = MAXX(_comValor, [__V])
+VAR _p90 = IF(_qtdComValor >= 5, PERCENTILEX.INC(_comValor, [__V], 0.9), _maxV)
+
+// -- escala do eixo Y
+VAR _alvoEscala = MAX(_limiteAlertaIFI * 2, COALESCE(_p90, 0) * 1.15)
+VAR _cortaOutlier = COALESCE(_maxV, 0) > _alvoEscala * 1.25
+VAR _topoBruto =
+    IF(
+        _cortaOutlier,
+        _alvoEscala,
+        MAX(COALESCE(_maxV, 0), _limiteAlertaIFI * 1.25)
+    )
+VAR _passo =
+    SWITCH(
+        TRUE(),
+        _topoBruto <= 0.02, 0.005,
+        _topoBruto <= 0.04, 0.01,
+        _topoBruto <= 0.08, 0.02,
+        _topoBruto <= 0.12, 0.03,
+        _topoBruto <= 0.20, 0.05,
+        _topoBruto <= 0.40, 0.10,
+        0.20
+    )
+VAR _nPassos = MAX(1, CEILING(ROUND(_topoBruto / _passo, 6), 1))
+VAR _yMax = _nPassos * _passo
+VAR _formatoEixo = IF(_passo < 0.01, "0.0%", "0%")
+VAR _gridlines =
+    CONCATENATEX(
+        GENERATESERIES(1, _nPassos, 1),
+        VAR _valorLinha = [Value] * _passo
+        RETURN
+            "<i class='gl' style='bottom:" & FORMAT(DIVIDE(_valorLinha, _yMax) * 100, "0.00", "en-US") & "%'><b>"
+                & FORMAT(_valorLinha, _formatoEixo) & "</b></i>",
+        "",
+        [Value], ASC
+    )
+VAR _linhaLimite =
+    "<i class='lim' style='bottom:" & FORMAT(MIN(100, DIVIDE(_limiteAlertaIFI, _yMax) * 100), "0.00", "en-US") & "%'>"
+        & "<b>limite " & _limiteTexto & "</b></i>"
+
+// -- pico, ultimo ponto e resumo
+VAR _pico = TOPN(1, _comValor, [__V], DESC, [__Ordem], ASC)
+VAR _picoOrdem = MAXX(_pico, [__Ordem])
+VAR _picoValor = MAXX(_pico, [__V])
+VAR _picoRotulo = MAXX(_pico, [__Rotulo])
+VAR _ultimo = TOPN(1, _comValor, [__Ordem], DESC)
+VAR _ultimoOrdem = MAXX(_ultimo, [__Ordem])
+VAR _ultimoValor = MAXX(_ultimo, [__V])
+VAR _ultimoRotulo = MAXX(_ultimo, [__Rotulo])
+VAR _qtdAcima = COUNTROWS(FILTER(_comValor, [__V] > _limiteAlertaIFI)) + 0
+VAR _resumoGrafico =
+    IF(
+        _qtdComValor = 0,
+        "Sem dados no período selecionado",
+        "<b>" & _qtdAcima & " de " & _qtdComValor & "</b> " & _unidadeGran & " acima do limite"
+            & " · pico <b>" & FORMAT(_picoValor, "0.0%") & "</b> em " & _picoRotulo
+            & IF(
+                _ultimoOrdem <> _picoOrdem,
+                " · último <b>" & FORMAT(_ultimoValor, "0.0%") & "</b> em " & _ultimoRotulo,
+                ""
+            )
+    )
+
+// -- barras
+VAR _barras =
+    CONCATENATEX(
+        _dadosGrafico,
+        VAR _v = [__V]
+        VAR _ordem = [__Ordem]
+        VAR _ant = [__Anterior]
+        VAR _antValido =
+            IF(
+                ISBLANK(_ant) || _ant = 0 || SEARCH("n", FORMAT(_ant, "0.000000", "en-US"), 1, 0) > 0,
+                BLANK(),
+                _ant
+            )
+        VAR _variacao =
+            IF(ISBLANK(_v) || ISBLANK(_antValido), BLANK(), DIVIDE(_v - _antValido, _antValido))
+        VAR _vazio = ISBLANK(_v)
+        VAR _acima = NOT _vazio && _v > _limiteAlertaIFI
+        VAR _cortada = NOT _vazio && _v > _yMax
+        VAR _altura = IF(_vazio, 0, MIN(100, DIVIDE(_v, _yMax) * 100))
+        VAR _rotulada = NOT _vazio && (_ordem = _picoOrdem || _ordem = _ultimoOrdem)
+        VAR _borda =
+            SWITCH(
+                TRUE(),
+                _qtdPontos > 6 && _ordem <= 3, " tl",
+                _qtdPontos > 6 && _ordem > _qtdPontos - 3, " tr",
+                ""
+            )
+        VAR _tooltip =
+            "<span class='tip'><b>" & [__Rotulo] & "</b>"
+                & "<span><i class='" & IF(_vazio, "nd", IF(_acima, "over", "ok")) & "'></i>IFI<strong>"
+                    & IF(_vazio, "--", FORMAT(_v, "0.0%")) & "</strong></span>"
+                & IF(
+                    ISBLANK(_variacao),
+                    "",
+                    "<span>" & _rotuloAnterior & "<strong class='" & IF(_variacao > 0, "pior", "melhor") & "'>"
+                        & FORMAT(_variacao, "+0%;-0%;0%") & "</strong></span>"
+                )
+                & "<span>Altas encerradas<strong>" & FORMAT(COALESCE([__Altas], 0), "#,##0") & "</strong></span>"
+                & "<span>Reparos abertos<strong>" & FORMAT(COALESCE([__Reparos], 0), "#,##0") & "</strong></span>"
+            & "</span>"
+        RETURN
+            "<div class='col" & IF(_vazio, " vazio", IF(_acima, " over", "")) & IF(_cortada, " cut", "")
+                & IF(_ordem = _ultimoOrdem, " last", "") & _borda & "'>"
+                & "<div class='pc'><i class='bar' style='height:" & FORMAT(_altura, "0.0", "en-US") & "%'>"
+                    & IF(_rotulada, "<em>" & FORMAT(_v, "0.0%") & "</em>", "")
+                & "</i>" & _tooltip & "</div>"
+                & "<span class='xl'>" & [__RotuloEixo] & "</span>"
+            & "</div>",
+        "",
+        [__Ordem], ASC
+    )
+
+// -- minigraficos dos cards de altas e reparos (mesmos pontos do grafico)
+VAR _maxAltas = MAXX(_dadosGrafico, COALESCE([__Altas], 0))
+VAR _maxReparos = MAXX(_dadosGrafico, COALESCE([__Reparos], 0))
+VAR _sparkAltas =
+    CONCATENATEX(
+        _dadosGrafico,
+        "<i" & IF([__Ordem] = _ultimoOrdem, " class='cur'", "") & " style='height:"
+            & FORMAT(MAX(0, DIVIDE(COALESCE([__Altas], 0), _maxAltas) * 100), "0", "en-US") & "%'></i>",
+        "",
+        [__Ordem], ASC
+    )
+VAR _sparkReparos =
+    CONCATENATEX(
+        _dadosGrafico,
+        "<i" & IF([__Ordem] = _ultimoOrdem, " class='cur'", "") & " style='height:"
+            & FORMAT(MAX(0, DIVIDE(COALESCE([__Reparos], 0), _maxReparos) * 100), "0", "en-US") & "%'></i>",
+        "",
+        [__Ordem], ASC
+    )
+
+// ---------------------------------------------------------------------------
+// RANKING DAS ATS
+// O sentido do ranking usa [BSC Menor Melhor] no contexto do IFI.
+// ---------------------------------------------------------------------------
+VAR _menorMelhor = 1
+VAR _areasRanking =
+    FILTER(
+        ALL(dAT[AREA ]),
+        NOT ISBLANK(dAT[AREA ])
+            && UPPER(TRIM(dAT[AREA ])) <> "TOTAL GERAL"
+            && UPPER(TRIM(dAT[AREA ])) <> "TOTAL"
+    )
+VAR _rankingBase =
+    FILTER(
+        ADDCOLUMNS(
+            _areasRanking,
+            "__IFI",
+                VAR _areaRanking = dAT[AREA ]
+                RETURN
+                    CALCULATE(
+                        [IFI Percentual Selecionado],
+                        REMOVEFILTERS(dAT[AREA ]),
+                        TREATAS({_areaRanking}, dAT[AREA ])
+                    )
+        ),
+        VAR _resultadoRanking = [__IFI]
+        VAR _textoRanking = FORMAT(_resultadoRanking, "0.000000", "en-US")
+        RETURN
+            NOT ISBLANK(_resultadoRanking)
+                && SEARCH("n", _textoRanking, 1, 0) = 0
+    )
+VAR _top3 =
+    TOPN(
+        3,
+        _rankingBase,
+        [__IFI], ASC,
+        dAT[AREA ], ASC
+    )
+VAR _comPosicao =
+    ADDCOLUMNS(
+        _top3,
+        "__Posicao",
+            VAR _valorAtual = [__IFI]
+            VAR _areaAtual = dAT[AREA ]
+            RETURN
+                1 + COUNTROWS(
+                    FILTER(
+                        _top3,
+                        [__IFI] < _valorAtual
+                            || ([__IFI] = _valorAtual && dAT[AREA ] < _areaAtual)
+                    )
+                )
+    )
+VAR _at1 = MAXX(FILTER(_comPosicao, [__Posicao] = 1), dAT[AREA ])
+VAR _at2 = MAXX(FILTER(_comPosicao, [__Posicao] = 2), dAT[AREA ])
+VAR _at3 = MAXX(FILTER(_comPosicao, [__Posicao] = 3), dAT[AREA ])
+VAR _ifi1 = MAXX(FILTER(_comPosicao, [__Posicao] = 1), [__IFI])
+VAR _ifi2 = MAXX(FILTER(_comPosicao, [__Posicao] = 2), [__IFI])
+VAR _ifi3 = MAXX(FILTER(_comPosicao, [__Posicao] = 3), [__IFI])
+
+// ---------------------------------------------------------------------------
+// TOP 3 (substitui o podio) - classes "p-XX" ligam cada AT a sua linha na
+// tabela (classe "r-XX") para o destaque ao passar o mouse.
+// ---------------------------------------------------------------------------
+VAR _cls1 = SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(TRIM(COALESCE(_at1, "")), " ", "_"), ".", "_"), "/", "_")
+VAR _cls2 = SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(TRIM(COALESCE(_at2, "")), " ", "_"), ".", "_"), "/", "_")
+VAR _cls3 = SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(TRIM(COALESCE(_at3, "")), " ", "_"), ".", "_"), "/", "_")
+VAR _linhaTop =
+    "<div class='pd p-" & _cls1 & "'><span class='md m1'>1</span><b>" & COALESCE(_at1, "--") & "</b><span class='pv'>"
+        & IF(ISBLANK(_ifi1), "--", FORMAT(_ifi1, "0.0%")) & "</span></div>"
+    & "<div class='pd p-" & _cls2 & "'><span class='md m2'>2</span><b>" & COALESCE(_at2, "--") & "</b><span class='pv'>"
+        & IF(ISBLANK(_ifi2), "--", FORMAT(_ifi2, "0.0%")) & "</span></div>"
+    & "<div class='pd p-" & _cls3 & "'><span class='md m3'>3</span><b>" & COALESCE(_at3, "--") & "</b><span class='pv'>"
+        & IF(ISBLANK(_ifi3), "--", FORMAT(_ifi3, "0.0%")) & "</span></div>"
+VAR _cssTop3 =
+    IF(_cls1 = "", "", ".dash:has(.p-" & _cls1 & ":hover) tr.r-" & _cls1 & " td,")
+    & IF(_cls2 = "", "", ".dash:has(.p-" & _cls2 & ":hover) tr.r-" & _cls2 & " td,")
+    & IF(_cls3 = "", "", ".dash:has(.p-" & _cls3 & ":hover) tr.r-" & _cls3 & " td,")
+    & ".dash-nada{background-color:#EEECFD!important}"
+
+// ---------------------------------------------------------------------------
+// CONTEXTO DOS TRES ULTIMOS MESES
+// ---------------------------------------------------------------------------
+VAR _fimMesAtual = EOMONTH(MAX(dCalendario[Data]), 0)
+VAR _inicioMesAtual = EOMONTH(_fimMesAtual, -1) + 1
+VAR _inicioMesM1 = EOMONTH(_fimMesAtual, -2) + 1
+VAR _fimMesM1 = EOMONTH(_fimMesAtual, -1)
+VAR _inicioMesM2 = EOMONTH(_fimMesAtual, -3) + 1
+VAR _fimMesM2 = EOMONTH(_fimMesAtual, -2)
+VAR _rotuloM0 = FORMAT(_fimMesAtual, "MMM/yy")
+VAR _rotuloM1 = FORMAT(_fimMesM1, "MMM/yy")
+VAR _rotuloM2 = FORMAT(_fimMesM2, "MMM/yy")
+VAR _totalShareAT7D =
+    SUMX(
+        ALLSELECTED(dAT[AREA ]),
+        CALCULATE([Contagem Reparos E 7D])
+    )
+VAR _totalShareEPS7D =
+    SUMX(
+        ALLSELECTED('dMO x CONTRATO'[CONTRATO]),
+        CALCULATE([Contagem Reparos E 7D])
+    )
+VAR _totalShareEPS15D =
+    SUMX(
+        FILTER(
+            ALLSELECTED('dMO x CONTRATO'[CONTRATO]),
+            NOT ISBLANK('dMO x CONTRATO'[CONTRATO])
+        ),
+        CALCULATE(
+            DISTINCTCOUNT(fIFI[COD_ID])
+        )
+    )
+
+// ---------------------------------------------------------------------------
+// TABELA INFERIOR
+// >>> ALTERADO: a barra de "Share" agora e normalizada pelo MAIOR share da
+//     tabela (data bar). Assim a linha lider fica com a barra cheia e as
+//     demais proporcionais - o rotulo continua mostrando o % real.
+// ---------------------------------------------------------------------------
+VAR _tabelaATBase =
+    FILTER(
+        ADDCOLUMNS(
+            ALLSELECTED(dAT[AREA ]),
+            "__M0", CALCULATE([IFI Percentual Selecionado]),
+            "__M1",
+                IF(
+                    _periodoIFI = "IFI 15D",
+                    CALCULATE([% IFI LM]),
+                    CALCULATE(
+                        [IFI Percentual Selecionado],
+                        REMOVEFILTERS(dCalendario),
+                        DATESBETWEEN(dCalendario[Data], _inicioMesM1, _fimMesM1)
+                    )
+                ),
+            "__M2",
+                CALCULATE(
+                    [IFI Percentual Selecionado],
+                    REMOVEFILTERS(dCalendario),
+                    DATESBETWEEN(
+                        dCalendario[Data],
+                        _inicioMesM2,
+                        _fimMesM2
+                    )
+                ),
+            "__Comparativo",
+                IF(
+                    _periodoIFI = "IFI 15D",
+                    CALCULATE([% MoM IFI]),
+                    VAR _atual7 = CALCULATE([IFI Percentual Selecionado])
+                    VAR _anterior7 =
+                        CALCULATE(
+                            [IFI Percentual Selecionado],
+                            REMOVEFILTERS(dCalendario),
+                            DATESBETWEEN(dCalendario[Data], _inicioMesM1, _fimMesM1)
+                        )
+                    RETURN DIVIDE(_atual7 - _anterior7, _anterior7)
+                ),
+            "__Share",
+                IF(
+                    _periodoIFI = "IFI 7D",
+                    DIVIDE(
+                        CALCULATE([Contagem Reparos E 7D]),
+                        _totalShareAT7D
+                    ),
+                    CALCULATE([SHARE IFI 15D])
+                )
+        ),
+        (NOT ISBLANK([__M0]) || NOT ISBLANK([__M1]) || NOT ISBLANK([__M2]))
+            && NOT ISBLANK(dAT[AREA ])
+            && UPPER(TRIM(dAT[AREA ])) <> "TOTAL GERAL"
+            && UPPER(TRIM(dAT[AREA ])) <> "TOTAL"
+    )
+VAR _maxShareAT = MAXX(_tabelaATBase, COALESCE([__Share], 0))
+VAR _linhasAT =
+    CONCATENATEX(
+        _tabelaATBase,
+        VAR _comparativo =
+            IF(
+                ISBLANK([__M0])
+                    || ISBLANK([__M1])
+                    || [__M1] = 0,
+                BLANK(),
+                DIVIDE(
+                    [__M0] - [__M1],
+                    [__M1]
+                )
+            )
+        VAR _testeM0 = FORMAT([__M0], "0.000000", "en-US")
+        VAR _testeM1 = FORMAT([__M1], "0.000000", "en-US")
+        VAR _testeM2 = FORMAT([__M2], "0.000000", "en-US")
+        VAR _m0Valido = IF(SEARCH("n", _testeM0, 1, 0) > 0, BLANK(), [__M0])
+        VAR _m1Valido = IF(SEARCH("n", _testeM1, 1, 0) > 0, BLANK(), [__M1])
+        VAR _m2Valido = IF(SEARCH("n", _testeM2, 1, 0) > 0, BLANK(), [__M2])
+        VAR _larguraShare = FORMAT(MIN(100, MAX(0, COALESCE(DIVIDE([__Share], _maxShareAT), 0) * 100)), "0", "en-US")
+        VAR _area = dAT[AREA ]
+        VAR _clsArea = SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(TRIM(_area), " ", "_"), ".", "_"), "/", "_")
+        VAR _medalha =
+            SWITCH(
+                TRUE(),
+                _area = _at1, "<span class='md m1' title='1º menor IFI'>1</span>",
+                _area = _at2, "<span class='md m2' title='2º menor IFI'>2</span>",
+                _area = _at3, "<span class='md m3' title='3º menor IFI'>3</span>",
+                ""
+            )
+        RETURN
+            "<tr class='r-" & _clsArea & "'>"
+                & "<td><div class='ent'><i></i><b>" & _area & "</b>" & _medalha & "</div></td>"
+                & "<td>" & IF(ISBLANK(_m2Valido), "<span class='mu'>--</span>", IF(_m2Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m2Valido, "0.0%") & "</span>", FORMAT(_m2Valido, "0.0%"))) & "</td>"
+                & "<td>" & IF(ISBLANK(_m1Valido), "<span class='mu'>--</span>", IF(_m1Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m1Valido, "0.0%") & "</span>", FORMAT(_m1Valido, "0.0%"))) & "</td>"
+                & "<td class='m0'>" & IF(ISBLANK(_m0Valido), "<span class='mu'>--</span>", IF(_m0Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m0Valido, "0.0%") & "</span>", FORMAT(_m0Valido, "0.0%"))) & "</td>"
+                & "<td>" & IF(ISBLANK(_comparativo), "<span class='st s0'>--</span>", "<span class='st " & IF(_comparativo > 0, "s4", IF(_comparativo < 0, "s1", "s0")) & "'><i>" & IF(_comparativo > 0, "▲", IF(_comparativo < 0, "▼", "=")) & "</i>" & FORMAT(_comparativo, "+0.0%;-0.0%;0.0%") & "</span>") & "</td>"
+                & "<td><div class='sh'><span class='sh-t'><u style='width:" & _larguraShare & "%'></u></span><span class='sh-v'>" & IF(ISBLANK([__Share]), "--", FORMAT([__Share], "0.0%")) & "</span></div></td>"
+            & "</tr>",
+        "",
+        [__Share], DESC,
+        dAT[AREA ], ASC
+    )
+VAR _tabelaContratoBase =
+    FILTER(
+        ADDCOLUMNS(
+            ALLSELECTED('dMO x CONTRATO'[CONTRATO]),
+            "__M0", CALCULATE([IFI Percentual Selecionado]),
+            "__M1",
+                IF(
+                    _periodoIFI = "IFI 15D",
+                    CALCULATE([% IFI LM]),
+                    CALCULATE([IFI Percentual Selecionado], REMOVEFILTERS(dCalendario), DATESBETWEEN(dCalendario[Data], _inicioMesM1, _fimMesM1))
+                ),
+            "__M2",
+                CALCULATE(
+                    [IFI Percentual Selecionado],
+                    REMOVEFILTERS(dCalendario),
+                    DATESBETWEEN(
+                        dCalendario[Data],
+                        _inicioMesM2,
+                        _fimMesM2
+                    )
+                ),
+            "__Comparativo",
+                IF(
+                    _periodoIFI = "IFI 15D",
+                    CALCULATE([% MoM IFI]),
+                    VAR _atual7 = CALCULATE([IFI Percentual Selecionado])
+                    VAR _anterior7 = CALCULATE([IFI Percentual Selecionado], REMOVEFILTERS(dCalendario), DATESBETWEEN(dCalendario[Data], _inicioMesM1, _fimMesM1))
+                    RETURN DIVIDE(_atual7 - _anterior7, _anterior7)
+                ),
+            "__Share",
+                IF(
+                    _periodoIFI = "IFI 7D",
+                    DIVIDE(
+                        CALCULATE([Contagem Reparos E 7D]),
+                        _totalShareEPS7D
+                    ),
+                    DIVIDE(
+                        CALCULATE(
+                            DISTINCTCOUNT(fIFI[COD_ID])
+                        ),
+                        _totalShareEPS15D
+                    )
+                )
+        ),
+        NOT ISBLANK([__M0]) || NOT ISBLANK([__M1]) || NOT ISBLANK([__M2])
+    )
+VAR _maxShareContrato = MAXX(_tabelaContratoBase, COALESCE([__Share], 0))
+VAR _linhasContrato =
+    CONCATENATEX(
+        _tabelaContratoBase,
+        VAR _comparativo =
+            IF(
+                ISBLANK([__M0])
+                    || ISBLANK([__M1])
+                    || [__M1] = 0,
+                BLANK(),
+                DIVIDE(
+                    [__M0] - [__M1],
+                    [__M1]
+                )
+            )
+        VAR _testeM0 = FORMAT([__M0], "0.000000", "en-US")
+        VAR _testeM1 = FORMAT([__M1], "0.000000", "en-US")
+        VAR _testeM2 = FORMAT([__M2], "0.000000", "en-US")
+        VAR _m0Valido = IF(SEARCH("n", _testeM0, 1, 0) > 0, BLANK(), [__M0])
+        VAR _m1Valido = IF(SEARCH("n", _testeM1, 1, 0) > 0, BLANK(), [__M1])
+        VAR _m2Valido = IF(SEARCH("n", _testeM2, 1, 0) > 0, BLANK(), [__M2])
+        VAR _larguraShare = FORMAT(MIN(100, MAX(0, COALESCE(DIVIDE([__Share], _maxShareContrato), 0) * 100)), "0", "en-US")
+        RETURN
+            "<tr>"
+                & "<td><div class='ent ctr'><i></i><b>" & 'dMO x CONTRATO'[CONTRATO] & "</b></div></td>"
+                & "<td>" & IF(ISBLANK(_m2Valido), "<span class='mu'>--</span>", IF(_m2Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m2Valido, "0.0%") & "</span>", FORMAT(_m2Valido, "0.0%"))) & "</td>"
+                & "<td>" & IF(ISBLANK(_m1Valido), "<span class='mu'>--</span>", IF(_m1Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m1Valido, "0.0%") & "</span>", FORMAT(_m1Valido, "0.0%"))) & "</td>"
+                & "<td class='m0'>" & IF(ISBLANK(_m0Valido), "<span class='mu'>--</span>", IF(_m0Valido > _limiteAlertaIFI, "<span class='ov'>" & FORMAT(_m0Valido, "0.0%") & "</span>", FORMAT(_m0Valido, "0.0%"))) & "</td>"
+                & "<td>" & IF(ISBLANK(_comparativo), "<span class='st s0'>--</span>", "<span class='st " & IF(_comparativo > 0, "s4", IF(_comparativo < 0, "s1", "s0")) & "'><i>" & IF(_comparativo > 0, "▲", IF(_comparativo < 0, "▼", "=")) & "</i>" & FORMAT(_comparativo, "+0.0%;-0.0%;0.0%") & "</span>") & "</td>"
+                & "<td><div class='sh'><span class='sh-t'><u style='width:" & _larguraShare & "%'></u></span><span class='sh-v'>" & IF(ISBLANK([__Share]), "--", FORMAT([__Share], "0.0%")) & "</span></div></td>"
+            & "</tr>",
+        "",
+        [__Share], DESC,
+        'dMO x CONTRATO'[CONTRATO], ASC
+    )
+VAR _linhasTabela = IF(_detalhamento = "Desempenho por Contrato", _linhasContrato, _linhasAT)
+VAR _primeiraColuna = IF(_detalhamento = "Desempenho por Contrato", "Contrato / EPS", "AT")
+
+// ---------------------------------------------------------------------------
+// KPIs (v3)
+// ---------------------------------------------------------------------------
+// IFI do mes anterior no total (mesma regra da coluna M-1 da tabela)
+VAR _ifiMesAnteriorBruto =
+    IF(
+        _periodoIFI = "IFI 15D",
+        [% IFI LM],
+        CALCULATE(
+            [IFI Percentual Selecionado],
+            REMOVEFILTERS(dCalendario),
+            DATESBETWEEN(dCalendario[Data], _inicioMesM1, _fimMesM1)
+        )
+    )
+VAR _ifiMesAnterior =
+    IF(
+        ISBLANK(_ifiMesAnteriorBruto) || SEARCH("n", FORMAT(_ifiMesAnteriorBruto, "0.000000", "en-US"), 1, 0) > 0,
+        BLANK(),
+        _ifiMesAnteriorBruto
+    )
+VAR _variacaoIFI =
+    IF(
+        ISBLANK(_ifi) || ISBLANK(_ifiMesAnterior) || _ifiMesAnterior = 0,
+        BLANK(),
+        DIVIDE(_ifi - _ifiMesAnterior, _ifiMesAnterior)
+    )
+VAR _stIFI = IF(ISBLANK(_ifi), "s0", IF(_ifiAcimaLimite, "s4", "s1"))
+// medidor do IFI: escala 0 a 2x o limite; o traco no meio = limite
+VAR _largIFI = FORMAT(MIN(100, MAX(0, DIVIDE(COALESCE(_ifi, 0), _limiteAlertaIFI * 2) * 100)), "0.0", "en-US")
+VAR _largAting = FORMAT(MIN(100, MAX(0, COALESCE(_atingimento, 0) / _tetoAtingimento * 100)), "0.0", "en-US")
+VAR _tickAting = FORMAT(1 / _tetoAtingimento * 100, "0.0", "en-US")
+
+VAR _cardIFI =
+    "<div class='tile k-ifi" & IF(_ifiAcimaLimite, " alert", "") & "'"
+        & " title='IFI " & _periodoIFI & ": " & _ifiTexto & " · limite " & _limiteTexto & ". Passe o mouse para ver no gráfico os períodos acima do limite.'>"
+        & "<div class='t-top'><span class='t-name'>IFI</span><span class='chip'>" & _periodoIFI & "</span>"
+            & IF(_ifiAcimaLimite, "<i class='led' title='Acima do limite'></i>", "") & "</div>"
+        & "<div class='t-mid'><span class='t-val'>" & _ifiTexto & "</span>"
+            & "<span class='st " & _stIFI & "'>"
+                & SWITCH(_stIFI, "s4", "<i>▲</i>acima do limite", "s1", "<i>✓</i>dentro do limite", "sem dados")
+            & "</span></div>"
+        & "<div class='mt " & _stIFI & "' style='--tick:50%'><u style='width:" & _largIFI & "%'></u></div>"
+        & "<div class='t-foot'>Limite <b>" & _limiteTexto & "</b>"
+            & IF(
+                ISBLANK(_variacaoIFI),
+                "",
+                " · <span class='dl " & IF(_variacaoIFI > 0, "pior", "melhor") & "'><i>" & IF(_variacaoIFI > 0, "▲", "▼") & "</i>"
+                    & FORMAT(_variacaoIFI, "+0.0%;-0.0%;0.0%") & "</span> vs. " & _rotuloM1
+            )
+        & "</div>"
+    & "</div>"
+
+VAR _cardAltas =
+    "<div class='tile'>"
+        & "<div class='t-top'><span class='t-name'>Altas encerradas</span></div>"
+        & "<div class='t-mid'><span class='t-val'>" & _altasTexto & "</span><span class='spark' title='Altas por período do gráfico'>" & _sparkAltas & "</span></div>"
+        & "<div class='t-foot'>Período selecionado</div>"
+    & "</div>"
+
+VAR _cardReparos =
+    "<div class='tile'>"
+        & "<div class='t-top'><span class='t-name'>Reparos abertos</span></div>"
+        & "<div class='t-mid'><span class='t-val'>" & _abertosTexto & "</span><span class='spark rep' title='Reparos por período do gráfico'>" & _sparkReparos & "</span></div>"
+        & "<div class='t-foot'>" & _periodoIFI & "</div>"
+    & "</div>"
+
+VAR _cardAtingimento =
+    "<div class='tile'>"
+        & "<div class='t-top'><span class='t-name'>Atingimento BSC</span><span class='chip'>" & _periodoIFI & "</span></div>"
+        & "<div class='t-mid'><span class='t-val'>" & _atingimentoTexto & "</span>"
+            & "<span class='st " & _stAtingimento & "'>"
+                & SWITCH(_stAtingimento, "s1", "<i>▲</i>na meta", "s2", "<i>▼</i>atenção", "s3", "<i>▼</i>risco", "s4", "<i>▼</i>crítico", "sem dados")
+            & "</span></div>"
+        & "<div class='mt " & _stAtingimento & "' style='--tick:" & _tickAting & "%'><u style='width:" & _largAting & "%'></u></div>"
+        & "<div class='t-foot'>Traço = meta de 100%</div>"
+    & "</div>"
+
+VAR _cardTop3 =
+    "<div class='tile top3'>"
+        & "<div class='t-top'><span class='t-name'>Top 3 ATs</span><span class='t-n'>menor IFI</span></div>"
+        & "<div class='pds'>" & _linhaTop & "</div>"
+    & "</div>"
+
+VAR _qtdLinhasTabela =
+    IF(
+        _detalhamento = "Desempenho por Contrato",
+        COUNTROWS(_tabelaContratoBase),
+        COUNTROWS(_tabelaATBase)
+    ) + 0
+VAR _rotuloAbertura = IF(_detalhamento = "Desempenho por Contrato", "Por contrato / EPS", "Por AT")
+VAR _unidadeTabela = IF(_detalhamento = "Desempenho por Contrato", " contratos", " ATs")
+
+// ===========================================================================
+// CSS
+// - 100vh de proposito: o HTML Content envolve o conteudo em um wrapper sem
+//   altura definida; height:100% colapsa e o scroll nunca ativa.
+// - O sanitizador do HTML Content aceita @media e @keyframes (nao aceita
+//   @container, @import nem @font-face).
+// - Nao usar aspas duplas dentro do CSS (quebram a string DAX).
+// ===========================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.dash,.dash *{box-sizing:border-box}
+.dash i,.dash em{font-style:normal}
+.dash{--ink:#101828;--ink2:#475467;--mut:#8A94A6;--ln:#E4E8EF;--ln2:#EEF1F5;--sf:#FFFFFF;--sf2:#F7F9FC;--pri:#665BDC;--pri-s:#EEECFD;--azul:#65AFEA;
+--ok:#6F7FE6;--crit:#B8233A;
+--sh:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.05);--sh2:0 2px 4px rgba(16,24,40,.06),0 12px 28px rgba(16,24,40,.12);
+width:100%;height:100vh;overflow:hidden;padding:8px;display:grid;grid-template-rows:auto minmax(200px,1.08fr) minmax(0,1fr);gap:10px;
+font-family:'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* ---------- STATUS: --sc = cor, --sb = tom claro ---------- */
+.s1{--sc:#12A150;--sb:#E2F4E9}.s2{--sc:#DDA80F;--sb:#FAF0D2}.s3{--sc:#E8622C;--sb:#FCE6DC}.s4{--sc:#B8233A;--sb:#F7E0E4}.s0{--sc:#C3CBD6;--sb:#EEF1F5}
+.st{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px 0 7px;border-radius:7px;background:var(--sb);color:var(--ink);font-size:11px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
+.st i{font-style:normal;font-size:8.5px;color:var(--sc)}
+.st.s0{color:var(--mut)}
+.mt{position:relative;height:6px;border-radius:99px;background:var(--sb)}
+.mt u{display:block;height:100%;max-width:100%;border-radius:99px;background:var(--sc);transform-origin:left;animation:grow .7s cubic-bezier(.2,.7,.2,1) both}
+.mt:after{content:'';position:absolute;left:var(--tick,50%);top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:2px;background:var(--ink);opacity:.4}
+.led{flex:none;width:8px;height:8px;margin-left:auto;border-radius:50%;background:var(--crit);animation:led 1.1s steps(1) infinite}
+@keyframes led{50%{background:#FFFFFF;box-shadow:0 0 0 2px var(--crit),0 0 8px var(--crit)}}
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes rise{from{transform:scaleY(0)}}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.1fr);gap:10px}
+.tile{position:relative;min-width:0;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh);transition:box-shadow .18s ease,transform .18s ease}
+.tile:hover{transform:translateY(-1px);box-shadow:var(--sh2)}
+.tile.alert{border-color:transparent;box-shadow:0 0 0 2px var(--crit),var(--sh)}
+.t-top{display:flex;align-items:center;gap:7px;min-width:0;height:20px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);white-space:nowrap}
+.t-name{overflow:hidden;text-overflow:ellipsis}
+.t-n{color:var(--mut);font-weight:600;letter-spacing:.01em;text-transform:none}
+.t-n:before{content:'·';margin-right:6px}
+.chip{height:19px;line-height:19px;padding:0 7px;border-radius:6px;background:var(--pri-s);color:#4B40C0;font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:none}
+.t-mid{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;min-width:0}
+.t-val{font-size:28px;font-weight:650;line-height:1;letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+.k-ifi .t-val{font-size:32px}
+.alert .t-val{color:var(--crit)}
+.t-foot{margin-top:auto;font-size:11px;font-weight:500;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-foot b{color:var(--ink);font-weight:700}
+.dl{font-weight:700;font-variant-numeric:tabular-nums}.dl i{margin-right:3px;font-style:normal;font-size:8px}
+.dl.pior{color:var(--crit)}.dl.melhor{color:#0E7F40}
+.spark{flex:0 1 92px;min-width:40px;height:28px;display:flex;align-items:flex-end;gap:1px}
+.spark i{flex:1 1 0;min-height:1px;border-radius:1px 1px 0 0;background:#CBD2DE;transform-origin:bottom;animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+.spark i.cur{background:var(--pri)}
+.spark.rep i.cur{background:var(--crit)}
+.pds{display:flex;flex-direction:column;gap:4px}
+.pd{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:8px;height:21px;padding:0 4px;border-radius:6px;transition:background .15s ease}
+.pd:hover{background:var(--pri-s)}
+.pd b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--ink)}
+.pv{font-size:12px;font-weight:650;color:var(--ink2);font-variant-numeric:tabular-nums}
+.md{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:10px;font-weight:800}
+.m1{background:#C79A1C}.m2{background:#8E9BB0}.m3{background:#A5623A}
+
+/* ---------- PAINEIS ---------- */
+.pn{min-height:0;display:flex;flex-direction:column;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh)}
+.ph{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:4px;padding:12px 16px 10px}
+.ph h2{margin:0;display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink);white-space:nowrap}
+.ph p{grid-column:1/-1;margin:0;font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph p b{color:var(--ink);font-weight:700}
+.lgd{display:flex;align-items:center;gap:12px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.lg i{width:9px;height:9px;border-radius:2px;background:var(--ok)}
+.lg.over i{background:var(--crit)}
+.lg.lgl i{width:14px;height:0;border-radius:0;border-top:2px dashed var(--crit);background:none}
+.lg.over{cursor:default}
+
+/* ---------- GRAFICO ---------- */
+.chart{overflow:visible}
+.plot{position:relative;flex:1;min-height:0;margin:2px 16px 12px 16px}
+.grid{position:absolute;left:34px;right:0;top:14px;bottom:22px}
+.gl{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--ln2)}
+.gl b{position:absolute;right:calc(100% + 8px);top:-7px;font-size:10px;font-weight:500;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.grid:after{content:'';position:absolute;left:0;right:0;bottom:0;border-top:1px solid #D5DBE4}
+.lim{position:absolute;left:0;right:0;z-index:3;height:0;border-top:1.5px dashed var(--crit);opacity:.85;pointer-events:none}
+.lim b{position:absolute;right:0;bottom:3px;padding:1px 6px;border-radius:5px;background:var(--sf);color:var(--crit);font-size:10px;font-weight:700;white-space:nowrap}
+.cols{position:absolute;left:34px;right:0;top:14px;bottom:0;display:flex;gap:2px}
+.col{position:relative;flex:1 1 0;min-width:0;display:grid;grid-template-rows:minmax(0,1fr) 22px}
+.pc{position:relative;border-radius:6px 6px 0 0;transition:background .15s ease}
+.bar{position:absolute;left:50%;bottom:0;width:min(20px,64%);transform:translateX(-50%);border-radius:4px 4px 0 0;background:var(--ok)}
+.bar{animation:riseBar .6s cubic-bezier(.2,.7,.2,1) both;transform-origin:bottom}
+@keyframes riseBar{from{transform:translateX(-50%) scaleY(0)}to{transform:translateX(-50%) scaleY(1)}}
+.col.over .bar{background:var(--crit)}
+.col.vazio .bar{height:3px!important;background:repeating-linear-gradient(135deg,#D5DBE4 0 2px,transparent 2px 4px)}
+.col.cut .bar:after{content:'';position:absolute;left:-3px;right:-3px;top:9px;height:4px;background:var(--sf);transform:skewY(-14deg)}
+.bar em{position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);padding:1px 5px;border-radius:5px;background:var(--sf);color:var(--ink);font-size:10.5px;font-style:normal;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.col.cut .bar em{bottom:auto;top:-22px}
+.xl{align-self:center;overflow:hidden;text-align:center;white-space:nowrap;text-overflow:ellipsis;font-size:9.5px;font-weight:500;color:var(--mut);font-variant-numeric:tabular-nums}
+.col.last .xl{color:var(--ink);font-weight:700}
+.col.vazio .xl{color:#C3CBD6}
+.col:hover .pc{background:rgba(102,91,220,.07)}
+.col:hover .bar{filter:brightness(.9)}
+.tip{display:none;position:absolute;z-index:20;top:0;left:50%;transform:translateX(-50%);width:172px;padding:9px 11px;border-radius:10px;background:#101828;color:#fff;box-shadow:0 10px 24px rgba(16,24,40,.28);pointer-events:none}
+.col.tl .tip{left:0;transform:none}
+.col.tr .tip{left:auto;right:0;transform:none}
+.col:hover .tip{display:block}
+.tip b{display:block;margin-bottom:5px;font-size:11.5px;font-weight:700}
+.tip span{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:10.5px;color:#C5CDDA;white-space:nowrap}
+.tip strong{margin-left:auto;color:#fff;font-weight:700;font-variant-numeric:tabular-nums}
+.tip strong.pior{color:#FF9AA8}.tip strong.melhor{color:#7EE2A8}
+.tip i{width:8px;height:8px;border-radius:2px;background:var(--ok)}
+.tip i.over{background:#E0485C}.tip i.nd{background:#5B6475}
+
+/* destaque dos periodos acima do limite (mouse no card do IFI ou na legenda) */
+.dash:has(.k-ifi:hover) .col:not(.over) .bar,.dash:has(.lg.over:hover) .col:not(.over) .bar{opacity:.2}
+.dash:has(.k-ifi:hover) .lim,.dash:has(.lg.over:hover) .lim{opacity:1;border-top-width:2px}
+
+/* ---------- TABELA ---------- */
+.tw{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 6px 6px;scrollbar-width:thin;scrollbar-color:#C9CFDA transparent}
+table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px}
+th,td{padding:0 12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;z-index:3;height:32px;background:var(--sf2);color:var(--mut);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--ln)}
+th.m0{color:var(--ink)}
+th:first-child,td:first-child{text-align:left;padding-left:12px}
+th:nth-child(1){width:22%}th:nth-child(2){width:12%}th:nth-child(3){width:12%}th:nth-child(4){width:13%}th:nth-child(5){width:15%}th:nth-child(6){width:26%}
+td{height:40px;color:var(--ink2);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--ln2);transition:background-color .15s ease}
+td.m0{color:var(--ink);font-weight:700}
+tbody tr:hover td{background-color:var(--sf2)}
+" & _cssTop3 & "
+.ent{display:flex;align-items:center;gap:8px;min-width:0}
+.ent i{flex:none;width:8px;height:8px;border-radius:2px;background:var(--azul)}
+.ent.ctr i{background:var(--pri)}
+.ent b{overflow:hidden;text-overflow:ellipsis;font-size:12.5px;font-weight:700;color:var(--ink)}
+.ent .md{flex:none;width:16px;height:16px;font-size:9px}
+.ov{display:inline-flex;align-items:center;gap:5px;color:var(--ink);font-weight:650}
+.ov:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--crit)}
+td.m0 .ov{padding:2px 7px;border-radius:6px;background:#F7E0E4;font-weight:700}
+.mu{color:#B4BCC8}
+.sh{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.sh-t{flex:1 1 auto;max-width:150px;height:6px;border-radius:99px;background:#EEF1F5}
+.sh-t u{display:block;height:100%;min-width:2px;border-radius:99px;background:var(--azul);transform-origin:left;animation:grow .7s cubic-bezier(.2,.7,.2,1) both}
+.sh-v{min-width:44px;color:var(--ink);font-weight:650}
+.empty{padding:28px 16px;text-align:center;color:var(--mut);font-size:11.5px}
+
+/* ---------- SCROLLBARS ---------- */
+.tw::-webkit-scrollbar{width:8px}
+.tw::-webkit-scrollbar-track{background:transparent}
+.tw::-webkit-scrollbar-thumb{background:#D3D9E2;border-radius:99px;border:2px solid var(--sf)}
+
+/* ---------- RESPONSIVO / ACESSIBILIDADE ---------- */
+@media (max-width:1180px){.t-val{font-size:24px}.k-ifi .t-val{font-size:28px}.spark{flex-basis:70px}}
+@media (max-width:1000px){.spark,.t-n{display:none}.lgd .lg:not(.lgl){display:none}.cols.many .col:nth-child(even) .xl{visibility:hidden}.cols.many .col.last .xl{visibility:visible}th:nth-child(6){width:22%}}
+@media (max-width:820px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.top3{display:none}.tile:nth-child(4){display:none}.sh-t{display:none}}
+@media (prefers-reduced-motion:reduce){.dash *{animation:none!important;transition:none!important}}
+</style>"
+
+// ===========================================================================
+// HTML
+// ===========================================================================
+VAR _html =
+"<div class='dash'>"
+    & "<section class='kpis'>" & _cardIFI & _cardAltas & _cardReparos & _cardAtingimento & _cardTop3 & "</section>"
+    & "<section class='pn chart'>"
+        & "<div class='ph'>"
+            & "<h2>Evolução do IFI<span class='chip'>" & _rotuloGran & " · " & _periodoIFI & "</span></h2>"
+            & "<div class='lgd'>"
+                & "<span class='lg'><i></i>dentro do limite</span>"
+                & "<span class='lg over' title='Passe o mouse para destacar'><i></i>acima do limite</span>"
+                & "<span class='lg lgl'><i></i>limite " & _limiteTexto & "</span>"
+            & "</div>"
+            & "<p>" & _resumoGrafico & "</p>"
+        & "</div>"
+        & "<div class='plot'>"
+            & "<div class='grid'>" & _gridlines & _linhaLimite & "</div>"
+            & "<div class='cols" & IF(_qtdPontos > 16, " many", "") & "'>" & _barras & "</div>"
+        & "</div>"
+    & "</section>"
+    & "<section class='pn'>"
+        & "<div class='ph'>"
+            & "<h2>Detalhamento operacional<span class='chip'>" & _rotuloAbertura & "</span></h2>"
+            & "<p><b>" & _qtdLinhasTabela & "</b>" & _unidadeTabela & " · ordenado por share de reparos · "
+                & "<span class='ov'>acima do limite de " & _limiteTexto & "</span> · comparativo = " & _rotuloM0 & " vs. " & _rotuloM1 & "</p>"
+        & "</div>"
+        & "<div class='tw'>"
+            & IF(
+                _qtdLinhasTabela = 0,
+                "<div class='empty'>Nenhum resultado no contexto atual.</div>",
+                "<table><thead><tr><th>" & _primeiraColuna & "</th><th>" & _rotuloM2 & "</th><th>" & _rotuloM1 & "</th>"
+                    & "<th class='m0'>" & _rotuloM0 & "</th><th>Comparativo</th><th>Share</th></tr></thead>"
+                    & "<tbody>" & _linhasTabela & "</tbody></table>"
+            )
+        & "</div>"
+    & "</section>"
+& "</div>"
+
+RETURN
+    _css & _html
