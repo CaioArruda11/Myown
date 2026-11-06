@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset='utf-8'></head><body style='margin:0;background:#E8EFF8'><style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.mn,.mn *{box-sizing:border-box}
+.mn i{font-style:normal}
+/* Fonte igual a da versao original: a altura do cabecalho depende dela. */
+.mn{--ink:#101828;--ink2:#475467;--mut:#8A94A6;--ln:#E4E8EF;--ln2:#EEF1F5;--sf2:#F7F9FC;--pri:#665BDC;--pri-s:#EEECFD;--azul:#65AFEA;
+--grad:linear-gradient(135deg,#65AFEA 0%,#665BDC 100%);
+width:100%;height:100vh;font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* ---------- CAIXA: cartao branco igual aos das paginas ---------- */
+.sb{position:relative;width:100%;height:100%;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;
+background:radial-gradient(120% 60% at 100% 0%,rgba(101,175,234,.13) 0%,transparent 55%),radial-gradient(110% 50% at 0% 100%,rgba(102,91,220,.09) 0%,transparent 60%),#FFFFFF;
+box-shadow:inset 0 0 0 1px var(--ln),0 1px 2px rgba(16,24,40,.05),0 6px 20px rgba(16,24,40,.06)}
+/* textura sutil de pontos so no topo */
+.sb:before{content:'';position:absolute;left:0;right:0;top:0;height:120px;background-image:radial-gradient(rgba(102,91,220,.10) 1px,transparent 1.2px);background-size:12px 12px;-webkit-mask-image:linear-gradient(180deg,#000,transparent);mask-image:linear-gradient(180deg,#000,transparent);pointer-events:none}
+
+/* ---------- MARCA (estrutura de texto igual a original: nao alterar tamanhos) ---------- */
+.brand{position:relative;padding:6px 6px 18px 52px;border-bottom:1px solid var(--ln2)}
+.mono{position:absolute;left:4px;top:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:11px;background:var(--grad);color:#FFFFFF;font-size:11.5px;font-weight:800;letter-spacing:.04em;box-shadow:0 6px 14px rgba(102,91,220,.30),inset 0 1px 0 rgba(255,255,255,.35)}
+.mono:after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);background-size:250% 100%;animation:shine 6s ease-in-out infinite}
+.brand b{font-size:21px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;color:var(--ink)}
+.brand small{display:block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--mut);white-space:nowrap}
+
+/* ---------- ITENS (36px de altura, 7px entre eles: nao alterar) ---------- */
+.nav{position:relative;display:grid;gap:7px;margin-top:20px}
+.it{position:relative;height:36px;display:flex;align-items:center;gap:10px;padding:0 10px 0 5px;border-radius:11px;color:var(--ink2)}
+.tl{flex:none;width:27px;height:27px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--sf2);border:1px solid var(--ln2);color:#667085}
+.tl svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.lb{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600}
+.dv{position:absolute;left:10px;right:10px;height:1px;background:var(--ln2)}
+
+/* pagina atual */
+.it.on{background:linear-gradient(90deg,#EFEDFF 0%,#EEF5FD 100%);color:#2B2780;box-shadow:inset 0 0 0 1px rgba(102,91,220,.14)}
+.it.on .lb{font-weight:700}
+.it.on .tl{background:var(--grad);border-color:transparent;color:#FFFFFF;box-shadow:0 4px 10px rgba(102,91,220,.32)}
+/* barra de destaque com gradiente que corre devagar (efeito automatico) */
+.it.on:before{content:'';position:absolute;left:-14px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(180deg,#65AFEA,#665BDC,#65AFEA);background-size:100% 200%;animation:flow 3.2s linear infinite}
+.chev{flex:none;width:14px;height:14px;margin-left:auto;fill:none;stroke:var(--pri);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+@keyframes flow{to{background-position:0 200%}}
+@keyframes shine{0%,70%{background-position:150% 0}100%{background-position:-60% 0}}
+
+/* ---------- RESUMO DO CONTEXTO ---------- */
+.ctx{position:relative;margin-top:auto;padding:11px 12px 6px;border-radius:14px;background:var(--sf2);border:1px solid var(--ln2)}
+.ctx-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.ctx-h b{padding:2px 8px;border-radius:99px;background:var(--pri-s);color:#4B40C0;font-size:10px;letter-spacing:.02em;text-transform:none}
+.ctx-h em{font-style:normal;font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--mut)}
+.kv{display:grid;grid-template-columns:16px auto minmax(0,1fr);align-items:center;column-gap:8px;padding:6px 0;border-top:1px solid var(--ln2)}
+.kv:first-of-type{border-top:none}
+.kv svg{width:15px;height:15px;fill:none;stroke:var(--mut);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.kv small{font-size:11px;color:var(--mut)}
+.kv b{min-width:0;overflow:hidden;text-align:right;white-space:nowrap;text-overflow:ellipsis;font-size:11.5px;font-weight:700;color:var(--ink)}
+.kv b.mu{font-weight:600;color:var(--mut)}
+.sw{justify-self:center;width:10px;height:10px;border-radius:50%;background:#665BDC;box-shadow:0 0 0 2.5px #FFFFFF,0 0 0 3.5px rgba(16,24,40,.12)}
+
+/* ---------- MENU ESTREITO: so icones ---------- */
+@media (max-width:120px){.sb{padding:18px 8px}.brand{padding-left:6px}.mono{left:calc(50% - 19px)}.brand b,.brand small{visibility:hidden}.it{justify-content:center;padding:0}.lb,.chev{display:none}.it.on:before{left:-8px}.ctx{display:none}}
+@media (prefers-reduced-motion:reduce){.mn *{animation:none!important}}
+</style><div class='mn'><aside class='sb'><div class='brand'><span class='mono'>ARF</span><b>Indicadores</b><small>BSC OPERACIONAL</small></div><nav class='nav'><div class='it'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='4.5'/><circle cx='12' cy='12' r='1'/></svg></span><span class='lb'>BSC</span></div><div class='it on'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4.5v-5.5h-5V21H5a1 1 0 0 1-1-1z'/></svg></span><span class='lb'>IFI</span><svg class='chev' viewBox='0 0 24 24' aria-hidden='true'><path d='M9 6l6 6-6 6'/></svg></div><div class='it'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M17 2.5l3 3-3 3'/><path d='M4 11V9.5a4 4 0 0 1 4-4h12'/><path d='M7 21.5l-3-3 3-3'/><path d='M20 13v1.5a4 4 0 0 1-4 4H4'/></svg></span><span class='lb'>IRR</span></div><div class='it'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='13' r='8'/><path d='M12 9v4l2.5 2'/><path d='M9.5 2.5h5'/></svg></span><span class='lb'>TDNA Instalação</span></div><div class='it'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M15.5 3.5a4.5 4.5 0 0 0-4.3 5.8L4 16.5a2.1 2.1 0 0 0 3 3l7.2-7.2a4.5 4.5 0 0 0 5.8-4.3l-2.7 2.7-2.6-.4-.4-2.6z'/></svg></span><span class='lb'>TDNA Reparos</span></div><div class='it'><span class='tl'><svg viewBox='0 0 24 24' aria-hidden='true'><rect x='9' y='3' width='6' height='5' rx='1.2'/><rect x='3' y='16' width='6' height='5' rx='1.2'/><rect x='15' y='16' width='6' height='5' rx='1.2'/><path d='M12 8v4M6 16v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2'/></svg></span><span class='lb'>Abertura Hierarquia</span></div><i class='dv' style='top:125px'></i><i class='dv' style='top:211px'></i></nav><div class='ctx'><div class='ctx-h'><span>Filtros</span><em>nenhum</em></div><div class='kv'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 21s-6.5-5.6-6.5-10.5a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z'/><circle cx='12' cy='10.5' r='2.3'/></svg><small>Cluster</small><b>PERUS / BUTANTÃ</b></div><div class='kv'><svg viewBox='0 0 24 24' aria-hidden='true'><rect x='3.5' y='5' width='17' height='15.5' rx='2.5'/><path d='M3.5 10h17M8 2.8v4M16 2.8v4'/></svg><small>Mês</small><b>Novembro/2026</b></div><div class='kv'><i class='sw'></i><small>Cor</small><b class=mu>Geral</b></div><div class='kv'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M4 20.5V8l8-4.5L20 8v12.5'/><path d='M9.5 20.5v-5h5v5'/><path d='M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01'/></svg><small>AT</small><b class=mu>Todas</b></div></div></aside></div></body></html>
