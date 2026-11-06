@@ -1,0 +1,1228 @@
+BSC Corpo HTML =
+
+// ============================================================================
+// VISUAL 2 de 2  -  BSC: FAIXAS + INDICADORES + RANKING DE ATS  (v3)
+// Colocar em um HTML Content ocupando o restante da pagina.
+// Fundo do visual: TRANSPARENTE.
+// A barra de titulo/slicers e nativa do Power BI (fora deste visual).
+//
+// v3 - redesenho com foco em UX. As regras de calculo de pontos sao as mesmas
+// da versao original; mudou a apresentacao:
+//   - topo: Geral em destaque + 4 faixas ranqueadas, cada uma com delta vs.
+//     Geral e medidor de atingimento (o traco no medidor = meta de 100%);
+//   - tabela de indicadores orientada a acao: coluna "Falta" (pts ate a meta),
+//     maior gap destacado e resumido no cabecalho;
+//   - ranking de ATs com mapa de calor: 10 celulas por AT, uma por indicador,
+//     mostrando de onde vem (ou nao vem) a pontuacao de cada AT;
+//   - interacao feita so com CSS (o HTML Content nao executa JavaScript):
+//       * mouse sobre uma faixa   -> o ranking destaca as ATs daquela faixa;
+//       * mouse sobre uma AT      -> a faixa dela acende no topo;
+//       * mouse sobre uma celula  -> mostra o valor e acende o mesmo indicador
+//         em todas as ATs e na tabela (mouse na linha da tabela faz o inverso);
+//       * AT selecionada no filtro fica fixa no topo/rodape da lista;
+//   - escala de status validada para daltonismo, sempre com icone + valor.
+// ============================================================================
+
+VAR _loc = "pt-BR"
+VAR _corSelecionada =
+    SELECTEDVALUE(
+        'Seletor Cor'[COR_AREA],
+        "GERAL"
+    )
+VAR _areaSelecionada =
+    SELECTEDVALUE(
+        dAT[AREA ]
+    )
+VAR _temAreaSelecionada =
+    HASONEVALUE(
+        dAT[AREA ]
+    )
+VAR _contexto =
+    IF(
+        _temAreaSelecionada,
+        _corSelecionada & " · AT " & _areaSelecionada,
+        _corSelecionada
+    )
+
+// ============================================================================
+// PALETA
+// ============================================================================
+VAR _corPrimaria = "#665BDC"
+VAR _corAzul = "#65AFEA"
+// Identidade das faixas (sempre acompanhada do nome da faixa)
+VAR _hexOuro = "#C79A1C"
+VAR _hexPrata1 = "#6D82A2"
+VAR _hexPrata2 = "#A3AFC1"
+VAR _hexBronze = "#A5623A"
+// Status do atingimento - validado para daltonismo; sempre com icone + valor
+VAR _stBom = "#12A150"       // >= 100%
+VAR _stAtencao = "#DDA80F"   // >= 90%
+VAR _stRisco = "#E8622C"     // >= 80%
+VAR _stCritico = "#B8233A"   // <  80%
+
+// Escala dos medidores: 130% = teto de pontuacao por indicador.
+// O traco vertical nos medidores marca a meta (100%).
+VAR _tetoBarra = 1.30
+VAR _posMeta = FORMAT( 1 / _tetoBarra * 100, "0.0", "en-US" )
+
+// ============================================================================
+// INDICADORES DA PRIMEIRA ETAPA
+// ============================================================================
+VAR _indicadores =
+    DATATABLE(
+        "Indicador", STRING,
+        "NomeTela", STRING,
+        "Grupo", STRING,
+        "Ordem", INTEGER,
+        "AnaliticoAT", INTEGER,
+        {
+            { "1 AGENDA", "Efetividade 1ª Agenda", "NEGÓCIO", 1, 1 },
+            { "TMR", "Tempo de Reparo", "NEGÓCIO", 2, 1 },
+            { "CHEGADA NO SLOT", "Chegada no Slot", "NEGÓCIO", 3, 1 },
+            { "INSTALAÇÃO 3D", "Instalação em até D3", "NEGÓCIO", 4, 1 },
+            { "PRODUTIVIDADE PU", "Produtividade PU", "NEGÓCIO", 5, 1 },
+            { "ROTEIRIZAÇÃO AUTOMÁTICA", "Roteirização Automática", "NEGÓCIO", 6, 1 },
+            { "IRT", "IRT", "NEGÓCIO", 7, 1 },
+            { "EFICIÊNCIA DE CAMPO", "Eficiência de Campo", "NEGÓCIO", 8, 1 },
+            { "IFI 7 DIAS", "IFI FTTH 7 Dias", "QUALIDADE", 9, 1 },
+            { "IRR 7 DIAS", "Repetidas FTTH 7 Dias", "QUALIDADE", 10, 1 },
+            { "INDISPONIBILIDADE FTTH", "Indisponibilidade FTTH", "QUALIDADE", 11, 0 },
+            { "INDISPONIBILIDADE MÓVEL", "Indisponibilidade Móvel", "QUALIDADE", 12, 0 }
+        }
+    )
+
+// ============================================================================
+// TOTAIS
+// ============================================================================
+VAR _totalPontosDisponiveis =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Disponíveis],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+
+VAR _qtdATGeral =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] )
+    )
+VAR _qtdATOuro =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "OURO" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATBronze =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "BRONZE" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATPrata1 =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 1" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATPrata2 =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 2" }, dAT[COR_AREA ] )
+    )
+
+// ============================================================================
+// AJUSTE IFI 7 DIAS
+// Regra: como este indicador e "menor e melhor", resultado real igual a 0%
+// representa o melhor resultado possivel e recebe o teto de 130% dos pontos.
+// ============================================================================
+VAR _ptsDispIFI7 =
+    CALCULATE(
+        [BSC Pontos Disponíveis],
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _resultadoIFI7Geral =
+    CALCULATE(
+        [BSC Resultado Selecionado],
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _pontosIFI7GeralAtual =
+    CALCULATE(
+        [BSC Pontos Reais],
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _ajusteIFI7Geral =
+    IF(
+        NOT ISBLANK( _resultadoIFI7Geral ) && _resultadoIFI7Geral = 0,
+        _ptsDispIFI7 * 1.30 - COALESCE( _pontosIFI7GeralAtual, 0 ),
+        0
+    )
+VAR _resultadoIFI7Ouro =
+    CALCULATE(
+        [BSC Resultado Selecionado],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "OURO" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _pontosIFI7OuroAtual =
+    CALCULATE(
+        [BSC Pontos Reais],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "OURO" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _ajusteIFI7Ouro = IF(NOT ISBLANK(_resultadoIFI7Ouro) && _resultadoIFI7Ouro = 0, _ptsDispIFI7 * 1.30 - COALESCE(_pontosIFI7OuroAtual,0), 0)
+VAR _resultadoIFI7Bronze =
+    CALCULATE(
+        [BSC Resultado Selecionado],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "BRONZE" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _pontosIFI7BronzeAtual =
+    CALCULATE(
+        [BSC Pontos Reais],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "BRONZE" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _ajusteIFI7Bronze = IF(NOT ISBLANK(_resultadoIFI7Bronze) && _resultadoIFI7Bronze = 0, _ptsDispIFI7 * 1.30 - COALESCE(_pontosIFI7BronzeAtual,0), 0)
+VAR _resultadoIFI7Prata1 =
+    CALCULATE(
+        [BSC Resultado Selecionado],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 1" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _pontosIFI7Prata1Atual =
+    CALCULATE(
+        [BSC Pontos Reais],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 1" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _ajusteIFI7Prata1 = IF(NOT ISBLANK(_resultadoIFI7Prata1) && _resultadoIFI7Prata1 = 0, _ptsDispIFI7 * 1.30 - COALESCE(_pontosIFI7Prata1Atual,0), 0)
+VAR _resultadoIFI7Prata2 =
+    CALCULATE(
+        [BSC Resultado Selecionado],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 2" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _pontosIFI7Prata2Atual =
+    CALCULATE(
+        [BSC Pontos Reais],
+        REMOVEFILTERS( 'Seletor Cor' ), REMOVEFILTERS( 'Seletor Indicador BSC' ),
+        REMOVEFILTERS( dAT[AREA ] ), REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 2" }, dAT[COR_AREA ] ),
+        TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+    )
+VAR _ajusteIFI7Prata2 = IF(NOT ISBLANK(_resultadoIFI7Prata2) && _resultadoIFI7Prata2 = 0, _ptsDispIFI7 * 1.30 - COALESCE(_pontosIFI7Prata2Atual,0), 0)
+VAR _pontosGeral =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Reais],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                REMOVEFILTERS( dAT[COR_AREA ] ),
+                REMOVEFILTERS( dAT[AREA ] ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+        + _ajusteIFI7Geral
+VAR _pontosOuro =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Reais],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                REMOVEFILTERS( dAT[AREA ] ),
+                REMOVEFILTERS( dAT[COR_AREA ] ),
+                TREATAS( { "OURO" }, dAT[COR_AREA ] ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+        + _ajusteIFI7Ouro
+VAR _pontosBronze =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Reais],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                REMOVEFILTERS( dAT[AREA ] ),
+                REMOVEFILTERS( dAT[COR_AREA ] ),
+                TREATAS( { "BRONZE" }, dAT[COR_AREA ] ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+        + _ajusteIFI7Bronze
+VAR _pontosPrata1 =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Reais],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                REMOVEFILTERS( dAT[AREA ] ),
+                REMOVEFILTERS( dAT[COR_AREA ] ),
+                TREATAS( { "PRATA 1" }, dAT[COR_AREA ] ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+        + _ajusteIFI7Prata1
+VAR _pontosPrata2 =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Reais],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                REMOVEFILTERS( dAT[AREA ] ),
+                REMOVEFILTERS( dAT[COR_AREA ] ),
+                TREATAS( { "PRATA 2" }, dAT[COR_AREA ] ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+        + _ajusteIFI7Prata2
+VAR _atingGeral = DIVIDE( _pontosGeral, _totalPontosDisponiveis )
+
+// ============================================================================
+// RANKING DINÂMICO DOS QUATRO CARDS DE FAIXA
+// ============================================================================
+VAR _rankingBase =
+    UNION(
+        ROW("Cor", "OURO", "Pontos", COALESCE(_pontosOuro, 0)),
+        ROW("Cor", "BRONZE", "Pontos", COALESCE(_pontosBronze, 0)),
+        ROW("Cor", "PRATA 1", "Pontos", COALESCE(_pontosPrata1, 0)),
+        ROW("Cor", "PRATA 2", "Pontos", COALESCE(_pontosPrata2, 0))
+    )
+VAR _rankingCards =
+    ADDCOLUMNS(
+        _rankingBase,
+        "Posicao",
+            VAR _corAtual = [Cor]
+            VAR _pontosAtual = [Pontos]
+            RETURN
+                1 + COUNTROWS(
+                    FILTER(
+                        _rankingBase,
+                        [Pontos] > _pontosAtual
+                            || ([Pontos] = _pontosAtual && [Cor] < _corAtual)
+                    )
+                )
+    )
+
+// ============================================================================
+// ESCALA DE STATUS (a mesma nos cards, na tabela e no ranking)
+//   s1 >= 100% | s2 >= 90% | s3 >= 80% | s4 < 80% | s0 = sem dados
+// ============================================================================
+
+// ============================================================================
+// KPI - GERAL (destaque) + 4 FAIXAS RANQUEADAS
+// ============================================================================
+VAR _stGeral =
+    SWITCH(
+        TRUE(),
+        ISBLANK( _atingGeral ), "s0",
+        _atingGeral >= 1, "s1",
+        _atingGeral >= 0.90, "s2",
+        _atingGeral >= 0.80, "s3",
+        "s4"
+    )
+VAR _faltaGeral = _totalPontosDisponiveis - COALESCE( _pontosGeral, 0 )
+VAR _cardGeral =
+    "<div class='tile hero" & IF( _corSelecionada = "GERAL", " on", "" ) & "' style='--c:" & _corPrimaria & "'" &
+        " title='Geral: " & FORMAT( _pontosGeral, "0.00", _loc ) & " de " & FORMAT( _totalPontosDisponiveis, "0", _loc ) &
+        " pts disponíveis (" & FORMAT( _atingGeral, "0.0%", _loc ) & ")'>" &
+        "<div class='t-top'><i class='dot'></i><span class='t-name'>GERAL</span>" &
+            "<span class='t-n'>" & FORMAT( _qtdATGeral, "0", _loc ) & " ATs · " & FORMAT( COUNTROWS( _indicadores ), "0", _loc ) & " indicadores</span></div>" &
+        "<div class='t-mid'><span class='t-val'>" & FORMAT( _pontosGeral, "0.00", _loc ) &
+            "<small>de " & FORMAT( _totalPontosDisponiveis, "0", _loc ) & " pts</small></span>" &
+            "<span class='st " & _stGeral & "'><i>" & IF( _atingGeral >= 1, "▲", "▼" ) & "</i>" & FORMAT( _atingGeral, "0.0%", _loc ) & "</span></div>" &
+        "<div class='mt " & _stGeral & "'><u style='width:" & FORMAT( MIN( COALESCE( _atingGeral, 0 ), _tetoBarra ) / _tetoBarra * 100, "0.0", "en-US" ) & "%'></u></div>" &
+        "<div class='t-foot'>" &
+            IF(
+                _faltaGeral > 0,
+                "Faltam <b>" & FORMAT( _faltaGeral, "0.00", _loc ) & " pts</b> para 100%",
+                "Meta batida · <b>+" & FORMAT( -_faltaGeral, "0.00", _loc ) & " pts</b> acima"
+            ) &
+        "</div>" &
+    "</div>"
+
+VAR _cardsFaixas =
+    CONCATENATEX(
+        _rankingCards,
+        VAR _cor = [Cor]
+        VAR _pts = [Pontos]
+        VAR _pos = [Posicao]
+        VAR _fx = SWITCH( _cor, "OURO", "ouro", "PRATA 1", "p1", "PRATA 2", "p2", "BRONZE", "bronze", "x" )
+        VAR _hex = SWITCH( _cor, "OURO", _hexOuro, "PRATA 1", _hexPrata1, "PRATA 2", _hexPrata2, "BRONZE", _hexBronze, _corPrimaria )
+        VAR _qtd = SWITCH( _cor, "OURO", _qtdATOuro, "BRONZE", _qtdATBronze, "PRATA 1", _qtdATPrata1, "PRATA 2", _qtdATPrata2 )
+        VAR _ating = DIVIDE( _pts, _totalPontosDisponiveis )
+        VAR _st =
+            SWITCH(
+                TRUE(),
+                ISBLANK( _ating ), "s0",
+                _ating >= 1, "s1",
+                _ating >= 0.90, "s2",
+                _ating >= 0.80, "s3",
+                "s4"
+            )
+        VAR _delta = _pts - COALESCE( _pontosGeral, 0 )
+        RETURN
+            "<div class='tile fx-" & _fx & IF( _corSelecionada = _cor, " on", "" ) & IF( _pos = 1, " lead", "" ) & "' style='--c:" & _hex & "'" &
+                " title='" & _cor & ": " & FORMAT( _pos, "0", _loc ) & "º lugar · " & FORMAT( _pts, "0.00", _loc ) & " pts (" &
+                FORMAT( _ating, "0.0%", _loc ) & ") · " & FORMAT( _delta, "+0.00;-0.00;0.00", _loc ) & " pts vs. Geral. Passe o mouse para destacar as ATs da faixa.'>" &
+                "<div class='t-top'><i class='dot'></i><span class='t-name'>" & _cor & "</span>" &
+                    "<span class='t-n'>" & FORMAT( _qtd, "0", _loc ) & IF( _qtd = 1, " AT", " ATs" ) & "</span>" &
+                    "<b class='t-rk'>" & FORMAT( _pos, "0", _loc ) & "º</b></div>" &
+                "<div class='t-mid'><span class='t-val'>" & FORMAT( _pts, "0.00", _loc ) & "<small>pts</small></span>" &
+                    "<span class='st " & _st & "'><i>" & IF( _ating >= 1, "▲", "▼" ) & "</i>" & FORMAT( _ating, "0.0%", _loc ) & "</span></div>" &
+                "<div class='mt " & _st & "'><u style='width:" & FORMAT( MIN( COALESCE( _ating, 0 ), _tetoBarra ) / _tetoBarra * 100, "0.0", "en-US" ) & "%'></u></div>" &
+                "<div class='t-foot'><span class='dl " & IF( _delta >= 0, "up", "down" ) & "'><i>" & IF( _delta >= 0, "▲", "▼" ) & "</i>" &
+                    FORMAT( _delta, "+0.00;-0.00;0.00", _loc ) & "</span> vs. geral</div>" &
+            "</div>",
+        "",
+        [Posicao], ASC
+    )
+
+// ============================================================================
+// TABELA DOS 12 INDICADORES
+// Primeiro uma tabela com os valores; depois o HTML. Subtotais, contadores
+// da legenda e o "maior gap" saem da mesma fonte que as linhas exibidas.
+// ============================================================================
+VAR _tabIndBase =
+    ADDCOLUMNS(
+        _indicadores,
+        "__ResultadoBruto",
+            VAR _ind = [Indicador]
+            RETURN
+                IF(
+                    [AnaliticoAT] = 1,
+                    CALCULATE(
+                        [BSC Resultado Selecionado],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        FILTER(
+                            ALL( dAT[COR_AREA ] ),
+                            _corSelecionada = "GERAL"
+                                || dAT[COR_AREA ] = _corSelecionada
+                        ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    ),
+                    CALCULATE(
+                        [BSC Resultado Selecionado],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        REMOVEFILTERS( dAT[AREA ] ),
+                        REMOVEFILTERS( dAT[COR_AREA ] ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    )
+                ),
+        "__Meta",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Meta Selecionada],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__MenorMelhor",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Menor Melhor],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PtsDisp",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Disponíveis],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                )
+    )
+
+// -- guarda contra NaN / -nan(ind) vindo de divisao por zero na medida base
+VAR _tabIndResultado =
+    ADDCOLUMNS(
+        _tabIndBase,
+        "__Resultado",
+            VAR _bruto = [__ResultadoBruto]
+            VAR _invalido = SEARCH( "n", FORMAT( _bruto, "0.000000", "en-US" ), 1, 0 ) > 0
+            RETURN
+                IF( _invalido, BLANK(), _bruto )
+    )
+
+VAR _tabIndAting =
+    ADDCOLUMNS(
+        _tabIndResultado,
+        "__Ating",
+            VAR _res = [__Resultado]
+            VAR _meta = [__Meta]
+            RETURN
+                IF(
+                    ISBLANK( _res ) || ISBLANK( _meta ),
+                    BLANK(),
+                    IF(
+                        [Indicador] = "IFI 7 DIAS" && _res = 0,
+                        1.30,
+                        IF(
+                            [__MenorMelhor] = 1,
+                            DIVIDE( _meta, _res ),
+                            DIVIDE( _res, _meta )
+                        )
+                    )
+                )
+    )
+
+VAR _tabInd =
+    ADDCOLUMNS(
+        _tabIndAting,
+        "__PtsReais",
+            IF(
+                ISBLANK( [__Ating] ),
+                BLANK(),
+                MIN( [__PtsDisp] * 1.30, [__PtsDisp] * [__Ating] )
+            ),
+        "__Falta",
+            IF(
+                ISBLANK( [__Ating] ),
+                BLANK(),
+                MAX( 0, [__PtsDisp] * ( 1 - [__Ating] ) )
+            ),
+        "__St",
+            SWITCH(
+                TRUE(),
+                ISBLANK( [__Ating] ), "s0",
+                [__Ating] >= 1, "s1",
+                [__Ating] >= 0.90, "s2",
+                [__Ating] >= 0.80, "s3",
+                "s4"
+            )
+    )
+
+VAR _qtdIndicadores = COUNTROWS( _indicadores )
+VAR _qtdS1 = COUNTROWS( FILTER( _tabInd, [__St] = "s1" ) ) + 0
+VAR _qtdS2 = COUNTROWS( FILTER( _tabInd, [__St] = "s2" ) ) + 0
+VAR _qtdS3 = COUNTROWS( FILTER( _tabInd, [__St] = "s3" ) ) + 0
+VAR _qtdS4 = COUNTROWS( FILTER( _tabInd, [__St] = "s4" ) ) + 0
+VAR _qtdS0 = COUNTROWS( FILTER( _tabInd, [__St] = "s0" ) ) + 0
+VAR _qtdComDados = _qtdIndicadores - _qtdS0
+
+// Prioridade: indicador com resultado e abaixo da meta que mais deixa pontos na mesa
+VAR _abaixoMeta = FILTER( _tabInd, NOT ISBLANK( [__Ating] ) && [__Ating] < 1 )
+VAR _topGap = TOPN( 1, _abaixoMeta, [__Falta], DESC, [Ordem], ASC )
+VAR _topGapOrdem = MAXX( _topGap, [Ordem] )
+VAR _topGapNome = MAXX( _topGap, [NomeTela] )
+VAR _topGapValor = MAXX( _topGap, [__Falta] )
+VAR _insight =
+    SWITCH(
+        TRUE(),
+        _qtdComDados = 0, "Nenhum indicador com resultado no contexto atual",
+        ISBLANK( _topGapNome ), "<span class='ins ok'>Todos os indicadores com resultado bateram a meta</span>",
+        "<span class='ins'>Prioridade: <b>" & _topGapNome & "</b> · faltam " & FORMAT( _topGapValor, "0.0", _loc ) & " pts para a meta</span>"
+    )
+
+VAR _tabIndHtml =
+    ADDCOLUMNS(
+        _tabInd,
+        "__Html",
+            VAR _ind = [Indicador]
+            VAR _ordem = [Ordem]
+            VAR _res = [__Resultado]
+            VAR _meta = [__Meta]
+            VAR _ating = [__Ating]
+            VAR _st = [__St]
+            VAR _semDados = ISBLANK( _ating )
+            VAR _ehTMR = _ind = "TMR"
+            VAR _ehQtd = _ind = "PRODUTIVIDADE PU"
+
+            // TMR e armazenado em horas decimais -> hh:mm:ss (aceita > 24h)
+            VAR _sRes = ROUND( _res * 3600, 0 )
+            VAR _tmrRes =
+                FORMAT( INT( _sRes / 3600 ), "00" ) & ":" &
+                FORMAT( INT( MOD( _sRes, 3600 ) / 60 ), "00" ) & ":" &
+                FORMAT( MOD( _sRes, 60 ), "00" )
+            VAR _sMeta = ROUND( _meta * 3600, 0 )
+            VAR _tmrMeta =
+                FORMAT( INT( _sMeta / 3600 ), "00" ) & ":" &
+                FORMAT( INT( MOD( _sMeta, 3600 ) / 60 ), "00" ) & ":" &
+                FORMAT( MOD( _sMeta, 60 ), "00" )
+
+            VAR _fmtRes =
+                IF(
+                    ISBLANK( _res ),
+                    "—",
+                    SWITCH(
+                        TRUE(),
+                        _ehTMR, _tmrRes,
+                        _ehQtd, FORMAT( _res, "0.0", _loc ),
+                        FORMAT( _res, "0.0%", _loc )
+                    )
+                )
+            VAR _fmtMeta =
+                IF(
+                    ISBLANK( _meta ),
+                    "—",
+                    SWITCH(
+                        TRUE(),
+                        _ehTMR, _tmrMeta,
+                        _ehQtd, FORMAT( _meta, "0.0", _loc ),
+                        FORMAT( _meta, "0.0%", _loc )
+                    )
+                )
+            VAR _tags =
+                IF(
+                    [__MenorMelhor] = 1,
+                    "<span class='tag' title='Quanto menor o resultado, melhor o desempenho'>↓ menor é melhor</span>",
+                    ""
+                ) &
+                IF(
+                    [AnaliticoAT] = 0,
+                    "<span class='tag' title='Sem abertura por AT ou faixa: mostra sempre o consolidado e não entra no ranking de ATs'>consolidado</span>",
+                    ""
+                )
+            VAR _celAting =
+                IF(
+                    _semDados,
+                    "<div class='ac'><span class='mt nd'></span><span class='st s0'>sem dados</span></div>",
+                    "<div class='ac'><span class='mt " & _st & "'><u style='width:" &
+                        FORMAT( MIN( _ating, _tetoBarra ) / _tetoBarra * 100, "0.0", "en-US" ) & "%'></u></span>" &
+                        "<span class='st " & _st & "'>" &
+                            IF( _st = "s4", "<i class='led'></i>", "<i>" & IF( _ating >= 1, "▲", "▼" ) & "</i>" ) &
+                            FORMAT( _ating, "0.0%", _loc ) &
+                        "</span></div>"
+                )
+            VAR _celFalta =
+                SWITCH(
+                    TRUE(),
+                    _semDados, "<span class='mu'>—</span>",
+                    _ating >= 1, "<span class='ok'>✓ meta</span>",
+                    "<span class='gap" & IF( _ordem = _topGapOrdem, " top", "" ) & "'>" & FORMAT( [__Falta], "0.0", _loc ) & "</span>"
+                )
+            RETURN
+                "<tr class='ir k" & _ordem & IF( _semDados, " nd", IF( _st = "s4", " al", "" ) ) & "'>" &
+                    "<td><div class='in'>" & [NomeTela] & "</div>" &
+                        IF( _tags = "", "", "<div class='tags'>" & _tags & "</div>" ) & "</td>" &
+                    "<td>" & _fmtMeta & "</td>" &
+                    "<td class='rl'>" & _fmtRes & "</td>" &
+                    "<td>" & _celAting & "</td>" &
+                    "<td>" & IF( _semDados, "<span class='mu'>—</span>", FORMAT( [__PtsReais], "0.0", _loc ) ) &
+                        "<small>/" & FORMAT( [__PtsDisp], "0", _loc ) & "</small></td>" &
+                    "<td>" & _celFalta & "</td>" &
+                "</tr>"
+    )
+
+// Linha de grupo (NEGOCIO / QUALIDADE) com subtotal, seguida dos indicadores
+VAR _grupos =
+    DATATABLE(
+        "NomeGrupo", STRING,
+        "OrdemGrupo", INTEGER,
+        "ClasseGrupo", STRING,
+        {
+            { "NEGÓCIO", 1, "neg" },
+            { "QUALIDADE", 2, "qua" }
+        }
+    )
+VAR _corpoTabela =
+    CONCATENATEX(
+        _grupos,
+        VAR _g = [NomeGrupo]
+        VAR _classeG = [ClasseGrupo]
+        VAR _linhasG = FILTER( _tabIndHtml, [Grupo] = _g )
+        VAR _qtdG = COUNTROWS( _linhasG ) + 0
+        VAR _ptsG = SUMX( _linhasG, [__PtsReais] )
+        VAR _dispG = SUMX( _linhasG, [__PtsDisp] )
+        RETURN
+            IF(
+                _qtdG = 0,
+                "",
+                "<tr class='gh " & _classeG & "'><td colspan='6'><div class='gh-in'>" &
+                    "<span class='gh-n'><i></i>" & _g & "<small>" & FORMAT( _qtdG, "0", _loc ) & " indicadores</small></span>" &
+                    "<span class='gh-p'><b>" & FORMAT( COALESCE( _ptsG, 0 ), "0.0", _loc ) & "</b> de " & FORMAT( _dispG, "0", _loc ) & " pts</span>" &
+                "</div></td></tr>" &
+                CONCATENATEX( _linhasG, [__Html], "", [Ordem], ASC )
+            ),
+        "",
+        [OrdemGrupo], ASC
+    )
+
+VAR _legenda =
+    "<span class='lg" & IF( _qtdS1 = 0, " z", "" ) & "' title='Atingimento igual ou acima de 100%'><i class='s1'></i><em>≥100%</em><b>" & FORMAT( _qtdS1, "0", _loc ) & "</b></span>" &
+    "<span class='lg" & IF( _qtdS2 = 0, " z", "" ) & "' title='Atingimento entre 90% e 100%'><i class='s2'></i><em>≥90%</em><b>" & FORMAT( _qtdS2, "0", _loc ) & "</b></span>" &
+    "<span class='lg" & IF( _qtdS3 = 0, " z", "" ) & "' title='Atingimento entre 80% e 90%'><i class='s3'></i><em>≥80%</em><b>" & FORMAT( _qtdS3, "0", _loc ) & "</b></span>" &
+    "<span class='lg" & IF( _qtdS4 = 0, " z", "" ) & "' title='Atingimento abaixo de 80% (alerta)'><i class='s4'></i><em>&lt;80%</em><b>" & FORMAT( _qtdS4, "0", _loc ) & "</b></span>" &
+    "<span class='lg" & IF( _qtdS0 = 0, " z", "" ) & "' title='Sem resultado ou sem meta no contexto atual'><i class='s0'></i><em>sem dados</em><b>" & FORMAT( _qtdS0, "0", _loc ) & "</b></span>"
+
+// ============================================================================
+// LISTA DE ATS
+// ============================================================================
+VAR _areasBase =
+    FILTER(
+        CALCULATETABLE(
+            VALUES( dAT[AREA ] ),
+            REMOVEFILTERS( 'Seletor Cor' ),
+            REMOVEFILTERS( dAT[AREA ] ),
+            FILTER(
+                ALL( dAT[COR_AREA ] ),
+                _corSelecionada = "GERAL"
+                    || dAT[COR_AREA ] = _corSelecionada
+            )
+        ),
+        NOT ISBLANK( dAT[AREA ] )
+    )
+
+VAR _areasComPontos =
+    ADDCOLUMNS(
+        _areasBase,
+        "__CorArea",
+            VAR _areaAtualCor = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    SELECTEDVALUE( dAT[COR_AREA ], "GERAL" ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    REMOVEFILTERS( dAT[COR_AREA ] ),
+                    TREATAS( { _areaAtualCor }, dAT[AREA ] )
+                ),
+        "__PontosIFI7",
+            VAR _areaAtualIFI = dAT[AREA ]
+            VAR _resultadoIFI7Area =
+                CALCULATE(
+                    [BSC Resultado Selecionado],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualIFI }, dAT[AREA ] ),
+                    TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+                )
+            VAR _pontosIFI7AreaAtual =
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualIFI }, dAT[AREA ] ),
+                    TREATAS( { "IFI 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+                )
+            RETURN
+                IF(
+                    NOT ISBLANK( _resultadoIFI7Area ) && _resultadoIFI7Area = 0,
+                    _ptsDispIFI7 * 1.30,
+                    _pontosIFI7AreaAtual
+                ),
+        "__PontosIRR7",
+            VAR _areaAtualIRR = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualIRR }, dAT[AREA ] ),
+                    TREATAS( { "IRR 7 DIAS" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosAgenda",
+            VAR _areaAtualAgenda = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualAgenda }, dAT[AREA ] ),
+                    TREATAS( { "1 AGENDA" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosTMR",
+            VAR _areaAtualTMR = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualTMR }, dAT[AREA ] ),
+                    TREATAS( { "TMR" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosSlot",
+            VAR _areaAtualSlot = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualSlot }, dAT[AREA ] ),
+                    TREATAS( { "CHEGADA NO SLOT" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosInstalacao",
+            VAR _areaAtualInstalacao = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualInstalacao }, dAT[AREA ] ),
+                    TREATAS( { "INSTALAÇÃO 3D" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosProdutividade",
+            VAR _areaAtualProdutividade = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualProdutividade }, dAT[AREA ] ),
+                    TREATAS( { "PRODUTIVIDADE PU" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosRoteirizacao",
+            VAR _areaAtualRoteirizacao = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualRoteirizacao }, dAT[AREA ] ),
+                    TREATAS( { "ROTEIRIZAÇÃO AUTOMÁTICA" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosIRT",
+            VAR _areaAtualIRT = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualIRT }, dAT[AREA ] ),
+                    TREATAS( { "IRT" }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PontosEficienciaCampo",
+            VAR _areaAtualEficiencia = dAT[AREA ]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Reais],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    REMOVEFILTERS( dAT[AREA ] ),
+                    TREATAS( { _areaAtualEficiencia }, dAT[AREA ] ),
+                    TREATAS( { "EFICIÊNCIA DE CAMPO" }, 'Seletor Indicador BSC'[Indicador] )
+                )
+    )
+
+VAR _areasComTotal =
+    ADDCOLUMNS(
+        _areasComPontos,
+        "__Pontos",
+            COALESCE( [__PontosIFI7], 0 )
+                + COALESCE( [__PontosIRR7], 0 )
+                + COALESCE( [__PontosAgenda], 0 )
+                + COALESCE( [__PontosTMR], 0 )
+                + COALESCE( [__PontosSlot], 0 )
+                + COALESCE( [__PontosInstalacao], 0 )
+                + COALESCE( [__PontosProdutividade], 0 )
+                + COALESCE( [__PontosRoteirizacao], 0 )
+                + COALESCE( [__PontosIRT], 0 )
+                + COALESCE( [__PontosEficienciaCampo], 0 )
+    )
+
+VAR _areasValidas =
+    FILTER(
+        _areasComTotal,
+        [__Pontos] > 0
+    )
+
+VAR _qtdAreasListadas = COALESCE( COUNTROWS( _areasValidas ), 0 )
+
+// ============================================================================
+// RANKING DE ATS COM MAPA DE CALOR POR INDICADOR
+// ============================================================================
+// Indicadores que abrem por AT + pontos disponiveis de cada um
+// (mesmo contexto usado no total de pontos disponiveis)
+VAR _indRanking =
+    ADDCOLUMNS(
+        FILTER( _indicadores, [AnaliticoAT] = 1 ),
+        "__Disp",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Disponíveis],
+                    REMOVEFILTERS( 'Seletor Cor' ),
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                )
+    )
+VAR _qtdCelNeg = COUNTROWS( FILTER( _indRanking, [Grupo] = "NEGÓCIO" ) ) + 0
+VAR _qtdCelQua = COUNTROWS( FILTER( _indRanking, [Grupo] = "QUALIDADE" ) ) + 0
+VAR _primeiraQua = MINX( FILTER( _indRanking, [Grupo] = "QUALIDADE" ), [Ordem] )
+VAR _maxPtsArea = MAXX( _areasValidas, [__Pontos] )
+
+VAR _linhasAreas =
+    CONCATENATEX(
+        _areasValidas,
+        VAR _areaDaLinha = dAT[AREA ]
+        VAR _pontosArea = [__Pontos]
+        VAR _corArea = [__CorArea]
+        VAR _ptAgenda = [__PontosAgenda]
+        VAR _ptTMR = [__PontosTMR]
+        VAR _ptSlot = [__PontosSlot]
+        VAR _ptInstalacao = [__PontosInstalacao]
+        VAR _ptProdutividade = [__PontosProdutividade]
+        VAR _ptRoteirizacao = [__PontosRoteirizacao]
+        VAR _ptIRT = [__PontosIRT]
+        VAR _ptEficiencia = [__PontosEficienciaCampo]
+        VAR _ptIFI7 = [__PontosIFI7]
+        VAR _ptIRR7 = [__PontosIRR7]
+        // posicao no ranking (mesmo criterio da ordenacao: pontos desc, AT asc)
+        VAR _pos =
+            1 + COUNTROWS(
+                FILTER(
+                    _areasValidas,
+                    [__Pontos] > _pontosArea
+                        || ( [__Pontos] = _pontosArea && dAT[AREA ] < _areaDaLinha )
+                )
+            )
+        VAR _fx = SWITCH( _corArea, "OURO", "ouro", "PRATA 1", "p1", "PRATA 2", "p2", "BRONZE", "bronze", "x" )
+        VAR _hex = SWITCH( _corArea, "OURO", _hexOuro, "PRATA 1", _hexPrata1, "PRATA 2", _hexPrata2, "BRONZE", _hexBronze, _corPrimaria )
+        VAR _atingArea = DIVIDE( _pontosArea, _totalPontosDisponiveis )
+        VAR _stArea =
+            SWITCH(
+                TRUE(),
+                ISBLANK( _atingArea ), "s0",
+                _atingArea >= 1, "s1",
+                _atingArea >= 0.90, "s2",
+                _atingArea >= 0.80, "s3",
+                "s4"
+            )
+        VAR _selecionada = _temAreaSelecionada && _areaDaLinha = _areaSelecionada
+        // uma celula por indicador: cor = atingimento da AT naquele indicador
+        VAR _celulas =
+            CONCATENATEX(
+                _indRanking,
+                VAR _o = [Ordem]
+                VAR _disp = [__Disp]
+                VAR _pi =
+                    SWITCH(
+                        [Indicador],
+                        "1 AGENDA", _ptAgenda,
+                        "TMR", _ptTMR,
+                        "CHEGADA NO SLOT", _ptSlot,
+                        "INSTALAÇÃO 3D", _ptInstalacao,
+                        "PRODUTIVIDADE PU", _ptProdutividade,
+                        "ROTEIRIZAÇÃO AUTOMÁTICA", _ptRoteirizacao,
+                        "IRT", _ptIRT,
+                        "EFICIÊNCIA DE CAMPO", _ptEficiencia,
+                        "IFI 7 DIAS", _ptIFI7,
+                        "IRR 7 DIAS", _ptIRR7
+                    )
+                VAR _ai = DIVIDE( _pi, _disp )
+                VAR _si =
+                    SWITCH(
+                        TRUE(),
+                        ISBLANK( _ai ), "s0",
+                        _ai >= 1, "s1",
+                        _ai >= 0.90, "s2",
+                        _ai >= 0.80, "s3",
+                        "s4"
+                    )
+                RETURN
+                    "<i class='c k" & _o & " " & _si & IF( _o = _primeiraQua, " g2", "" ) & "'><b><em>" & _areaDaLinha & " · " & [NomeTela] & "</em>" &
+                        IF(
+                            ISBLANK( _ai ),
+                            "sem dados",
+                            FORMAT( _ai, "0%", _loc ) & " · " & FORMAT( _pi, "0.0", _loc ) & " de " & FORMAT( _disp, "0", _loc ) & " pts"
+                        ) &
+                    "</b></i>",
+                "",
+                [Ordem], ASC
+            )
+        RETURN
+            "<div class='at fx-" & _fx & IF( _selecionada, " sel", "" ) & IF( _pos <= 3, " top", "" ) & "' style='--c:" & _hex & "'>" &
+                "<span class='at-rk'>" & FORMAT( _pos, "0", _loc ) & "</span>" &
+                "<div class='at-id'><b>" & _areaDaLinha & "</b><small>" & _corArea & "</small></div>" &
+                "<div class='strip'>" & _celulas & "</div>" &
+                "<div class='at-p'><b>" & FORMAT( _pontosArea, "0.00", _loc ) & "</b>" &
+                    "<small class='" & _stArea & "'><i></i>" & FORMAT( _atingArea, "0.0%", _loc ) & "</small>" &
+                    "<u style='width:" & FORMAT( DIVIDE( _pontosArea, _maxPtsArea ) * 100, "0.0", "en-US" ) & "%'></u></div>" &
+            "</div>",
+        "",
+        [__Pontos], DESC,
+        dAT[AREA ], ASC
+    )
+
+VAR _cabecalhoRanking =
+    "<div class='at-h'><span>#</span><span>AT</span>" &
+        "<span class='strip-h'>" &
+            IF( _qtdCelNeg > 0, "<em class='neg' style='--n:" & _qtdCelNeg & "'>Negócio</em>", "" ) &
+            IF( _qtdCelQua > 0, "<em class='qua' style='--n:" & _qtdCelQua & "'>" & IF( _qtdCelQua <= 3, "Qual.", "Qualidade" ) & "</em>", "" ) &
+        "</span>" &
+        "<span>Pontos</span></div>"
+
+VAR _conteudoAreas =
+    IF(
+        _qtdAreasListadas = 0,
+        "<div class='empty'><b>Nenhuma AT com pontuação</b>Ajuste os filtros de período, faixa ou AT.</div>",
+        _cabecalhoRanking & _linhasAreas
+    )
+
+// ============================================================================
+// CSS
+// - 100vh de proposito: o HTML Content envolve o conteudo em um wrapper sem
+//   altura definida; height:100% colapsa e o scroll nunca ativa.
+// - O sanitizador do HTML Content aceita @media e @keyframes (nao aceita
+//   @container, @import nem @font-face) - por isso so @media aqui.
+// - Nao usar aspas duplas dentro do CSS (quebram a string DAX).
+// ============================================================================
+
+// Ligacao celula <-> linha da tabela: mouse sobre ".kN" acende todo ".kN"
+VAR _cssLigacao =
+    CONCATENATEX(
+        _indicadores,
+        ".bsc:has(.k" & [Ordem] & ":hover) .k" & [Ordem] & "{--hl:1}",
+        "",
+        [Ordem], ASC
+    )
+
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.bsc,.bsc *{box-sizing:border-box}
+.bsc{--ink:#101828;--ink2:#475467;--mut:#8A94A6;--ln:#E4E8EF;--ln2:#EEF1F5;--sf:#FFFFFF;--sf2:#F7F9FC;--pri:" & _corPrimaria & ";--pri-s:#EEECFD;--azul:" & _corAzul & ";
+--sh:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.05);--sh2:0 2px 4px rgba(16,24,40,.06),0 12px 28px rgba(16,24,40,.12);
+--cw:13px;--cg:2px;--gx:6px;--sw:calc(var(--nn) * (var(--cw) + var(--cg)) - var(--cg) + var(--gx));--atc:24px minmax(0,1fr) var(--sw) 70px;
+width:100%;height:100vh;overflow:hidden;padding:8px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;
+font-family:'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* ---------- STATUS: --sc = cor, --sb = tom claro da mesma cor ---------- */
+.s1{--sc:" & _stBom & ";--sb:#E2F4E9}.s2{--sc:" & _stAtencao & ";--sb:#FAF0D2}.s3{--sc:" & _stRisco & ";--sb:#FCE6DC}.s4{--sc:" & _stCritico & ";--sb:#F7E0E4}.s0{--sc:#C3CBD6;--sb:#EEF1F5}
+.st{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px 0 7px;border-radius:7px;background:var(--sb);color:var(--ink);font-size:11px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.st i{font-style:normal;font-size:8.5px;color:var(--sc)}
+.st.s0{color:var(--mut);font-weight:600}
+.mt{position:relative;height:6px;border-radius:99px;background:var(--sb,#EEF1F5)}
+.mt u{display:block;height:100%;max-width:100%;border-radius:99px;background:var(--sc);transform-origin:left;animation:grow .7s cubic-bezier(.2,.7,.2,1) both}
+.mt:after{content:'';position:absolute;left:" & _posMeta & "%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:2px;background:var(--ink);opacity:.4}
+.mt.nd{background:repeating-linear-gradient(135deg,#E2E7EE 0 2px,transparent 2px 5px)}
+.mt.nd:after{display:none}
+.led{flex:none;width:7px;height:7px;border-radius:50%;background:var(--sc);animation:led 1.1s steps(1) infinite}
+@keyframes led{50%{background:#FFFFFF;box-shadow:0 0 0 2px var(--sc),0 0 8px var(--sc)}}
+@keyframes grow{from{transform:scaleX(0)}}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:minmax(0,1.45fr) repeat(4,minmax(0,1fr));gap:10px}
+.tile{position:relative;min-width:0;display:flex;flex-direction:column;gap:9px;padding:12px 14px 13px;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh);transition:box-shadow .18s ease,transform .18s ease,opacity .18s ease}
+.tile:hover{transform:translateY(-1px);box-shadow:0 0 0 2px var(--c),var(--sh2)}
+.tile.on{border-color:transparent;box-shadow:0 0 0 2px var(--c),var(--sh)}
+.hero{background:linear-gradient(135deg,#FFFFFF 30%,#F1EFFF)}
+.t-top{display:flex;align-items:center;gap:7px;min-width:0;height:22px;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink2);white-space:nowrap}
+.dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.t-n{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-weight:600;letter-spacing:.01em}
+.t-n:before{content:'·';margin-right:6px}
+.t-rk{flex:none;margin-left:auto;min-width:28px;height:22px;padding:0 7px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;background:var(--sf2);border:1px solid var(--ln);color:var(--ink2);font-size:11px;font-weight:700;letter-spacing:0}
+.lead .t-rk{background:var(--pri);border-color:var(--pri);color:#fff}
+.t-mid{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;min-width:0}
+.t-val{display:flex;align-items:baseline;gap:6px;min-width:0;font-size:28px;font-weight:650;line-height:1;letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+.t-val small{font-size:11px;font-weight:600;letter-spacing:0;color:var(--mut)}
+.hero .t-val{font-size:44px;letter-spacing:-.035em}
+.t-foot{font-size:11px;font-weight:500;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-foot b{color:var(--ink);font-weight:700}
+.dl{font-weight:700;font-variant-numeric:tabular-nums}.dl i{margin-right:3px;font-style:normal;font-size:8px}
+.dl.up{color:#0E7F40}.dl.down{color:" & _stCritico & "}
+
+/* ---------- PAINEIS ---------- */
+.main{min-height:0;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(330px,1fr);gap:10px}
+.pn{min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh)}
+.ph{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:4px;padding:12px 16px 11px;border-bottom:1px solid var(--ln)}
+.ph h2{margin:0;display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink);white-space:nowrap}
+.ctx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;height:20px;line-height:20px;padding:0 8px;border-radius:6px;background:var(--pri-s);color:#4B40C0;font-size:10.5px;font-weight:700;letter-spacing:.02em}
+.ph p{grid-column:1/-1;margin:0;font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins b{color:var(--ink);font-weight:700}
+.ins:before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:" & _stRisco & ";vertical-align:0}
+.ins.ok:before{background:" & _stBom & "}
+.lgd{flex:none;display:flex;align-items:center;gap:11px}
+.lg{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.lg em{font-style:normal}
+.lg i{width:9px;height:9px;border-radius:2px;background:var(--sc)}
+.lg i.s0{background:repeating-linear-gradient(135deg,#B9C3D0 0 1.5px,#EEF1F5 1.5px 3px)}
+.lg b{color:var(--ink);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.lg.z{opacity:.4}
+
+/* ---------- TABELA ---------- */
+.tw{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C9CFDA transparent}
+table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px}
+th,td{padding:0 10px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;z-index:4;height:32px;background:var(--sf2);color:var(--mut);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--ln)}
+th:first-child,td:first-child{text-align:left;padding-left:16px}
+th:last-child,td:last-child{padding-right:16px}
+th:nth-child(1){width:28%}th:nth-child(2){width:12.5%}th:nth-child(3){width:12.5%}th:nth-child(4){width:23%}th:nth-child(5){width:11.5%}th:nth-child(6){width:12.5%}
+td{height:42px;color:var(--ink2);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--ln2);transition:background-color .15s ease}
+td.rl{color:var(--ink);font-weight:650}
+td small{margin-left:1px;color:var(--mut);font-size:10.5px}
+tr.ir td{background-image:linear-gradient(rgba(102,91,220,calc(var(--hl,0) * .10)),rgba(102,91,220,calc(var(--hl,0) * .10)))}
+tr.ir:hover td{background-color:var(--sf2)}
+.in{font-size:12.5px;font-weight:600;line-height:1.2;color:var(--ink);white-space:normal}
+.tags{display:flex;gap:4px;margin-top:3px}
+.tag{padding:1px 6px;border-radius:5px;background:var(--sf2);border:1px solid var(--ln);color:var(--mut);font-size:9px;font-weight:600;line-height:1.35;white-space:nowrap}
+.ac{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.ac .mt{flex:1 1 auto;max-width:96px}
+.ac .st{min-width:70px;justify-content:center}
+.gap{font-weight:650;color:var(--ink)}
+.gap.top{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:7px;background:#FCE6DC;font-weight:700}
+.gap.top:before{content:'';width:6px;height:6px;border-radius:50%;background:" & _stRisco & "}
+.ok{color:#0E7F40;font-weight:650}
+.mu{color:#B4BCC8}
+tr.nd td{color:#9AA3B2}tr.nd .in{color:#7C8597}
+tr.al td{background-color:#FDF6F7}
+tr.al td:first-child{box-shadow:inset 3px 0 0 " & _stCritico & "}
+tr.gh td{position:sticky;top:32px;z-index:3;height:30px;padding:0 16px;background:#FBFCFD;border-bottom:1px solid var(--ln)}
+.gh-in{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gh-n{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--ink)}
+.gh-n i{width:8px;height:8px;border-radius:2px;background:var(--pri)}
+.qua .gh-n i{background:var(--azul)}
+.gh-n small{font-size:10.5px;font-weight:500;letter-spacing:0;color:var(--mut)}
+.gh-p{font-size:11px;color:var(--mut)}.gh-p b{color:var(--ink);font-weight:700}
+
+/* ---------- RANKING DE ATS ---------- */
+.lst{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 6px 8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#C9CFDA transparent}
+.at-h{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:var(--atc);gap:10px;align-items:end;height:30px;padding:0 10px 6px;background:var(--sf);border-bottom:1px solid var(--ln);font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.at-h span:last-child{text-align:right}
+.strip-h{display:flex;gap:var(--gx)}
+.strip-h em{width:calc(var(--n) * (var(--cw) + var(--cg)) - var(--cg));padding-top:3px;border-top:2px solid var(--pri);font-style:normal;white-space:nowrap}
+.strip-h em.qua{border-color:var(--azul)}
+.at{position:relative;display:grid;grid-template-columns:var(--atc);gap:10px;align-items:center;height:46px;margin-top:2px;padding:0 10px;border-radius:10px;transition:background .15s ease,opacity .2s ease}
+.at:hover{background:var(--sf2)}
+.at-rk{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid var(--c);color:var(--ink);font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.at.top .at-rk{background:var(--c);color:#fff}
+.at.top.fx-p2 .at-rk{color:var(--ink)}
+.at-id{min-width:0}
+.at-id b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700;line-height:1.15;color:var(--ink)}
+.at-id small{display:block;margin-top:1px;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--mut)}
+.strip{display:flex;align-items:center;gap:var(--cg)}
+.c{flex:none;width:var(--cw);height:20px;border-radius:3px;background:var(--sc);outline:calc(var(--hl,0) * 1.5px) solid var(--ink);outline-offset:1px;transition:opacity .15s ease}
+.c.s0{background:repeating-linear-gradient(135deg,#DDE3EB 0 2px,#F3F5F8 2px 4px)}
+.c.g2{margin-left:var(--gx)}
+.c:hover{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--ink)}
+.c b{display:none;position:absolute;z-index:5;left:4px;top:4px;bottom:4px;right:calc(var(--sw) + 90px);flex-direction:column;justify-content:center;padding:0 10px;border-radius:8px;background:#101828;color:#fff;font-size:11.5px;font-weight:650;line-height:1.3;white-space:nowrap;box-shadow:0 8px 20px rgba(16,24,40,.28)}
+.c b em{overflow:hidden;text-overflow:ellipsis;font-style:normal;font-size:10px;font-weight:500;color:#C5CDDA}
+.c:hover b{display:flex}
+.at-p{position:relative;padding-bottom:5px;text-align:right}
+.at-p b{display:block;font-size:13px;font-weight:700;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums}
+.at-p small{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--mut);font-variant-numeric:tabular-nums}
+.at-p small i{width:6px;height:6px;border-radius:50%;background:var(--sc)}
+.at-p u{position:absolute;left:0;bottom:0;height:2px;border-radius:2px;background:var(--c);transform-origin:left;animation:grow .7s cubic-bezier(.2,.7,.2,1) both}
+.at.sel{position:sticky;top:30px;bottom:0;z-index:2;background:#F1EFFF;box-shadow:inset 0 0 0 1.5px #8B7FF0}
+.lst.focus .at:not(.sel){opacity:.5}
+.lst.focus .at:hover{opacity:1}
+.empty{padding:32px 16px;text-align:center;color:var(--mut);font-size:11px}
+.empty b{display:block;margin-bottom:4px;color:var(--ink);font-size:13px}
+
+/* ---------- INTERACAO (somente CSS) ---------- */
+/* faixa -> ATs da faixa */
+.bsc.all:has(.tile.fx-ouro:hover) .at:not(.fx-ouro),.bsc.all:has(.tile.fx-p1:hover) .at:not(.fx-p1),.bsc.all:has(.tile.fx-p2:hover) .at:not(.fx-p2),.bsc.all:has(.tile.fx-bronze:hover) .at:not(.fx-bronze){opacity:.2}
+/* AT -> faixa da AT */
+.bsc:has(.at.fx-ouro:hover) .tile.fx-ouro,.bsc:has(.at.fx-p1:hover) .tile.fx-p1,.bsc:has(.at.fx-p2:hover) .tile.fx-p2,.bsc:has(.at.fx-bronze:hover) .tile.fx-bronze{transform:translateY(-1px);box-shadow:0 0 0 2px var(--c),var(--sh2)}
+/* celula <-> linha da tabela */
+.bsc:has(.c:hover) .c,.bsc:has(tr.ir:hover) .c{opacity:max(.18,var(--hl,0))}
+" & _cssLigacao & "
+
+/* ---------- SCROLLBARS ---------- */
+.tw::-webkit-scrollbar,.lst::-webkit-scrollbar{width:8px}
+.tw::-webkit-scrollbar-track,.lst::-webkit-scrollbar-track{background:transparent}
+.tw::-webkit-scrollbar-thumb,.lst::-webkit-scrollbar-thumb{background:#D3D9E2;border-radius:99px;border:2px solid var(--sf)}
+
+/* ---------- RESPONSIVO / ACESSIBILIDADE ---------- */
+@media (max-width:1180px){.hero .t-val{font-size:38px}.t-val{font-size:24px}}
+@media (max-width:1040px){.t-n{display:none}.bsc{--cw:10px}.lg em{display:none}.lgd{gap:8px}.ac .mt{max-width:56px}.t-mid{flex-wrap:wrap;row-gap:6px}.t-val small{display:none}th,td{padding:0 8px}}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1.3fr) minmax(240px,1fr)}.bsc{--sw:0px}.strip,.strip-h,.hint,.lgd,.ac .mt,.t-foot{display:none}.kpis{grid-template-columns:minmax(0,1.2fr) repeat(4,minmax(0,1fr))}.hero .t-val{font-size:30px}
+th:nth-child(5),td:nth-child(5){display:none}th:nth-child(1){width:31%}th:nth-child(2){width:15%}th:nth-child(3){width:15%}th:nth-child(4){width:23%}th:nth-child(6){width:16%}}
+@media (prefers-reduced-motion:reduce){.bsc *{animation:none!important;transition:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _subtituloIndicadores =
+    IF(
+        _qtdComDados = 0,
+        "Nenhum indicador com resultado no contexto atual",
+        FORMAT( _qtdComDados, "0", _loc ) & " de " & FORMAT( _qtdIndicadores, "0", _loc ) & " com resultado · " & _insight
+    )
+
+VAR _html =
+"<div class='bsc" & IF( _corSelecionada = "GERAL", " all", "" ) & "' style='--nn:" & COUNTROWS( _indRanking ) & "'>" &
+    "<section class='kpis'>" & _cardGeral & _cardsFaixas & "</section>" &
+    "<section class='main'>" &
+        "<article class='pn'>" &
+            "<div class='ph'>" &
+                "<h2>Indicadores<span class='ctx'>" & _contexto & "</span></h2>" &
+                "<div class='lgd'>" & _legenda & "</div>" &
+                "<p>" & _subtituloIndicadores & "</p>" &
+            "</div>" &
+            "<div class='tw'><table>" &
+                "<thead><tr><th>Indicador</th><th>Meta</th><th>Real</th><th>Atingimento</th><th>Pontos</th>" &
+                    "<th title='Pontos que faltam para chegar a 100% da meta'>Falta</th></tr></thead>" &
+                "<tbody>" & _corpoTabela & "</tbody>" &
+            "</table></div>" &
+        "</article>" &
+        "<aside class='pn'>" &
+            "<div class='ph'>" &
+                "<h2>Ranking de ATs<span class='ctx'>" & _corSelecionada & "</span></h2>" &
+                "<p>" & FORMAT( _qtdAreasListadas, "0", _loc ) & IF( _qtdAreasListadas = 1, " AT", " ATs" ) &
+                    " com pontuação<span class='hint'> · passe o mouse nas células para detalhar</span></p>" &
+            "</div>" &
+            "<div class='lst" & IF( _temAreaSelecionada, " focus", "" ) & "'>" & _conteudoAreas & "</div>" &
+        "</aside>" &
+    "</section>" &
+"</div>"
+
+RETURN
+    _css & _html
