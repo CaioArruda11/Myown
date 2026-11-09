@@ -1,0 +1,248 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>BSC v4 · prévia</title><style>html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}.pg{position:relative;width:1280px;height:720px;margin:0 auto;background:linear-gradient(180deg,#EEF3FA,#E3EBF6);overflow:hidden}iframe{position:absolute;border:0;background:transparent;color-scheme:normal}.sl{position:absolute;box-sizing:border-box;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.72);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:12px;color:#1F2937}.sl b{display:block;font-weight:500;margin-bottom:14px}.sl.big b{font-size:14px}.sl .bt{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:0 20px}.sl .bt span{height:56px;display:flex;align-items:center;justify-content:center;background:#F3F7FC;border:1px solid #E3EAF3;font-size:11px;color:#475467}.sl .bt span.sel{background:#665BDC;border-color:#665BDC;color:#fff}.sl .dd{height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:11px;color:#344054}.sl .dd:after{content:"⌄";font-size:13px;margin-top:-5px;color:#667085}.nativo{position:absolute;font:600 9px "Segoe UI",Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#98A2B3}</style></head><body><div class="pg"><iframe title="Menu lateral" style="left:20px;top:6px;width:238px;height:700px" srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><style>body{font-family:&quot;Segoe UI&quot;,wf_segoe-ui_normal,helvetica,arial,sans-serif;font-size:12pt;color:#000}</style></head><body><div id=&quot;sandbox-host&quot;><div id=&quot;htmlViewer&quot;><div id=&quot;htmlContent&quot; class=&quot;htmlViewerEntry&quot;><style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.mn,.mn *{box-sizing:border-box}
+.mn i{font-style:normal}
+.mn{--cor:#78CAFF;width:100%;height:100vh;font-family:'Segoe UI',Arial,sans-serif;text-align:left;-webkit-font-smoothing:antialiased}
+
+/* ---------- CAIXA (GEOMETRIA: padding 18px 14px) ---------- */
+.sb{position:relative;width:100%;height:100%;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden;color:#FFFFFF;border-radius:22px;background:linear-gradient(180deg,#5659A8 0%,#4A4C96 52%,#343572 100%);box-shadow:0 16px 32px rgba(43,52,113,.28)}
+.sb::before{content:'';position:absolute;top:-60px;right:-60px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(120,202,255,.32),transparent 70%);pointer-events:none}
+.sb::after{content:'';position:absolute;left:-70px;bottom:-70px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(185,166,255,.16),transparent 70%);pointer-events:none}
+
+/* ---------- MARCA (GEOMETRIA: a altura deste bloco define onde os itens comecam) ---------- */
+.brand{position:relative;padding:6px 6px 18px;border-bottom:1px solid rgba(255,255,255,.16)}
+.brand b{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.brand b span{background:linear-gradient(92deg,#78CAFF,#B9A6FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.brand small{display:block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:.16em;opacity:.7}
+
+/* ---------- ITENS (GEOMETRIA: margem 20px, altura 36px, intervalo 7px) ---------- */
+.nav{position:relative;z-index:1;display:grid;gap:7px;margin-top:20px}
+.it{position:relative;width:100%;height:36px;padding:1px;overflow:hidden;isolation:isolate;border-radius:11px;color:rgba(255,255,255,.78)}
+.it-c{position:relative;z-index:2;width:100%;height:100%;padding:0 11px;display:flex;align-items:center;gap:10px;overflow:hidden;border-radius:10px}
+.ic{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.82}
+.lb{flex:1 1 auto;min-width:0;font-size:12.5px;font-weight:600;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- PAGINA ATUAL (a unica parte que se move) ---------- */
+.it.on{color:#FFFFFF;box-shadow:0 7px 17px rgba(53,45,166,.34),0 0 12px rgba(120,202,255,.13)}
+.it.on::before{content:'';position:absolute;z-index:-3;top:-160%;right:-160%;bottom:-160%;left:-160%;background:conic-gradient(from 0deg,transparent 0 70%,#78CAFF 78%,#B9A6FF 86%,#FFFFFF 91%,transparent 98%);animation:beam 3.4s linear infinite}
+.it.on::after{content:'';position:absolute;z-index:-2;top:1px;right:1px;bottom:1px;left:1px;border-radius:10px;background:linear-gradient(135deg,#75B8ED 0%,#7869E4 100%)}
+.it.on .ic{opacity:1}
+.it.on .lb{font-weight:700}
+.sheen{position:absolute;z-index:-1;top:0;bottom:0;left:-48%;width:42%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.26),transparent);animation:sheen 4.2s ease-in-out infinite}
+.dot{flex:none;width:6px;height:6px;border-radius:50%;background:#D9F5FF;box-shadow:0 0 5px rgba(255,255,255,.9),0 0 11px rgba(120,202,255,.9);animation:pulse 2s ease-in-out infinite}
+
+/* ---------- AVISO ---------- */
+.note{position:relative;z-index:1;margin-top:auto;padding:11px 12px 12px;border-radius:14px;background:rgba(24,26,78,.34);border:1px solid rgba(255,255,255,.13)}
+.note-h{display:flex;align-items:center;gap:7px;color:#BFE9FF;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.note-h .ic{width:13px;height:13px;stroke-width:2.2;opacity:1}
+.note p{margin:7px 0 0;color:rgba(255,255,255,.86);font-size:9.5px;font-weight:500;line-height:1.42}
+
+/* ---------- VISAO ATUAL ---------- */
+.ctx{position:relative;z-index:1;margin-top:10px;padding:11px 12px 10px 15px;overflow:hidden;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.17)}
+.ctx::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--cor);box-shadow:0 0 8px var(--cor)}
+.ctx-h{display:block;margin-bottom:7px;font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62)}
+.kv{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-height:20px}
+.kv small{flex:none;font-size:9.5px;font-weight:600;color:rgba(255,255,255,.66)}
+.kv b{min-width:0;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv .sw{flex:none;width:8px;height:8px;border-radius:50%;background:var(--cor);box-shadow:0 0 8px var(--cor)}
+.kv .all{font-weight:500;color:rgba(255,255,255,.72)}
+
+@keyframes beam{to{transform:rotate(360deg)}}
+@keyframes sheen{0%{left:-48%;opacity:0}18%{opacity:.5}62%{left:115%;opacity:.28}100%{left:115%;opacity:0}}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.75}}
+@media (max-height:520px){.note{display:none}}
+@media (prefers-reduced-motion:reduce){.mn *,.mn *::before,.mn *::after{animation:none!important}}
+</style><div class='mn'><aside class='sb'><div class='brand'><b>Indicadores<span>ARF</span></b><small>BSC OPERACIONAL</small></div><div class='nav'><div class='it on'><div class='it-c'><span class='sheen'></span><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><rect x='3' y='3' width='7' height='9' rx='1.5'></rect><rect x='14' y='3' width='7' height='5' rx='1.5'></rect><rect x='14' y='12' width='7' height='9' rx='1.5'></rect><rect x='3' y='16' width='7' height='5' rx='1.5'></rect></svg><span class='lb'>BSC</span><i class='dot'></i></div></div><div class='it'><div class='it-c'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><path d='M3 12h4l3-8 4 16 3-8h4'></path></svg><span class='lb'>IFI</span></div></div><div class='it'><div class='it-c'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><path d='M17 2l4 4-4 4'></path><path d='M3 11V9a3 3 0 0 1 3-3h15'></path><path d='M7 22l-4-4 4-4'></path><path d='M21 13v2a3 3 0 0 1-3 3H3'></path></svg><span class='lb'>IRR</span></div></div><div class='it'><div class='it-c'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><path d='M3 10.5 12 3l9 7.5'></path><path d='M5 9.5V20h14V9.5'></path><path d='M10 20v-6h4v6'></path></svg><span class='lb'>TDNA Instalação</span></div></div><div class='it'><div class='it-c'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><path d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'></path></svg><span class='lb'>TDNA Reparos</span></div></div><div class='it'><div class='it-c'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><rect x='9' y='2' width='6' height='5' rx='1'></rect><rect x='2' y='17' width='6' height='5' rx='1'></rect><rect x='16' y='17' width='6' height='5' rx='1'></rect><path d='M12 7v5M5 17v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3'></path></svg><span class='lb'>Abertura Hierarquia</span></div></div></div><div class='note'><div class='note-h'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='12' r='9'></circle><path d='M12 11v6M12 7.5v.5'></path></svg><span>Aviso sobre filtros</span></div><p>Os indicadores IRT, Indisponibilidade Móvel e Indisponibilidade FTTH não respeitarão os filtros por enquanto, pois não dispõem de analítico disponível no ELOS.</p></div><div class='ctx'><span class='ctx-h'>Visão atual</span><div class='kv'><small>Cluster</small><b>PERUS / BUTANTÃ</b></div><div class='kv'><small>Cor</small><b><i class='sw'></i>GERAL</b></div><div class='kv'><small>AT</small><b class='all'>Todas</b></div></div></aside></div></div></div></div></body></html>"></iframe><div class="sl big" style="left:275px;top:6px;width:400px;height:114px"><b>Selecione a cor</b><div class="bt"><span class="">BRONZE</span><span class="">OURO</span><span class="">PRATA 1</span><span class="">PRATA 2</span></div></div><div class="sl" style="left:686px;top:6px;width:118px;height:114px"><b>Selecione a AT</b><div class="dd">Todos</div></div><div class="sl" style="left:813px;top:6px;width:132px;height:114px"><b>Selecione o Mês</b><div class="dd">Outubro/2026</div></div><div class="sl" style="left:954px;top:6px;width:308px;height:114px;padding:0;background:rgba(255,255,255,.72)"></div><iframe title="Status das bases" style="left:954px;top:6px;width:308px;height:114px" srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><style>body{font-family:&quot;Segoe UI&quot;,wf_segoe-ui_normal,helvetica,arial,sans-serif;font-size:12pt;color:#000}</style></head><body><div id=&quot;sandbox-host&quot;><div id=&quot;htmlViewer&quot;><div id=&quot;htmlContent&quot; class=&quot;htmlViewerEntry&quot;><style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.st,.st *{box-sizing:border-box}
+.st i{font-style:normal}
+.st{--ink:#101828;--ink2:#475467;--mut:#667085;--ln:#E4E8EF;
+--ok:#12A150;--ok-t:#0B6B3A;--ok-b:#E6F6EC;--late:#C5283D;--late-t:#A01D2E;--late-b:#FBE8EB;--nd:#98A2B3;--nd-b:#F0F2F6;
+width:100%;height:100vh;padding:5px 6px 6px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;overflow:hidden;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;text-align:left;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- CABECALHO: titulo + resumo ---------- */
+.h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;height:16px;padding:0 3px 0 4px}
+.t{min-width:0;font-size:8.5px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s{flex:none;display:inline-flex;align-items:center;gap:5px;height:16px;padding:0 7px;border-radius:99px;font-size:9.5px;font-weight:700;white-space:nowrap}
+.s::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.s.ok{color:var(--ok-t);background:var(--ok-b)}
+.s.late{color:#FFFFFF;background:var(--late)}
+.s.nd{color:var(--ink2);background:var(--nd-b)}
+
+/* ---------- LISTA: 2 colunas x 4 linhas (preenche coluna a coluna) ---------- */
+.g{min-height:0;display:grid;grid-auto-flow:column;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:3px 5px}
+.b{position:relative;min-width:0;min-height:0;display:flex;align-items:center;gap:4px;padding:0 3px 0 9px;border-radius:7px;background:#FFFFFF;border:1px solid var(--ln);overflow:hidden}
+.b::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ok)}
+.n{flex:1 1 auto;min-width:0;font-size:10px;font-weight:600;line-height:1;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt{flex:none;font-size:10px;font-weight:500;line-height:1;color:var(--ink2);white-space:nowrap}
+.p{flex:none;min-width:29px;height:15px;padding:0 3px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;font-size:9.5px;font-weight:700;line-height:1;color:var(--ok-t);background:var(--ok-b);white-space:nowrap}
+/* atrasada: filete vermelho + selo cheio (nao depende so da cor) */
+.b.late::before{background:var(--late)}
+.b.late .p{color:#FFFFFF;background:var(--late)}
+/* sem data */
+.b.nd::before{background:var(--nd)}
+.b.nd .n{color:var(--ink2)}
+.b.nd .p{color:var(--ink2);background:var(--nd-b);font-weight:650}
+
+/* ---------- OUTROS TAMANHOS DE VISUAL ---------- */
+/* largo: 4 x 2 blocos (nome em cima; data e D-n embaixo) */
+@media (min-width:430px){
+.g{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px}
+.b{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;column-gap:5px;row-gap:4px;padding:0 6px 0 11px;border-radius:9px}
+.n{grid-column:1 / 3}
+.b.nd .p{justify-self:start}
+}
+/* estreito: 1 coluna */
+@media (max-width:229px){.g{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(8,minmax(0,1fr));gap:2px}.t{display:none}.h{justify-content:flex-end}}
+/* muito baixo: sem cabecalho */
+@media (max-height:89px){.st{grid-template-rows:minmax(0,1fr)}.h{display:none}}
+</style><div class='st'><div class='h'><span class='t'>Atualização das bases</span><span class='s late' title='0 de 8 bases em dia · 8 atrasadas. Hoje: 09/11/2026. Em dia = base ate D-1.'>8 atrasadas</span></div><div class='g'><div class='b late' title='IFI: base até 30/09/2026 (D-40) · atrasada, o aceito é até D-1'><span class='n'>IFI</span><span class='dt'>30/09</span><b class='p'>D-40</b></div><div class='b late' title='IRR 7D: base até 22/10/2026 (D-18) · atrasada, o aceito é até D-1'><span class='n'>IRR 7D</span><span class='dt'>22/10</span><b class='p'>D-18</b></div><div class='b late' title='TMR: base até 29/10/2026 (D-11) · atrasada, o aceito é até D-1'><span class='n'>TMR</span><span class='dt'>29/10</span><b class='p'>D-11</b></div><div class='b late' title='Eficiência: base até 28/10/2026 (D-12) · atrasada, o aceito é até D-1'><span class='n'>Eficiência</span><span class='dt'>28/10</span><b class='p'>D-12</b></div><div class='b late' title='Efetividade: base até 29/10/2026 (D-11) · atrasada, o aceito é até D-1'><span class='n'>Efetividade</span><span class='dt'>29/10</span><b class='p'>D-11</b></div><div class='b late' title='Insta 3D: base até 27/10/2026 (D-13) · atrasada, o aceito é até D-1'><span class='n'>Insta 3D</span><span class='dt'>27/10</span><b class='p'>D-13</b></div><div class='b late' title='Chegada: base até 22/10/2026 (D-18) · atrasada, o aceito é até D-1'><span class='n'>Chegada</span><span class='dt'>22/10</span><b class='p'>D-18</b></div><div class='b late' title='Roteirização: base até 03/11/2026 (D-6) · atrasada, o aceito é até D-1'><span class='n'>Roteirização</span><span class='dt'>03/11</span><b class='p'>D-6</b></div></div></div></div></div></div></body></html>"></iframe><iframe title="Corpo BSC" style="left:275px;top:130px;width:987px;height:576px" srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><style>body{font-family:&quot;Segoe UI&quot;,wf_segoe-ui_normal,helvetica,arial,sans-serif;font-size:12pt;color:#000}</style></head><body><div id=&quot;sandbox-host&quot;><div id=&quot;htmlViewer&quot;><div id=&quot;htmlContent&quot; class=&quot;htmlViewerEntry&quot;><style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.bsc,.bsc *{box-sizing:border-box}
+.bsc i,.bsc u{font-style:normal;text-decoration:none}
+.v{display:contents}
+.bsc{--pri:#665BDC;--azul:#65AFEA;--c:var(--pri);--ink:#101828;--ink2:#475467;--mut:#667085;--ln:#E4E8EF;--ln2:#EEF1F5;--sf:#FFFFFF;--sf2:#F8FAFC;
+--sh:0 1px 2px rgba(16,24,40,.04),0 2px 10px rgba(16,24,40,.04);--ease:cubic-bezier(.2,.8,.2,1);
+--cols:minmax(0,1fr) 78px 78px 70px 150px;
+width:100%;height:100vh;overflow:hidden;padding:8px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:12px;line-height:1.2;text-align:left;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- IDENTIDADE DAS FAIXAS ---------- */
+.c-geral{--c:#665BDC}.c-ouro{--c:#C79A1C}.c-bronze{--c:#A5623A}.c-prata1{--c:#6D82A2}.c-prata2{--c:#A3AFC1}
+
+/* ---------- ESCALA DE STATUS (uma so para cards, tabela e ranking) ---------- */
+.pill{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:60px;height:19px;padding:0 7px;border-radius:6px;font-size:10.5px;font-weight:650;white-space:nowrap}
+.pill.green{color:#0B6B3A;background:#E6F6EC}.pill.yellow{color:#6F5500;background:#FBF2D2}.pill.orange{color:#8F3D0D;background:#FDEBE1}.pill.red{color:#A01D2E;background:#FBE8EB}.pill.neutral{color:var(--mut);background:#F0F2F6;font-weight:600}
+.f-green{background:#12A150}.f-yellow{background:#DDA80F}.f-orange{background:#E8622C}.f-red{background:#C5283D}.f-neutral{background:#C3CBD6}
+
+/* ---------- CARDS DE FAIXA ---------- */
+.cards{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(4,minmax(0,1fr));gap:10px}
+.card{position:relative;min-width:0;padding:10px 13px 9px;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh);transition:opacity .2s ease,box-shadow .2s ease}
+.card.active{border-color:var(--c);box-shadow:0 0 0 1px var(--c),0 4px 14px rgba(16,24,40,.07)}
+.cards.focus .card:not(.active):not(.hero){opacity:.6}
+.cards.focus .card:hover{opacity:1}
+.card-top{display:flex;align-items:center;gap:6px;min-width:0;height:18px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--ink2);white-space:nowrap}
+.sw{flex:none;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.card-sub{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-weight:500;letter-spacing:.01em}
+.card-sub::before{content:'·';margin-right:6px}
+.rank{flex:none;margin-left:auto;min-width:24px;height:18px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:#F2F4F7;color:var(--ink2);font-size:10.5px;font-weight:650;letter-spacing:0}
+.card-main{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}
+.score{display:inline-flex;align-items:baseline;gap:5px;font-size:26px;font-weight:650;line-height:1;letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+.score small{font-size:10px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.track{position:relative;height:5px;margin-top:9px;border-radius:99px;background:var(--ln2)}
+.track u,.bul u,.at-bar u{display:block;width:var(--w,0%);max-width:100%;height:100%;border-radius:99px;transform-origin:0 50%;animation:grow .7s var(--ease) both}
+.track u{background:var(--c)}
+.track::after,.bul::after{content:'';position:absolute;left:76.9%;top:-3px;bottom:-3px;width:1.5px;margin-left:-.75px;border-radius:2px;background:var(--ink);opacity:.32}
+.card-foot{display:flex;align-items:center;gap:4px;min-width:0;height:18px;margin-top:8px;font-size:10.5px;color:var(--mut);white-space:nowrap}
+.card-foot b{color:var(--ink2);font-weight:650}
+.card-foot .vs{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.card-foot .pill{margin-left:auto;height:18px}
+.delta{font-weight:650}.delta.up{color:#0B6B3A}.delta.down{color:#A01D2E}
+
+/* card Geral: destaque com anel de atingimento (anel fechado = meta) */
+.hero{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hero-txt{min-width:0}
+.hero .score{font-size:31px}
+.hero .score small{font-size:11px;letter-spacing:0;text-transform:none}
+.gauge{position:relative;flex:none;width:64px;height:64px;--g:var(--c)}
+.gauge.green{--g:#12A150}.gauge.yellow{--g:#DDA80F}.gauge.orange{--g:#E8622C}.gauge.red{--g:#C5283D}.gauge.neutral{--g:#C3CBD6}
+.ring{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:3.6}
+.ring-t{stroke:var(--ln2)}
+.ring-f{stroke:var(--g);stroke-linecap:round;stroke-dasharray:var(--p,0) 100;animation:ring .9s var(--ease) both}
+.gauge.neutral .ring-f{display:none}
+.gauge-v{position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+
+/* ---------- PAINEIS ---------- */
+.content{min-height:0;display:grid;grid-template-columns:minmax(0,1.78fr) minmax(270px,.72fr);gap:10px}
+.panel{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;background:var(--sf);border:1px solid var(--ln);box-shadow:var(--sh)}
+.ph{position:relative;z-index:5;flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;column-gap:12px;row-gap:3px;padding:10px 12px 9px 16px;border-bottom:1px solid var(--ln2)}
+.ph h2{margin:0;font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.2;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{grid-column:1 / -1;margin:0;font-size:10.5px;line-height:1.25;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub b{color:var(--ink2);font-weight:650}
+.legend{display:flex;align-items:center;gap:10px}
+.lg{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.lg i{width:7px;height:7px;border-radius:2px}
+.lg b{color:var(--ink);font-weight:700}
+.lg.zero{opacity:.45}
+
+/* ajuda (?): abre com o mouse em cima ou com um clique (foco) */
+.help{position:relative;outline:none}
+.help-b{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--ln);background:var(--sf2);color:var(--ink2);font-size:11px;font-weight:700;cursor:help;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.help:hover .help-b,.help:focus-within .help-b{background:var(--pri);border-color:var(--pri);color:#FFFFFF}
+.help-pop{position:absolute;right:0;top:27px;width:286px;padding:12px 13px 11px;border-radius:12px;background:#101828;color:#E4E7EC;box-shadow:0 12px 28px rgba(16,24,40,.28);font-size:10.5px;line-height:1.4;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s ease,transform .16s ease,visibility .16s}
+.help:hover .help-pop,.help:focus-within .help-pop{opacity:1;visibility:visible;transform:none}
+.help-pop b{display:block;margin-bottom:6px;color:#FFFFFF;font-size:11.5px;font-weight:650}
+.help-pop p{margin:0 0 6px;color:#D0D5DD}
+.help-pop .k{display:block;color:#A5B4FC;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.help-esc{display:flex;gap:4px;margin:9px 0 0!important}
+.help-esc .pill{min-width:0;flex:1 1 0;padding:0 4px;font-size:9.5px}
+
+/* ---------- TABELA DE INDICADORES (grid; as linhas dividem a altura livre) ---------- */
+.th,.row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:8px;padding:0 14px 0 16px}
+.th{flex:none;height:26px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:9px;font-weight:650;letter-spacing:.07em;text-transform:uppercase}
+.th span{text-align:right}.th span:first-child{text-align:left}
+.rows{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#D5DAE2 transparent}
+.grp{position:sticky;top:0;z-index:2;flex:none;height:24px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px 0 16px;background:var(--sf2);border-bottom:1px solid var(--ln2)}
+.grp-name{display:flex;align-items:center;gap:7px;color:var(--ink2);font-size:9.5px;font-weight:700;letter-spacing:.1em}
+.grp-name i{width:7px;height:7px;border-radius:2px;background:var(--pri)}
+.grp.quality .grp-name i{background:var(--azul)}
+.grp-name small{color:var(--mut);font-size:9.5px;font-weight:500;letter-spacing:.01em}
+.grp-pts{color:var(--mut);font-size:10.5px;font-weight:500}.grp-pts b{color:var(--ink);font-weight:700}
+.row{flex:1 1 24px;min-height:24px;max-height:44px;border-bottom:1px solid var(--ln2);transition:background .15s ease}
+.row:hover{background:var(--sf2)}
+.c-nm{min-width:0;display:flex;align-items:baseline;gap:7px}
+.nm{min-width:0;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{flex:none;color:var(--mut);font-size:9.5px;font-weight:500}
+.n{text-align:right;font-size:11.5px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.n.real{color:var(--ink);font-weight:700}
+.n small{color:var(--mut);font-size:10px;font-weight:500}
+.n i{margin-right:3px;color:#98A2B3;font-size:10.5px}
+.atg{display:flex;align-items:center;justify-content:flex-end;gap:9px}
+.bul{position:relative;flex:1 1 auto;max-width:94px;height:5px;border-radius:99px;background:var(--ln2)}
+/* alerta abaixo de 80%: so um filete a esquerda (o selo e a barra ja sao vermelhos) */
+.row.alerta{box-shadow:inset 2px 0 0 #C5283D}
+/* sem dados: a linha recua */
+.row.nodata .nm{color:#7C879B}
+.row.nodata .n,.row.nodata .n.real{color:#98A2B3;font-weight:500}
+.row.nodata .bul{background:repeating-linear-gradient(90deg,#DDE2EA 0 3px,transparent 3px 6px)}
+.row.nodata .bul::after{display:none}
+
+/* ---------- RANKING DE ATS ---------- */
+.ats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:3px 6px 4px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#D5DAE2 transparent}
+.at{position:relative;flex:1 1 22px;min-height:22px;max-height:38px;display:grid;grid-template-columns:18px minmax(0,1fr) auto 60px;align-items:center;column-gap:8px;padding:0 8px 2px;border-radius:8px;transition:background .15s ease,opacity .15s ease}
+.at:hover{background:var(--sf2)}
+.at-rank{width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid var(--c);background:#FFFFFF;color:var(--ink2);font-size:9px;font-weight:700}
+.at-id{min-width:0;display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden}
+.at-id b{font-size:12.5px;font-weight:700;color:var(--ink)}
+.at-id small{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-size:8.5px;font-weight:600;letter-spacing:.07em}
+.at-pts{font-size:11.5px;font-weight:650;color:var(--ink2);white-space:nowrap}
+.at-pts small{margin-left:3px;color:var(--mut);font-size:9px;font-weight:500}
+.at .pill{min-width:0;width:60px;height:17px;font-size:10px}
+.at-bar{position:absolute;left:34px;right:8px;bottom:0;height:2px;border-radius:99px;background:var(--ln)}
+.at-bar::after{content:'';position:absolute;left:76.9%;top:-2px;bottom:-1px;width:1.5px;margin-left:-.75px;border-radius:2px;background:var(--ink);opacity:.32}
+.at-bar u{background:var(--c);opacity:.8}
+/* AT selecionada no filtro: destacada e sempre visivel (gruda no topo/rodape ao rolar) */
+.at.selected{position:sticky;top:0;bottom:0;z-index:2;background:#F4F3FF;box-shadow:inset 0 0 0 1px #D9D4FA}
+.ats.focus .at:not(.selected){opacity:.55}
+.ats.focus .at:hover{opacity:1}
+.empty{margin:auto;padding:24px 16px;text-align:center;color:var(--mut);font-size:11px;line-height:1.4}
+.empty b{display:block;margin-bottom:4px;color:var(--ink);font-size:12.5px;font-weight:650}
+
+/* ---------- SCROLLBARS ---------- */
+.rows::-webkit-scrollbar,.ats::-webkit-scrollbar{width:7px}
+.rows::-webkit-scrollbar-track,.ats::-webkit-scrollbar-track{background:transparent}
+.rows::-webkit-scrollbar-thumb,.ats::-webkit-scrollbar-thumb{background:#D5DAE2;border-radius:99px}
+
+/* ---------- ANIMACOES (so na entrada, ao trocar o filtro) ---------- */
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes ring{from{stroke-dasharray:0 100}}
+
+/* ---------- RESPONSIVO / ACESSIBILIDADE ---------- */
+@media (max-width:1100px){.score{font-size:23px}.hero .score{font-size:27px}.card{padding:10px 11px 9px}.gauge{width:56px;height:56px}.legend{gap:8px}}
+@media (max-width:960px){.bsc{--cols:minmax(0,1fr) 72px 72px 64px 70px}.legend,.bul,.card-sub,.card-foot .vs{display:none}.content{grid-template-columns:minmax(0,1.5fr) minmax(236px,.8fr)}.gauge{width:48px;height:48px}.gauge-v{font-size:12px}}
+@media (max-width:700px){.content{grid-template-columns:minmax(0,1fr)}.content aside{display:none}.cards{grid-template-columns:repeat(5,minmax(0,1fr))}.gauge,.card-foot .vs{display:none}}
+@media (max-height:460px){.card-foot{display:none}.track{margin-top:8px}.gauge{width:48px;height:48px}}
+@media (prefers-reduced-motion:reduce){.bsc *{animation:none!important;transition:none!important}}
+</style><div class='bsc'><section class='cards'><div class='v' style='--p:66.2'><div class='card hero c-geral active' title='GERAL: 66,17 pts de 100 disponíveis (66,2%). Anel fechado = meta de 100%.'><div class='hero-txt'><div class='card-top'><i class='sw'></i><span class='card-name'>GERAL</span><span class='card-sub'>17 ATs</span></div><div class='card-main'><span class='score'>66,17<small>de 100 pts</small></span></div><div class='card-foot'><span><b>33,83 pts</b> abaixo da meta</span></div></div><div class='gauge red'><svg class='ring' viewBox='0 0 36 36' aria-hidden='true'><circle class='ring-t' cx='18' cy='18' r='15.9155'></circle><circle class='ring-f' cx='18' cy='18' r='15.9155'></circle></svg><span class='gauge-v'>66%</span></div></div></div><div class='v' style='--w:52.7%'><div class='card c-bronze' title='BRONZE: 1º lugar entre as faixas · 68,55 pts (68,6%) · +2,38 pts em relação ao Geral. O traço na barra marca a meta de 100%.'><div class='card-top'><i class='sw'></i><span class='card-name'>BRONZE</span><span class='card-sub'>5 ATs</span><b class='rank'>1º</b></div><div class='card-main'><span class='score'>68,55<small>pts</small></span></div><div class='track'><u></u></div><div class='card-foot'><span class='delta up'>+2,38</span><span class='vs'>vs geral</span><span class='pill red'>▼ 68,6%</span></div></div></div><div class='v' style='--w:50.4%'><div class='card c-ouro' title='OURO: 2º lugar entre as faixas · 65,54 pts (65,5%) · -0,63 pts em relação ao Geral. O traço na barra marca a meta de 100%.'><div class='card-top'><i class='sw'></i><span class='card-name'>OURO</span><span class='card-sub'>4 ATs</span><b class='rank'>2º</b></div><div class='card-main'><span class='score'>65,54<small>pts</small></span></div><div class='track'><u></u></div><div class='card-foot'><span class='delta down'>-0,63</span><span class='vs'>vs geral</span><span class='pill red'>▼ 65,5%</span></div></div></div><div class='v' style='--w:50.0%'><div class='card c-prata2' title='PRATA 2: 3º lugar entre as faixas · 64,95 pts (65,0%) · -1,22 pts em relação ao Geral. O traço na barra marca a meta de 100%.'><div class='card-top'><i class='sw'></i><span class='card-name'>PRATA 2</span><span class='card-sub'>5 ATs</span><b class='rank'>3º</b></div><div class='card-main'><span class='score'>64,95<small>pts</small></span></div><div class='track'><u></u></div><div class='card-foot'><span class='delta down'>-1,22</span><span class='vs'>vs geral</span><span class='pill red'>▼ 65,0%</span></div></div></div><div class='v' style='--w:49.2%'><div class='card c-prata1' title='PRATA 1: 4º lugar entre as faixas · 63,94 pts (63,9%) · -2,23 pts em relação ao Geral. O traço na barra marca a meta de 100%.'><div class='card-top'><i class='sw'></i><span class='card-name'>PRATA 1</span><span class='card-sub'>3 ATs</span><b class='rank'>4º</b></div><div class='card-main'><span class='score'>63,94<small>pts</small></span></div><div class='track'><u></u></div><div class='card-foot'><span class='delta down'>-2,23</span><span class='vs'>vs geral</span><span class='pill red'>▼ 63,9%</span></div></div></div></section><section class='content'><article class='panel'><div class='ph'><h2>Indicadores · GERAL</h2><div class='legend'><span class='lg' title='Atingimento igual ou acima de 100%'><i class='f-green'></i>≥100%<b>1</b></span><span class='lg' title='Atingimento entre 90% e 100%'><i class='f-yellow'></i>≥90%<b>2</b></span><span class='lg zero' title='Atingimento entre 80% e 90%'><i class='f-orange'></i>≥80%<b>0</b></span><span class='lg' title='Atingimento abaixo de 80% (alerta)'><i class='f-red'></i>&amp;lt;80%<b>6</b></span><span class='lg' title='Indicadores sem resultado ou sem meta no filtro atual'><i class='f-neutral'></i>sem dados<b>3</b></span></div><div class='help' tabindex='0' role='note' aria-label='Como ler este painel'><span class='help-b'>?</span><div class='help-pop'><b>Como ler</b><p><i class='k'>Atingimento</i>real ÷ meta. Quando menor é melhor (meta com ≤), meta ÷ real.</p><p><i class='k'>Pontos</i>peso do indicador × atingimento, com teto de 130%.</p><p><i class='k'>Barras</i>vão de 0 a 130%; o traço vertical marca a meta (100%).</p><p class='help-esc'><span class='pill green'>▲ ≥100%</span><span class='pill yellow'>▼ ≥90%</span><span class='pill orange'>▼ ≥80%</span><span class='pill red'>▼ &amp;lt;80%</span></p></div></div><p class='sub'>9 de 12 com resultado · maior perda: <b>Instalação em até D3</b> (−4,3 pts)</p></div><div class='th'><span>Indicador</span><span>Meta</span><span>Real</span><span>Pontos</span><span>Atingimento</span></div><div class='rows'><div class='grp business'><span class='grp-name'><i></i>NEGÓCIO<small>8 indicadores</small></span><span class='grp-pts'><b>44,2</b> / 66 pts</span></div><div class='v' style='--w:58.5%'><div class='row alerta' title='Efetividade 1ª Agenda: real 55,6% · meta ≥ 73,2% · atingimento 76,0% · 7,6 de 10 pts (perde 2,4 pts)'><div class='c-nm'><span class='nm'>Efetividade 1ª Agenda</span></div><div class='n'><i>≥</i>73,2%</div><div class='n real'>55,6%</div><div class='n'>7,6<small> / 10</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 76,0%</span></div></div></div><div class='v' style='--w:55.1%'><div class='row alerta' title='Tempo de Reparo: real 33:31:57 · meta ≤ 24:00:00 · atingimento 71,6% · 5,7 de 8 pts (perde 2,3 pts)'><div class='c-nm'><span class='nm'>Tempo de Reparo</span></div><div class='n'><i>≤</i>24:00:00</div><div class='n real'>33:31:57</div><div class='n'>5,7<small> / 8</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 71,6%</span></div></div></div><div class='v' style='--w:74.2%'><div class='row' title='Chegada no Slot: real 77,2% · meta ≥ 80,0% · atingimento 96,5% · 7,7 de 8 pts (perde 0,3 pts)'><div class='c-nm'><span class='nm'>Chegada no Slot</span></div><div class='n'><i>≥</i>80,0%</div><div class='n real'>77,2%</div><div class='n'>7,7<small> / 8</small></div><div class='atg'><span class='bul'><u class='f-yellow'></u></span><span class='pill yellow'>▼ 96,5%</span></div></div></div><div class='v' style='--w:44.1%'><div class='row alerta' title='Instalação em até D3: real 46,4% · meta ≥ 81,0% · atingimento 57,3% · 5,7 de 10 pts (perde 4,3 pts)'><div class='c-nm'><span class='nm'>Instalação em até D3</span></div><div class='n'><i>≥</i>81,0%</div><div class='n real'>46,4%</div><div class='n'>5,7<small> / 10</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 57,3%</span></div></div></div><div class='v' style='--w:78.5%'><div class='row' title='Produtividade PU: real 2,8 · meta ≥ 2,7 · atingimento 102,0% · 8,2 de 8 pts'><div class='c-nm'><span class='nm'>Produtividade PU</span></div><div class='n'><i>≥</i>2,7</div><div class='n real'>2,8</div><div class='n'>8,2<small> / 8</small></div><div class='atg'><span class='bul'><u class='f-green'></u></span><span class='pill green'>▲ 102,0%</span></div></div></div><div class='v' style='--w:71.7%'><div class='row' title='Roteirização Automática: real 79,2% · meta ≥ 85,0% · atingimento 93,2% · 3,7 de 4 pts (perde 0,3 pts)'><div class='c-nm'><span class='nm'>Roteirização Automática</span></div><div class='n'><i>≥</i>85,0%</div><div class='n real'>79,2%</div><div class='n'>3,7<small> / 4</small></div><div class='atg'><span class='bul'><u class='f-yellow'></u></span><span class='pill yellow'>▼ 93,2%</span></div></div></div><div class='v' style='--w:53.1%'><div class='row alerta' title='IRT: real 5,8% · meta ≤ 4,0% · atingimento 69,0% · 5,5 de 8 pts (perde 2,5 pts)'><div class='c-nm'><span class='nm'>IRT</span></div><div class='n'><i>≤</i>4,0%</div><div class='n real'>5,8%</div><div class='n'>5,5<small> / 8</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 69,0%</span></div></div></div><div class='v' style='--w:0.0%'><div class='row nodata' title='Eficiência de Campo: sem resultado ou sem meta neste filtro (vale 10 pts).'><div class='c-nm'><span class='nm'>Eficiência de Campo</span></div><div class='n'><i>≥</i>90,0%</div><div class='n real'>—</div><div class='n'>—<small> / 10</small></div><div class='atg'><span class='bul'></span><span class='pill neutral'>sem dados</span></div></div></div><div class='grp quality'><span class='grp-name'><i></i>QUALIDADE<small>4 indicadores</small></span><span class='grp-pts'><b>22,0</b> / 34 pts</span></div><div class='v' style='--w:57.3%'><div class='row alerta' title='IFI FTTH 7 Dias: real 4,7% · meta ≤ 3,5% · atingimento 74,5% · 11,2 de 15 pts (perde 3,8 pts)'><div class='c-nm'><span class='nm'>IFI FTTH 7 Dias</span></div><div class='n'><i>≤</i>3,5%</div><div class='n real'>4,7%</div><div class='n'>11,2<small> / 15</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 74,5%</span></div></div></div><div class='v' style='--w:55.4%'><div class='row alerta' title='Repetidas FTTH 7 Dias: real 12,5% · meta ≤ 9,0% · atingimento 72,0% · 10,8 de 15 pts (perde 4,2 pts)'><div class='c-nm'><span class='nm'>Repetidas FTTH 7 Dias</span></div><div class='n'><i>≤</i>9,0%</div><div class='n real'>12,5%</div><div class='n'>10,8<small> / 15</small></div><div class='atg'><span class='bul'><u class='f-red'></u></span><span class='pill red'>▼ 72,0%</span></div></div></div><div class='v' style='--w:0.0%'><div class='row nodata' title='Indisponibilidade FTTH: sem resultado ou sem meta neste filtro (vale 2 pts).'><div class='c-nm'><span class='nm'>Indisponibilidade FTTH</span><span class='tag'>consolidado</span></div><div class='n'>—</div><div class='n real'>—</div><div class='n'>—<small> / 2</small></div><div class='atg'><span class='bul'></span><span class='pill neutral'>sem dados</span></div></div></div><div class='v' style='--w:0.0%'><div class='row nodata' title='Indisponibilidade Móvel: sem resultado ou sem meta neste filtro (vale 2 pts).'><div class='c-nm'><span class='nm'>Indisponibilidade Móvel</span><span class='tag'>consolidado</span></div><div class='n'>—</div><div class='n real'>—</div><div class='n'>—<small> / 2</small></div><div class='atg'><span class='bul'></span><span class='pill neutral'>sem dados</span></div></div></div></div></article><aside class='panel'><div class='ph'><h2>Ranking de ATs · GERAL</h2><p class='sub'>17 ATs com pontuação · traço = meta de 100%</p></div><div class='ats'><div class='v' style='--w:50.0%'><div class='at c-ouro' title='1º · AT PL (OURO): 65,04 de 100 pts (65,0%)'><span class='at-rank'>1</span><span class='at-id'><b>PL</b><small>OURO</small></span><span class='at-pts'>65,04<small>pts</small></span><span class='pill red'>▼ 65,0%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:49.5%'><div class='at c-bronze' title='2º · AT JG (BRONZE): 64,38 de 100 pts (64,4%)'><span class='at-rank'>2</span><span class='at-id'><b>JG</b><small>BRONZE</small></span><span class='at-pts'>64,38<small>pts</small></span><span class='pill red'>▼ 64,4%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:49.5%'><div class='at c-bronze' title='3º · AT BF (BRONZE): 64,33 de 100 pts (64,3%)'><span class='at-rank'>3</span><span class='at-id'><b>BF</b><small>BRONZE</small></span><span class='at-pts'>64,33<small>pts</small></span><span class='pill red'>▼ 64,3%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:48.6%'><div class='at c-prata2' title='4º · AT VJ (PRATA 2): 63,16 de 100 pts (63,2%)'><span class='at-rank'>4</span><span class='at-id'><b>VJ</b><small>PRATA 2</small></span><span class='at-pts'>63,16<small>pts</small></span><span class='pill red'>▼ 63,2%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:48.0%'><div class='at c-bronze' title='5º · AT MA (BRONZE): 62,40 de 100 pts (62,4%)'><span class='at-rank'>5</span><span class='at-id'><b>MA</b><small>BRONZE</small></span><span class='at-pts'>62,40<small>pts</small></span><span class='pill red'>▼ 62,4%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:47.9%'><div class='at c-prata1' title='6º · AT BS (PRATA 1): 62,24 de 100 pts (62,2%)'><span class='at-rank'>6</span><span class='at-id'><b>BS</b><small>PRATA 1</small></span><span class='at-pts'>62,24<small>pts</small></span><span class='pill red'>▼ 62,2%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:46.9%'><div class='at c-bronze' title='7º · AT RP (BRONZE): 61,02 de 100 pts (61,0%)'><span class='at-rank'>7</span><span class='at-id'><b>RP</b><small>BRONZE</small></span><span class='at-pts'>61,02<small>pts</small></span><span class='pill red'>▼ 61,0%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:46.7%'><div class='at c-prata2' title='8º · AT VN (PRATA 2): 60,71 de 100 pts (60,7%)'><span class='at-rank'>8</span><span class='at-id'><b>VN</b><small>PRATA 2</small></span><span class='at-pts'>60,71<small>pts</small></span><span class='pill red'>▼ 60,7%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:46.2%'><div class='at c-ouro' title='9º · AT SA (OURO): 60,10 de 100 pts (60,1%)'><span class='at-rank'>9</span><span class='at-id'><b>SA</b><small>OURO</small></span><span class='at-pts'>60,10<small>pts</small></span><span class='pill red'>▼ 60,1%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:46.0%'><div class='at c-prata2' title='10º · AT CL (PRATA 2): 59,84 de 100 pts (59,8%)'><span class='at-rank'>10</span><span class='at-id'><b>CL</b><small>PRATA 2</small></span><span class='at-pts'>59,84<small>pts</small></span><span class='pill red'>▼ 59,8%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:45.4%'><div class='at c-ouro' title='11º · AT IT (OURO): 59,02 de 100 pts (59,0%)'><span class='at-rank'>11</span><span class='at-id'><b>IT</b><small>OURO</small></span><span class='at-pts'>59,02<small>pts</small></span><span class='pill red'>▼ 59,0%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:45.2%'><div class='at c-bronze' title='12º · AT PI (BRONZE): 58,77 de 100 pts (58,8%)'><span class='at-rank'>12</span><span class='at-id'><b>PI</b><small>BRONZE</small></span><span class='at-pts'>58,77<small>pts</small></span><span class='pill red'>▼ 58,8%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:44.7%'><div class='at c-prata1' title='13º · AT LA (PRATA 1): 58,10 de 100 pts (58,1%)'><span class='at-rank'>13</span><span class='at-id'><b>LA</b><small>PRATA 1</small></span><span class='at-pts'>58,10<small>pts</small></span><span class='pill red'>▼ 58,1%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:44.2%'><div class='at c-ouro' title='14º · AT BT (OURO): 57,45 de 100 pts (57,5%)'><span class='at-rank'>14</span><span class='at-id'><b>BT</b><small>OURO</small></span><span class='at-pts'>57,45<small>pts</small></span><span class='pill red'>▼ 57,5%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:43.8%'><div class='at c-prata2' title='15º · AT FO (PRATA 2): 56,90 de 100 pts (56,9%)'><span class='at-rank'>15</span><span class='at-id'><b>FO</b><small>PRATA 2</small></span><span class='at-pts'>56,90<small>pts</small></span><span class='pill red'>▼ 56,9%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:42.5%'><div class='at c-prata1' title='16º · AT JS (PRATA 1): 55,31 de 100 pts (55,3%)'><span class='at-rank'>16</span><span class='at-id'><b>JS</b><small>PRATA 1</small></span><span class='at-pts'>55,31<small>pts</small></span><span class='pill red'>▼ 55,3%</span><i class='at-bar'><u></u></i></div></div><div class='v' style='--w:42.0%'><div class='at c-prata2' title='17º · AT CA (PRATA 2): 54,62 de 100 pts (54,6%)'><span class='at-rank'>17</span><span class='at-id'><b>CA</b><small>PRATA 2</small></span><span class='at-pts'>54,62<small>pts</small></span><span class='pill red'>▼ 54,6%</span><i class='at-bar'><u></u></i></div></div></div></aside></section></div></div></div></div></body></html>"></iframe></div></body></html>

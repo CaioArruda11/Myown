@@ -1,0 +1,197 @@
+Menu Lateral Animado HTML BSC =
+// ============================================================================
+// MENU LATERAL  (v5)   |   visual 2 de 3
+// Fica "por baixo" dos botoes nativos transparentes do Power BI, que continuam
+// fazendo a navegacao (o HTML Content nao navega entre paginas nem executa
+// JavaScript). Por isso nenhum efeito depende de hover no HTML.
+//
+// EM CADA PAGINA altere somente _paginaAtual para um destes valores:
+// "BSC", "IFI", "IRR", "TDNA Instalação", "TDNA Reparos" ou "Abertura Hierarquia".
+// Para incluir, renomear ou reordenar paginas, edite a tabela _paginas.
+//
+// >>> GEOMETRIA PRESERVADA <<<
+// Cabecalho, altura dos itens (36px), espaco entre eles (7px) e margens
+// laterais (14px) sao identicos aos da versao anterior: os botoes nativos ja
+// posicionados continuam alinhados, sem reposicionar nada.
+//
+// O QUE MUDOU
+//   - cada pagina ganhou um icone (SVG embutido) para leitura mais rapida;
+//   - so o item da pagina atual se move (feixe na borda, brilho e ponto
+//     pulsando). Os outros 5 itens ficam parados: antes eram 12 animacoes
+//     rodando sem parar ao lado dos numeros;
+//   - aviso sobre filtros vira um bloco de leitura calma, sem borda girando;
+//   - bloco "Visao atual" em linhas alinhadas (Cluster / Cor / AT). A linha AT
+//     mostra "Todas" quando nao ha AT filtrada, entao o bloco nao muda de
+//     tamanho ao filtrar;
+//   - textos e paginas viraram variaveis no topo; nenhum atributo style no HTML.
+//
+// DICA: o botao nativo fica por cima, entao o HTML nao "sente" o mouse. Para
+// dar retorno ao passar o mouse, no botao nativo use Estilo > Estado
+// "Ao passar o mouse" > Preenchimento branco com ~88% de transparencia
+// (e 100% no estado padrao).
+// ============================================================================
+
+VAR _paginaAtual =
+    "BSC"
+
+// ---------------------------------------------------------------- TEXTOS FIXOS
+VAR _marca = "Indicadores"
+VAR _sigla = "ARF"
+VAR _subtitulo = "BSC OPERACIONAL"
+VAR _cluster = "PERUS / BUTANTÃ"
+VAR _avisoTitulo = "Aviso sobre filtros"
+VAR _avisoTexto =
+    "Os indicadores IRT, Indisponibilidade Móvel e Indisponibilidade FTTH não respeitarão os filtros por enquanto, pois não dispõem de analítico disponível no ELOS."
+
+// ------------------------------------------------------------ CONTEXTO (FILTROS)
+VAR _corSelecionada =
+    SELECTEDVALUE(
+        'Seletor Cor'[COR_AREA],
+        "GERAL"
+    )
+
+VAR _areaSelecionada =
+    SELECTEDVALUE(
+        dAT[AREA ]
+    )
+
+VAR _temAreaSelecionada =
+    HASONEVALUE(
+        dAT[AREA ]
+    )
+
+VAR _hexCorSel =
+    SWITCH(
+        _corSelecionada,
+        "OURO", "#D7AA28",
+        "BRONZE", "#B8784E",
+        "PRATA 1", "#8EA1B8",
+        "PRATA 2", "#AAB5C6",
+        "#78CAFF"
+    )
+
+// --------------------------------------------------------------------- PAGINAS
+// Pagina = texto exibido (e o valor comparado com _paginaAtual).
+// Icone  = miolo de um SVG 24x24 desenhado so com traco.
+VAR _paginas =
+    DATATABLE(
+        "Pagina", STRING,
+        "Ordem", INTEGER,
+        "Icone", STRING,
+        {
+            { "BSC", 1, "<rect x='3' y='3' width='7' height='9' rx='1.5'></rect><rect x='14' y='3' width='7' height='5' rx='1.5'></rect><rect x='14' y='12' width='7' height='9' rx='1.5'></rect><rect x='3' y='16' width='7' height='5' rx='1.5'></rect>" },
+            { "IFI", 2, "<path d='M3 12h4l3-8 4 16 3-8h4'></path>" },
+            { "IRR", 3, "<path d='M17 2l4 4-4 4'></path><path d='M3 11V9a3 3 0 0 1 3-3h15'></path><path d='M7 22l-4-4 4-4'></path><path d='M21 13v2a3 3 0 0 1-3 3H3'></path>" },
+            { "TDNA Instalação", 4, "<path d='M3 10.5 12 3l9 7.5'></path><path d='M5 9.5V20h14V9.5'></path><path d='M10 20v-6h4v6'></path>" },
+            { "TDNA Reparos", 5, "<path d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'></path>" },
+            { "Abertura Hierarquia", 6, "<rect x='9' y='2' width='6' height='5' rx='1'></rect><rect x='2' y='17' width='6' height='5' rx='1'></rect><rect x='16' y='17' width='6' height='5' rx='1'></rect><path d='M12 7v5M5 17v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3'></path>" }
+        }
+    )
+
+VAR _itens =
+    CONCATENATEX(
+        _paginas,
+        VAR _ativa = ( [Pagina] = _paginaAtual )
+        RETURN
+            "<div class='it" & IF( _ativa, " on", "" ) & "'>" &
+                "<div class='it-c'>" &
+                    IF( _ativa, "<span class='sheen'></span>", "" ) &
+                    "<svg class='ic' viewBox='0 0 24 24' aria-hidden='true'>" & [Icone] & "</svg>" &
+                    "<span class='lb'>" & [Pagina] & "</span>" &
+                    IF( _ativa, "<i class='dot'></i>", "" ) &
+                "</div>" &
+            "</div>",
+        "",
+        [Ordem], ASC
+    )
+
+// ============================================================================
+// CSS
+// - 100vh de proposito (o wrapper do HTML Content nao tem altura definida).
+// - Nao usar aspas duplas aqui dentro (quebram a string DAX).
+// - Os blocos marcados GEOMETRIA definem onde os botoes nativos encostam:
+//   nao alterar tamanhos, margens nem fontes deles.
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.mn,.mn *{box-sizing:border-box}
+.mn i{font-style:normal}
+.mn{--cor:" & _hexCorSel & ";width:100%;height:100vh;font-family:'Segoe UI',Arial,sans-serif;text-align:left;-webkit-font-smoothing:antialiased}
+
+/* ---------- CAIXA (GEOMETRIA: padding 18px 14px) ---------- */
+.sb{position:relative;width:100%;height:100%;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden;color:#FFFFFF;border-radius:22px;background:linear-gradient(180deg,#5659A8 0%,#4A4C96 52%,#343572 100%);box-shadow:0 16px 32px rgba(43,52,113,.28)}
+.sb::before{content:'';position:absolute;top:-60px;right:-60px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(120,202,255,.32),transparent 70%);pointer-events:none}
+.sb::after{content:'';position:absolute;left:-70px;bottom:-70px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(185,166,255,.16),transparent 70%);pointer-events:none}
+
+/* ---------- MARCA (GEOMETRIA: a altura deste bloco define onde os itens comecam) ---------- */
+.brand{position:relative;padding:6px 6px 18px;border-bottom:1px solid rgba(255,255,255,.16)}
+.brand b{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.brand b span{background:linear-gradient(92deg,#78CAFF,#B9A6FF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.brand small{display:block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:.16em;opacity:.7}
+
+/* ---------- ITENS (GEOMETRIA: margem 20px, altura 36px, intervalo 7px) ---------- */
+.nav{position:relative;z-index:1;display:grid;gap:7px;margin-top:20px}
+.it{position:relative;width:100%;height:36px;padding:1px;overflow:hidden;isolation:isolate;border-radius:11px;color:rgba(255,255,255,.78)}
+.it-c{position:relative;z-index:2;width:100%;height:100%;padding:0 11px;display:flex;align-items:center;gap:10px;overflow:hidden;border-radius:10px}
+.ic{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.82}
+.lb{flex:1 1 auto;min-width:0;font-size:12.5px;font-weight:600;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- PAGINA ATUAL (a unica parte que se move) ---------- */
+.it.on{color:#FFFFFF;box-shadow:0 7px 17px rgba(53,45,166,.34),0 0 12px rgba(120,202,255,.13)}
+.it.on::before{content:'';position:absolute;z-index:-3;top:-160%;right:-160%;bottom:-160%;left:-160%;background:conic-gradient(from 0deg,transparent 0 70%,#78CAFF 78%,#B9A6FF 86%,#FFFFFF 91%,transparent 98%);animation:beam 3.4s linear infinite}
+.it.on::after{content:'';position:absolute;z-index:-2;top:1px;right:1px;bottom:1px;left:1px;border-radius:10px;background:linear-gradient(135deg,#75B8ED 0%,#7869E4 100%)}
+.it.on .ic{opacity:1}
+.it.on .lb{font-weight:700}
+.sheen{position:absolute;z-index:-1;top:0;bottom:0;left:-48%;width:42%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.26),transparent);animation:sheen 4.2s ease-in-out infinite}
+.dot{flex:none;width:6px;height:6px;border-radius:50%;background:#D9F5FF;box-shadow:0 0 5px rgba(255,255,255,.9),0 0 11px rgba(120,202,255,.9);animation:pulse 2s ease-in-out infinite}
+
+/* ---------- AVISO ---------- */
+.note{position:relative;z-index:1;margin-top:auto;padding:11px 12px 12px;border-radius:14px;background:rgba(24,26,78,.34);border:1px solid rgba(255,255,255,.13)}
+.note-h{display:flex;align-items:center;gap:7px;color:#BFE9FF;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.note-h .ic{width:13px;height:13px;stroke-width:2.2;opacity:1}
+.note p{margin:7px 0 0;color:rgba(255,255,255,.86);font-size:9.5px;font-weight:500;line-height:1.42}
+
+/* ---------- VISAO ATUAL ---------- */
+.ctx{position:relative;z-index:1;margin-top:10px;padding:11px 12px 10px 15px;overflow:hidden;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.17)}
+.ctx::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--cor);box-shadow:0 0 8px var(--cor)}
+.ctx-h{display:block;margin-bottom:7px;font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62)}
+.kv{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-height:20px}
+.kv small{flex:none;font-size:9.5px;font-weight:600;color:rgba(255,255,255,.66)}
+.kv b{min-width:0;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv .sw{flex:none;width:8px;height:8px;border-radius:50%;background:var(--cor);box-shadow:0 0 8px var(--cor)}
+.kv .all{font-weight:500;color:rgba(255,255,255,.72)}
+
+@keyframes beam{to{transform:rotate(360deg)}}
+@keyframes sheen{0%{left:-48%;opacity:0}18%{opacity:.5}62%{left:115%;opacity:.28}100%{left:115%;opacity:0}}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.75}}
+@media (max-height:520px){.note{display:none}}
+@media (prefers-reduced-motion:reduce){.mn *,.mn *::before,.mn *::after{animation:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _html =
+"<div class='mn'>" &
+    "<aside class='sb'>" &
+        "<div class='brand'><b>" & _marca & "<span>" & _sigla & "</span></b><small>" & _subtitulo & "</small></div>" &
+        "<div class='nav'>" & _itens & "</div>" &
+        "<div class='note'>" &
+            "<div class='note-h'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='12' r='9'></circle><path d='M12 11v6M12 7.5v.5'></path></svg>" &
+                "<span>" & _avisoTitulo & "</span></div>" &
+            "<p>" & _avisoTexto & "</p>" &
+        "</div>" &
+        "<div class='ctx'>" &
+            "<span class='ctx-h'>Visão atual</span>" &
+            "<div class='kv'><small>Cluster</small><b>" & _cluster & "</b></div>" &
+            "<div class='kv'><small>Cor</small><b><i class='sw'></i>" & _corSelecionada & "</b></div>" &
+            "<div class='kv'><small>AT</small>" &
+                IF( _temAreaSelecionada, "<b>" & _areaSelecionada & "</b>", "<b class='all'>Todas</b>" ) &
+            "</div>" &
+        "</div>" &
+    "</aside>" &
+"</div>"
+
+RETURN
+    _css & _html

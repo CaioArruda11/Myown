@@ -1,0 +1,187 @@
+BSC Status Atualizacao Bases HTML =
+// ============================================================================
+// ATUALIZACAO DAS BASES  (v2)   |   visual 3 de 3
+// Mostra, para cada base, se esta em dia e ate que data ela vai.
+// Independe dos filtros da pagina (REMOVEFILTERS). Fundo TRANSPARENTE.
+//
+// O QUE MUDOU
+//   - a data da base aparece no painel (antes so no tooltip): nome, data e D-n;
+//   - cabecalho com o resumo: quantas bases estao atrasadas, ou "todas em dia";
+//   - lista em 2 colunas com nome, data e D-n alinhados, para bater o olho na
+//     coluna do D-n; fonte maior e nomes sem caixa alta. Se o visual for
+//     largo (>= 430px) vira 4 x 2 blocos; se for estreito (< 230px), 1 coluna;
+//   - "em dia" e "atrasada" nao dependem so da cor: o selo da base atrasada e
+//     cheio (fundo vermelho, texto branco) e o da base em dia e claro;
+//   - nada pisca: com varias bases atrasadas o painel ficava todo pulsando;
+//   - "hoje" passa a ser calculado no fuso de Brasilia. No Power BI Service o
+//     TODAY() e UTC: depois das 21h o D-n ja contava um dia a mais;
+//   - incluir, renomear ou reordenar uma base = mexer em uma linha de _bases.
+//
+// AJUSTES RAPIDOS: _defasagemAceita (dias tolerados) e _fusoHorario.
+// Nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+VAR _loc = "pt-BR"
+VAR _defasagemAceita = 1
+VAR _fusoHorario = -3
+
+// "Hoje" no fuso informado (UTCNOW e igual no Desktop e no Service).
+VAR _agora = UTCNOW() + _fusoHorario / 24
+VAR _hoje = DATE( YEAR( _agora ), MONTH( _agora ), DAY( _agora ) )
+
+// ------------------------------------------------- ULTIMA DATA DE CADA BASE
+VAR _dtIFI = CALCULATE(MAX('fALTAS ENCERRADAS 7D'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtIRR7D = CALCULATE(MAX('fREPAROS ABERTOS 7D'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtTMR = CALCULATE(MAX('fTMR_REPAROS ENCERRADOS'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtEficiencia = CALCULATE(MAX('fALTAS BRUTAS EFICIÊNCIA'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtEfetividade = CALCULATE(MAX('f1AGENDA_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtInsta3D = CALCULATE(MAX('fINSTALACAO + ME_3D_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtChegada = CALCULATE(MAX('fCHEGADA_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtRoteirizacao = CALCULATE(MAX('ANALÍTICO_CENTRALIZADO'[DATA_REFERENCIA]), REMOVEFILTERS())
+
+// Uma linha por base. Ordem = posicao no painel (de cima para baixo, coluna
+// da esquerda primeiro).
+VAR _bases =
+    UNION(
+        ROW( "Base", "IFI", "Ordem", 1, "Data", _dtIFI ),
+        ROW( "Base", "IRR 7D", "Ordem", 2, "Data", _dtIRR7D ),
+        ROW( "Base", "TMR", "Ordem", 3, "Data", _dtTMR ),
+        ROW( "Base", "Eficiência", "Ordem", 4, "Data", _dtEficiencia ),
+        ROW( "Base", "Efetividade", "Ordem", 5, "Data", _dtEfetividade ),
+        ROW( "Base", "Insta 3D", "Ordem", 6, "Data", _dtInsta3D ),
+        ROW( "Base", "Chegada", "Ordem", 7, "Data", _dtChegada ),
+        ROW( "Base", "Roteirização", "Ordem", 8, "Data", _dtRoteirizacao )
+    )
+
+// Defasagem em dias (D-n) e situacao: ok = em dia | late = atrasada | nd = sem data
+VAR _basesDefasagem =
+    ADDCOLUMNS(
+        _bases,
+        "Defasagem", IF( ISBLANK( [Data] ), BLANK(), MAX( 0, INT( _hoje - [Data] ) ) )
+    )
+VAR _basesStatus =
+    ADDCOLUMNS(
+        _basesDefasagem,
+        "Situacao",
+            SWITCH(
+                TRUE(),
+                ISBLANK( [Data] ), "nd",
+                [Defasagem] <= _defasagemAceita, "ok",
+                "late"
+            )
+    )
+
+VAR _qtdBases = COUNTROWS( _basesStatus ) + 0
+VAR _qtdEmDia = COUNTROWS( FILTER( _basesStatus, [Situacao] = "ok" ) ) + 0
+VAR _qtdAtrasadas = COUNTROWS( FILTER( _basesStatus, [Situacao] = "late" ) ) + 0
+VAR _qtdSemData = COUNTROWS( FILTER( _basesStatus, [Situacao] = "nd" ) ) + 0
+
+// ------------------------------------------------------------------- RESUMO
+VAR _resumoClasse =
+    SWITCH(
+        TRUE(),
+        _qtdAtrasadas > 0, "late",
+        _qtdSemData > 0, "nd",
+        "ok"
+    )
+VAR _resumoTexto =
+    SWITCH(
+        TRUE(),
+        _qtdAtrasadas > 0,
+            FORMAT( _qtdAtrasadas, "0", _loc ) & IF( _qtdAtrasadas = 1, " atrasada", " atrasadas" ),
+        _qtdSemData > 0,
+            FORMAT( _qtdSemData, "0", _loc ) & " sem data",
+        "todas em dia"
+    )
+VAR _resumoDica =
+    FORMAT( _qtdEmDia, "0", _loc ) & " de " & FORMAT( _qtdBases, "0", _loc ) & " bases em dia" &
+    IF( _qtdAtrasadas > 0, " · " & FORMAT( _qtdAtrasadas, "0", _loc ) & IF( _qtdAtrasadas = 1, " atrasada", " atrasadas" ), "" ) &
+    IF( _qtdSemData > 0, " · " & FORMAT( _qtdSemData, "0", _loc ) & " sem data", "" ) &
+    ". Hoje: " & FORMAT( _hoje, "dd/mm/yyyy", _loc ) &
+    ". Em dia = base ate D-" & FORMAT( _defasagemAceita, "0", _loc ) & "."
+
+// -------------------------------------------------------------------- LINHAS
+VAR _linhas =
+    CONCATENATEX(
+        _basesStatus,
+        VAR _sit = [Situacao]
+        VAR _dn = IF( _sit = "nd", "S/D", "D-" & FORMAT( [Defasagem], "0", _loc ) )
+        VAR _dica =
+            SWITCH(
+                _sit,
+                "nd", [Base] & ": sem data na base",
+                "ok", [Base] & ": base até " & FORMAT( [Data], "dd/mm/yyyy", _loc ) & " (" & _dn & ") · em dia",
+                [Base] & ": base até " & FORMAT( [Data], "dd/mm/yyyy", _loc ) & " (" & _dn & ") · atrasada, o aceito é até D-" & FORMAT( _defasagemAceita, "0", _loc )
+            )
+        RETURN
+            "<div class='b " & _sit & "' title='" & _dica & "'>" &
+                "<span class='n'>" & [Base] & "</span>" &
+                IF( _sit = "nd", "", "<span class='dt'>" & FORMAT( [Data], "dd/mm", _loc ) & "</span>" ) &
+                "<b class='p'>" & IF( _sit = "nd", "sem data", _dn ) & "</b>" &
+            "</div>",
+        "",
+        [Ordem], ASC
+    )
+
+// ============================================================================
+// CSS  (100vh de proposito: o wrapper do HTML Content nao tem altura definida)
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.st,.st *{box-sizing:border-box}
+.st i{font-style:normal}
+.st{--ink:#101828;--ink2:#475467;--mut:#667085;--ln:#E4E8EF;
+--ok:#12A150;--ok-t:#0B6B3A;--ok-b:#E6F6EC;--late:#C5283D;--late-t:#A01D2E;--late-b:#FBE8EB;--nd:#98A2B3;--nd-b:#F0F2F6;
+width:100%;height:100vh;padding:5px 6px 6px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;overflow:hidden;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;text-align:left;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- CABECALHO: titulo + resumo ---------- */
+.h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;height:16px;padding:0 3px 0 4px}
+.t{min-width:0;font-size:8.5px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s{flex:none;display:inline-flex;align-items:center;gap:5px;height:16px;padding:0 7px;border-radius:99px;font-size:9.5px;font-weight:700;white-space:nowrap}
+.s::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.s.ok{color:var(--ok-t);background:var(--ok-b)}
+.s.late{color:#FFFFFF;background:var(--late)}
+.s.nd{color:var(--ink2);background:var(--nd-b)}
+
+/* ---------- LISTA: 2 colunas x 4 linhas (preenche coluna a coluna) ---------- */
+.g{min-height:0;display:grid;grid-auto-flow:column;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:3px 5px}
+.b{position:relative;min-width:0;min-height:0;display:flex;align-items:center;gap:4px;padding:0 3px 0 9px;border-radius:7px;background:#FFFFFF;border:1px solid var(--ln);overflow:hidden}
+.b::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ok)}
+.n{flex:1 1 auto;min-width:0;font-size:10px;font-weight:600;line-height:1;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt{flex:none;font-size:10px;font-weight:500;line-height:1;color:var(--ink2);white-space:nowrap}
+.p{flex:none;min-width:29px;height:15px;padding:0 3px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;font-size:9.5px;font-weight:700;line-height:1;color:var(--ok-t);background:var(--ok-b);white-space:nowrap}
+/* atrasada: filete vermelho + selo cheio (nao depende so da cor) */
+.b.late::before{background:var(--late)}
+.b.late .p{color:#FFFFFF;background:var(--late)}
+/* sem data */
+.b.nd::before{background:var(--nd)}
+.b.nd .n{color:var(--ink2)}
+.b.nd .p{color:var(--ink2);background:var(--nd-b);font-weight:650}
+
+/* ---------- OUTROS TAMANHOS DE VISUAL ---------- */
+/* largo: 4 x 2 blocos (nome em cima; data e D-n embaixo) */
+@media (min-width:430px){
+.g{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px}
+.b{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;column-gap:5px;row-gap:4px;padding:0 6px 0 11px;border-radius:9px}
+.n{grid-column:1 / 3}
+.b.nd .p{justify-self:start}
+}
+/* estreito: 1 coluna */
+@media (max-width:229px){.g{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(8,minmax(0,1fr));gap:2px}.t{display:none}.h{justify-content:flex-end}}
+/* muito baixo: sem cabecalho */
+@media (max-height:89px){.st{grid-template-rows:minmax(0,1fr)}.h{display:none}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _html =
+"<div class='st'>" &
+    "<div class='h'><span class='t'>Atualização das bases</span>" &
+        "<span class='s " & _resumoClasse & "' title='" & _resumoDica & "'>" & _resumoTexto & "</span></div>" &
+    "<div class='g'>" & _linhas & "</div>" &
+"</div>"
+
+RETURN
+    _css & _html
