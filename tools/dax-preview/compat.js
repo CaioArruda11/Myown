@@ -1,6 +1,6 @@
 'use strict';
 // Confere o HTML gerado contra as regras do visual HTML Content (edicao certificada inclusa).
-const TAGS = ['style', 'details', 'summary', 'div', 'section', 'article', 'aside', 'span', 'i', 'b', 'u', 'small', 'h2', 'p', 'svg', 'circle', 'rect', 'path'];
+const TAGS = ['style', 'details', 'summary', 'em', 'div', 'section', 'article', 'aside', 'span', 'i', 'b', 'u', 'small', 'h2', 'p', 'svg', 'circle', 'rect', 'path'];
 const ATTRS = ['class', 'style', 'title', 'tabindex', 'role', 'viewbox', 'cx', 'cy', 'r', 'x', 'y', 'width', 'height', 'rx', 'd'];
 
 function compat(html) {

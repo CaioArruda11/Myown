@@ -206,7 +206,7 @@ function parse(src) {
 // Checagem estatica: variaveis declaradas antes do uso + funcoes conhecidas
 // ---------------------------------------------------------------------------
 const MODEL_FUNCS = ['CALCULATE', 'CALCULATETABLE', 'SELECTEDVALUE', 'HASONEVALUE', 'VALUES', 'ALL', 'ALLSELECTED',
-  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'DISTINCT', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED'];
+  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'DISTINCT', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED', 'CONTAINSROW'];
 const SYMBOLS = ['ASC', 'DESC', 'STRING', 'INTEGER', 'DOUBLE', 'BOOLEAN', 'DATETIME', 'CURRENCY'];
 
 function check(ast, src) {
@@ -417,6 +417,7 @@ function ev(node, ctx) {
       });
     case 'call': {
       const f = FN[node.name];
+      if (!f && node.name === 'CALCULATE' && ctx.rt.calculate) return ctx.rt.calculate(node, (name) => ev({ k: 'id', name, pos: 0 }, ctx));
       if (!f) throw new Error('funcao ' + node.name + ' depende do modelo: a VAR precisa de mock [avaliando ' + ctx.rt.stack.join(' > ') + ']');
       return f(node.args, ctx);
     }
@@ -463,7 +464,14 @@ Object.assign(FN, {
   LEFT: A((s, n) => str(s).slice(0, n === undefined ? 1 : num(n))),
   RIGHT: A((s, n) => { const t = str(s); return t.slice(t.length - (n === undefined ? 1 : num(n))); }),
   TRIM: A((s) => str(s).trim().replace(/ +/g, ' ')),
-  SUBSTITUTE: A((s, a, b) => str(s).split(str(a)).join(str(b))),
+  SUBSTITUTE: A((s, a, b, n) => {
+    const parts = str(s).split(str(a));
+    if (n === undefined) return parts.join(str(b));
+    const k = num(n);
+    if (k < 1 || k >= parts.length) return str(s);
+    return parts.slice(0, k).join(str(a)) + str(b) + parts.slice(k).join(str(a));
+  }),
+  MID: A((s, start, n) => str(s).substr(num(start) - 1, num(n))),
   SEARCH: A((find, within, start, nf) => {
     const i = str(within).toLowerCase().indexOf(str(find).toLowerCase(), (start === undefined ? 1 : num(start)) - 1);
     if (i < 0) { if (nf === undefined) throw new Error('SEARCH nao encontrou'); return nf; }
@@ -481,7 +489,7 @@ Object.assign(FN, {
   ROW: (a, c) => { const r = {}; for (let i = 0; i < a.length; i += 2) r[str(ev(a[i], c))] = ev(a[i + 1], c); return [r]; },
   UNION: (a, c) => {
     const ts = a.map((e) => tbl(e, c));
-    const keys = Object.keys(ts[0][0] || {});
+    const keys = Object.keys((ts.find((t) => t.length) || [{}])[0]);
     const out = [];
     for (const t of ts) for (const r of t) {
       const vals = Object.values(r);
@@ -518,6 +526,8 @@ Object.assign(FN, {
     return o;
   }),
   FILTER: (a, c) => tbl(a[0], c).filter((r) => truthy(ev(a[1], inRow(c, r)))),
+  ISEMPTY: (a, c) => tbl(a[0], c).length === 0,
+  CROSSJOIN: (a, c) => a.map((e) => tbl(e, c)).reduce((acc, t) => { const out = []; for (const x of acc) for (const y of t) out.push(Object.assign({}, x, y)); return out; }, [{}]),
   COUNTROWS: (a, c) => { const n = tbl(a[0], c).length; return n === 0 ? null : n; },
   SUMX: (a, c) => {
     let s = null;
@@ -588,7 +598,7 @@ function evaluate(file, mocks, opts) {
   const chk = check(ast, src);
   if (chk.problems.length) throw new Error(file + ':\n  ' + chk.problems.join('\n  '));
   if (opts && opts.utcNow !== undefined) CLOCK = { utcNow: opts.utcNow };
-  const rt = { mocks: mocks || {}, usedMocks: new Set(), stack: [], topVars: null };
+  const rt = { mocks: mocks || {}, usedMocks: new Set(), stack: [], topVars: null, calculate: opts && opts.calculate };
   const html = ev(ast, { env: null, row: null, rt, top: true });
   const unusedMocks = Object.keys(rt.mocks).filter((k) => !rt.usedMocks.has(k));
   const notEvaluated = rt.topVars ? [...rt.topVars.values()].filter((s) => !s.done).map((s) => s.name) : [];

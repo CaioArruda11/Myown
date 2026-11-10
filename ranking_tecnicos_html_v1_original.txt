@@ -1,0 +1,662 @@
+Ranking Tecnicos HTML = 
+
+VAR _loc = "pt-BR"
+VAR _visao = SELECTEDVALUE( 'Seletor Visão'[Visao], "TÉCNICO" )
+VAR _ehSupervisor = _visao = "SUPERVISOR"
+VAR _rotuloEnt = IF( _ehSupervisor, "Supervisores", "Técnicos" )
+
+// ----------------------------------------------------------------------------
+// CONFIGURAÇÃO  (AJUSTE PONTOS, METAS E VOLUME MÍNIMO AQUI)
+// MenorMelhor = 1 -> Meta / Real   |   MenorMelhor = 0 -> Real / Meta
+// VolMin = volume mínimo (altas/reparos) para o indicador contar.
+//          0 = não checa volume. Quando as medidas de volume estiverem
+//          certas, coloque 3 (ou o mínimo que fizer sentido) em IFI/IRR.
+// ----------------------------------------------------------------------------
+VAR _cfg =
+    DATATABLE(
+        "Indicador", STRING,
+        "NomeTela", STRING,
+        "Sigla", STRING,
+        "Ordem", INTEGER,
+        "Pontos", DOUBLE,
+        "Meta", DOUBLE,
+        "MenorMelhor", INTEGER,
+        "Tipo", STRING,
+        "VolMin", INTEGER,
+        "RotDen", STRING,
+        "RotNum", STRING,
+        {
+            { "IFI",              "IFI FTTH",          "IFI",    1, 20, 0.040, 1, "%",   0, "Altas",        "Reparos" },
+            { "IFI 7 DIAS",       "IFI FTTH 7 Dias",   "IFI 7D", 2, 20, 0.020, 1, "%",   0, "Altas",        "Reparos" },
+            { "IRR",              "Repetidas FTTH",    "IRR",    3, 20, 0.100, 1, "%",   0, "Reparos",      "Repetidas" },
+            { "IRR 7 DIAS",       "Repetidas 7 Dias",  "IRR 7D", 4, 20, 0.050, 1, "%",   0, "Reparos",      "Repetidas" },
+            { "PRODUTIVIDADE PU", "Produtividade PU",  "PU",     5, 20, 3.500, 0, "Qtd", 0, "Reparos",      "Instalações" }
+        }
+    )
+// RotDen / RotNum = rótulos do tooltip (denominador / numerador).
+// O volume mínimo (VolMin) agora é checado contra o DENOMINADOR (altas p/ IFI, reparos p/ IRR).
+VAR _qtdIndicadores = COUNTROWS( _cfg )
+VAR _ptsDisp = SUMX( _cfg, [Pontos] )
+
+// ----------------------------------------------------------------------------
+// SELEÇÕES
+// ----------------------------------------------------------------------------
+VAR _tecSel =
+    IF(
+        ISFILTERED( 'dMO X CONTRATO'[NOME] ) && HASONEVALUE( 'dMO X CONTRATO'[NOME] ),
+        VALUES( 'dMO X CONTRATO'[NOME] )
+    )
+VAR _supSel =
+    IF(
+        ISFILTERED( 'dMO X CONTRATO'[SUPERVISOR] ) && HASONEVALUE( 'dMO X CONTRATO'[SUPERVISOR] ),
+        VALUES( 'dMO X CONTRATO'[SUPERVISOR] )
+    )
+VAR _entSel = IF( _ehSupervisor, _supSel, _tecSel )
+VAR _entDetalhe = IF( ISBLANK( _entSel ), "__GERAL__", _entSel )
+
+VAR _supsContexto =
+    CALCULATETABLE(
+        VALUES( 'dMO X CONTRATO'[SUPERVISOR] ),
+        REMOVEFILTERS( 'dMO X CONTRATO'[NOME] )
+    )
+
+// ----------------------------------------------------------------------------
+// BASE: mesmo mecanismo de uma tabela nativa (linha a linha por NOME/SUPERVISOR)
+// As medidas do usuário entram aqui (ver lista no topo do arquivo)
+// ----------------------------------------------------------------------------
+VAR _baseTec =
+    CALCULATETABLE(
+        SELECTCOLUMNS(
+            ADDCOLUMNS(
+                VALUES( 'dMO X CONTRATO'[NOME] ),
+                "@IFI", [% IFI], "@IFI7", [% IFI 7D], "@IRR", [IRR DAT_FECHAMENTO], "@IRR7", [% IRR CAMPO 7D], "@PU", [PU],
+                "@nIFI",  [Contagem Reparos E],      "@dIFI",  [Contagem Alta Enc.],
+                "@nIFI7", [Contagem Reparos E 7D],   "@dIFI7", [Contagem Alta Enc. 7D],
+                "@nIRR",  [Qtd Repetidas IRR],       "@dIRR",  [Qtd Reparos IRR],
+                "@nIRR7", [Qtd Repetidas 7D Campo],  "@dIRR7", [Qtd Reparos 7D Campo],
+                "@nPU",   [PU Qtd Instalacoes],      "@dPU",   [PU Qtd Reparos]
+            ),
+            "Entidade", 'dMO X CONTRATO'[NOME],
+            "@IFI", [@IFI], "@IFI7", [@IFI7], "@IRR", [@IRR], "@IRR7", [@IRR7], "@PU", [@PU],
+            "@nIFI", [@nIFI], "@dIFI", [@dIFI], "@nIFI7", [@nIFI7], "@dIFI7", [@dIFI7],
+            "@nIRR", [@nIRR], "@dIRR", [@dIRR], "@nIRR7", [@nIRR7], "@dIRR7", [@dIRR7],
+            "@nPU", [@nPU], "@dPU", [@dPU]
+        ),
+        REMOVEFILTERS( 'Seletor Visão' ),
+        FILTER( ALL( 'dMO X CONTRATO'[NOME] ), NOT _ehSupervisor )
+    )
+
+VAR _baseSup =
+    CALCULATETABLE(
+        SELECTCOLUMNS(
+            ADDCOLUMNS(
+                VALUES( 'dMO X CONTRATO'[SUPERVISOR] ),
+                "@IFI", [% IFI], "@IFI7", [% IFI 7D], "@IRR", [IRR DAT_FECHAMENTO], "@IRR7", [% IRR TOTAL 7D], "@PU", [PU],
+                "@nIFI",  [Contagem Reparos E],      "@dIFI",  [Contagem Alta Enc.],
+                "@nIFI7", [Contagem Reparos E 7D],   "@dIFI7", [Contagem Alta Enc. 7D],
+                "@nIRR",  [Qtd Repetidas IRR],       "@dIRR",  [Qtd Reparos IRR],
+                "@nIRR7", [Qtd Repetidas 7D Total],  "@dIRR7", [Qtd Reparos 7D Total],
+                "@nPU",   [PU Qtd Instalacoes],      "@dPU",   [PU Qtd Reparos]
+            ),
+            "Entidade", 'dMO X CONTRATO'[SUPERVISOR],
+            "@IFI", [@IFI], "@IFI7", [@IFI7], "@IRR", [@IRR], "@IRR7", [@IRR7], "@PU", [@PU],
+            "@nIFI", [@nIFI], "@dIFI", [@dIFI], "@nIFI7", [@nIFI7], "@dIFI7", [@dIFI7],
+            "@nIRR", [@nIRR], "@dIRR", [@dIRR], "@nIRR7", [@nIRR7], "@dIRR7", [@dIRR7],
+            "@nPU", [@nPU], "@dPU", [@dPU]
+        ),
+        REMOVEFILTERS( 'Seletor Visão' ),
+        REMOVEFILTERS( 'dMO X CONTRATO'[NOME] ),
+        FILTER( ALL( 'dMO X CONTRATO'[SUPERVISOR] ), _ehSupervisor )
+    )
+
+VAR _baseGeral =
+    CALCULATETABLE(
+        ROW(
+            "Entidade", "__GERAL__",
+            "@IFI", [% IFI], "@IFI7", [% IFI 7D], "@IRR", [IRR DAT_FECHAMENTO], "@IRR7", [% IRR TOTAL 7D], "@PU", [PU],
+            "@nIFI",  [Contagem Reparos E],      "@dIFI",  [Contagem Alta Enc.],
+            "@nIFI7", [Contagem Reparos E 7D],   "@dIFI7", [Contagem Alta Enc. 7D],
+            "@nIRR",  [Qtd Repetidas IRR],       "@dIRR",  [Qtd Reparos IRR],
+            "@nIRR7", [Qtd Repetidas 7D Total],  "@dIRR7", [Qtd Reparos 7D Total],
+            "@nPU",   [PU Qtd Instalacoes],      "@dPU",   [PU Qtd Reparos]
+        ),
+        REMOVEFILTERS( 'Seletor Visão' ),
+        REMOVEFILTERS( 'dMO X CONTRATO'[NOME] ),
+        FILTER(
+            ALL( 'dMO X CONTRATO'[SUPERVISOR] ),
+            _ehSupervisor || CONTAINSROW( _supsContexto, 'dMO X CONTRATO'[SUPERVISOR] )
+        )
+    )
+
+VAR _base = UNION( _baseTec, _baseSup, _baseGeral )
+
+VAR _entidades =
+    FILTER(
+        SELECTCOLUMNS( _base, "Entidade", [Entidade] ),
+        [Entidade] <> "__GERAL__" && [Entidade] <> ""
+    )
+
+// ----------------------------------------------------------------------------
+// GRADE ENTIDADE x INDICADOR (sem recalcular medidas)
+// ----------------------------------------------------------------------------
+VAR _grade1 =
+    ADDCOLUMNS(
+        CROSSJOIN( _base, _cfg ),
+        "__ResBruto",
+            SWITCH(
+                [Indicador],
+                "IFI", [@IFI],
+                "IFI 7 DIAS", [@IFI7],
+                "IRR", [@IRR],
+                "IRR 7 DIAS", [@IRR7],
+                "PRODUTIVIDADE PU", [@PU]
+            ),
+        "__Num",
+            SWITCH(
+                [Indicador],
+                "IFI", [@nIFI],
+                "IFI 7 DIAS", [@nIFI7],
+                "IRR", [@nIRR],
+                "IRR 7 DIAS", [@nIRR7],
+                "PRODUTIVIDADE PU", [@nPU]
+            ),
+        "__Den",
+            SWITCH(
+                [Indicador],
+                "IFI", [@dIFI],
+                "IFI 7 DIAS", [@dIFI7],
+                "IRR", [@dIRR],
+                "IRR 7 DIAS", [@dIRR7],
+                "PRODUTIVIDADE PU", [@dPU]
+            )
+    )
+VAR _grade2 =
+    ADDCOLUMNS(
+        _grade1,
+        "__Res",
+            VAR _r = [__ResBruto]
+            VAR _txt = FORMAT( _r, "0.000000", "en-US" )
+            VAR _nan = SEARCH( "n", _txt, 1, 0 ) > 0
+            VAR _semVolume = [VolMin] > 0 && COALESCE( [__Den], 0 ) < [VolMin]
+            RETURN IF( _nan || _semVolume, BLANK(), _r )
+    )
+VAR _grade3 =
+    ADDCOLUMNS(
+        _grade2,
+        "__Ating",
+            VAR _r = [__Res]
+            VAR _m = [Meta]
+            RETURN
+                SWITCH(
+                    TRUE(),
+                    ISBLANK( _r ) || ISBLANK( _m ), BLANK(),
+                    [MenorMelhor] = 1 && _r = 0, 1.30,
+                    [MenorMelhor] = 1, DIVIDE( _m, _r ),
+                    DIVIDE( _r, _m )
+                )
+    )
+VAR _grade =
+    ADDCOLUMNS(
+        _grade3,
+        "__Pts", IF( ISBLANK( [__Ating] ), BLANK(), MIN( [Pontos] * 1.30, [Pontos] * [__Ating] ) ),
+        "__Tier",
+            VAR _a = [__Ating]
+            RETURN SWITCH( TRUE(), ISBLANK( _a ), "tN", _a >= 1, "tG", _a >= 0.90, "tY", _a >= 0.80, "tO", "tR" ),
+        "__Txt",
+            IF( ISBLANK( [__Res] ), "—", IF( [Tipo] = "%", FORMAT( [__Res], "0.0%", _loc ), FORMAT( [__Res], "0.0", _loc ) ) ),
+        "__MetaTxt",
+            IF( [Tipo] = "%", FORMAT( [Meta], "0.0%", _loc ), FORMAT( [Meta], "0.0", _loc ) ),
+        "__Larg",
+            FORMAT( MIN( COALESCE( [__Ating], 0 ), 1.3 ) / 1.3 * 100, "0.0", "en-US" ),
+        "__Tip",
+            VAR _d = [__Den]
+            VAR _n = [__Num]
+            VAR _dTxt = IF( ISBLANK( _d ), "—", FORMAT( _d, "#,0", _loc ) )
+            VAR _nTxt = IF( ISBLANK( _n ), "—", FORMAT( _n, "#,0", _loc ) )
+            RETURN
+                "<span class='tt'>" &
+                    "<span><em>" & [RotDen] & "</em><b>" & _dTxt & "</b></span>" &
+                    "<span><em>" & [RotNum] & "</em><b>" & _nTxt & "</b></span>" &
+                "</span>"
+    )
+
+// ----------------------------------------------------------------------------
+// RANKING
+// ----------------------------------------------------------------------------
+VAR _ranking0 =
+    ADDCOLUMNS(
+        _entidades,
+        "__PtsTotal",
+            VAR _e = [Entidade]
+            RETURN COALESCE( SUMX( FILTER( _grade, [Entidade] = _e ), [__Pts] ), 0 ),
+        "__QtdInd",
+            VAR _e = [Entidade]
+            RETURN COALESCE( COUNTROWS( FILTER( _grade, [Entidade] = _e && NOT ISBLANK( [__Res] ) ) ), 0 ),
+        "__PtsDisp",
+            VAR _e = [Entidade]
+            RETURN
+                COALESCE(
+                    SUMX( FILTER( _grade, [Entidade] = _e && NOT ISBLANK( [__Res] ) ), [Pontos] ),
+                    0
+                )
+    )
+VAR _validos0 = FILTER( _ranking0, [__QtdInd] > 0 )
+VAR _validos1 =
+    ADDCOLUMNS( _validos0, "__AtingTot", DIVIDE( [__PtsTotal], [__PtsDisp] ) )
+VAR _validos =
+    ADDCOLUMNS(
+        _validos1,
+        "__Seq",
+            VAR _a = [__AtingTot]
+            VAR _e = [Entidade]
+            RETURN
+                1 + COALESCE(
+                    COUNTROWS( FILTER( _validos1, [__AtingTot] > _a || ( [__AtingTot] = _a && [Entidade] < _e ) ) ),
+                    0
+                ),
+        "__Sub",
+            VAR _e = [Entidade]
+            RETURN
+                IF(
+                    _ehSupervisor,
+                    FORMAT(
+                        CALCULATE(
+                            DISTINCTCOUNT( 'dMO X CONTRATO'[NOME] ),
+                            REMOVEFILTERS( 'dMO X CONTRATO'[NOME] ),
+                            REMOVEFILTERS( 'dMO X CONTRATO'[SUPERVISOR] ),
+                            TREATAS( { _e }, 'dMO X CONTRATO'[SUPERVISOR] )
+                        ),
+                        "0"
+                    ) & " técnicos",
+                    CALCULATE(
+                        CONCATENATEX( VALUES( 'dMO X CONTRATO'[SUPERVISOR] ), 'dMO X CONTRATO'[SUPERVISOR], " / " ),
+                        REMOVEFILTERS( 'dMO X CONTRATO'[NOME] ),
+                        REMOVEFILTERS( 'dMO X CONTRATO'[SUPERVISOR] ),
+                        TREATAS( { _e }, 'dMO X CONTRATO'[NOME] )
+                    )
+                ),
+        "__Ini",
+            VAR _nm = TRIM( [Entidade] )
+            VAR _esp = LEN( _nm ) - LEN( SUBSTITUTE( _nm, " ", "" ) )
+            RETURN
+                UPPER(
+                    LEFT( _nm, 1 )
+                        & IF( _esp = 0, "", MID( _nm, SEARCH( "@", SUBSTITUTE( _nm, " ", "@", _esp ) ) + 1, 1 ) )
+                ),
+        "__Curto",
+            VAR _nm = TRIM( [Entidade] )
+            VAR _esp = LEN( _nm ) - LEN( SUBSTITUTE( _nm, " ", "" ) )
+            RETURN
+                IF(
+                    _esp = 0,
+                    _nm,
+                    LEFT( _nm, SEARCH( " ", _nm ) - 1 ) & " "
+                        & MID( _nm, SEARCH( "@", SUBSTITUTE( _nm, " ", "@", _esp ) ) + 1, 100 )
+                )
+    )
+VAR _rank =
+    ADDCOLUMNS(
+        _validos,
+        "__TierTot",
+            VAR _a = [__AtingTot]
+            RETURN SWITCH( TRUE(), _a >= 1, "tG", _a >= 0.90, "tY", _a >= 0.80, "tO", "tR" ),
+        "__Cor",
+            SWITCH( MOD( [__Seq], 6 ), 0, "#5B6BD6", 1, "#D9678C", 2, "#2BA6A0", 3, "#E0842F", 4, "#7A5CE0", "#3C8DD9" )
+    )
+
+VAR _qtd = COALESCE( COUNTROWS( _rank ), 0 )
+VAR _mediaAting = AVERAGEX( _rank, [__AtingTot] )
+VAR _nG = COALESCE( COUNTROWS( FILTER( _rank, [__TierTot] = "tG" ) ), 0 )
+VAR _nY = COALESCE( COUNTROWS( FILTER( _rank, [__TierTot] = "tY" ) ), 0 )
+VAR _nO = COALESCE( COUNTROWS( FILTER( _rank, [__TierTot] = "tO" ) ), 0 )
+VAR _nR = COALESCE( COUNTROWS( FILTER( _rank, [__TierTot] = "tR" ) ), 0 )
+
+// ----------------------------------------------------------------------------
+// LINHA DE CIMA: INDICADORES + RESUMO
+// ----------------------------------------------------------------------------
+VAR _irr7Atual = IF( _ehSupervisor, [% IRR TOTAL 7D], [% IRR CAMPO 7D] )
+VAR _irr7M1 = IF( _ehSupervisor, [% IRR TOTAL 7D M1], [% IRR CAMPO 7D M1] )
+VAR _ifi7Atual = [% IFI 7D]
+VAR _ifi7M1 = [% IFI 7D M1]
+VAR _puAtual = [PU]
+VAR _puM1 = [PU M1]
+
+VAR _irr7Status =
+    SWITCH( TRUE(), ISBLANK( _irr7Atual ), "neutral", _irr7Atual <= 0.05, "good", _irr7Atual <= DIVIDE( 0.05, 0.90 ), "near", "bad" )
+VAR _ifi7Status =
+    SWITCH( TRUE(), ISBLANK( _ifi7Atual ), "neutral", _ifi7Atual <= 0.02, "good", _ifi7Atual <= DIVIDE( 0.02, 0.90 ), "near", "bad" )
+VAR _puStatus =
+    SWITCH( TRUE(), ISBLANK( _puAtual ), "neutral", _puAtual >= 3.5, "good", _puAtual >= 3.5 * 0.90, "near", "bad" )
+
+VAR _irr7Dif = IF( NOT ISBLANK( _irr7Atual ) && NOT ISBLANK( _irr7M1 ), _irr7Atual - _irr7M1 )
+VAR _ifi7Dif = IF( NOT ISBLANK( _ifi7Atual ) && NOT ISBLANK( _ifi7M1 ), _ifi7Atual - _ifi7M1 )
+VAR _puDif = IF( NOT ISBLANK( _puAtual ) && NOT ISBLANK( _puM1 ), _puAtual - _puM1 )
+
+VAR _irr7Trend = SWITCH( TRUE(), ISBLANK( _irr7Dif ), "neutral", _irr7Dif < 0, "up", _irr7Dif > 0, "down", "flat" )
+VAR _ifi7Trend = SWITCH( TRUE(), ISBLANK( _ifi7Dif ), "neutral", _ifi7Dif < 0, "up", _ifi7Dif > 0, "down", "flat" )
+VAR _puTrend = SWITCH( TRUE(), ISBLANK( _puDif ), "neutral", _puDif > 0, "up", _puDif < 0, "down", "flat" )
+
+VAR _irr7Seta = SWITCH( _irr7Trend, "up", "▼", "down", "▲", "flat", "●", "—" )
+VAR _ifi7Seta = SWITCH( _ifi7Trend, "up", "▼", "down", "▲", "flat", "●", "—" )
+VAR _puSeta = SWITCH( _puTrend, "up", "▲", "down", "▼", "flat", "●", "—" )
+
+VAR _indicadoresTopo =
+    "<div class='ind-top'>" &
+        "<div class='ind-card " & _irr7Status & "'>" &
+            "<div class='ind-h'><span class='ind-icon irr'>↻</span><div><b>IRR7D</b><small>Meta ≤ 5,0%</small></div></div>" &
+            "<strong>" & IF( ISBLANK( _irr7Atual ), "—", FORMAT( _irr7Atual, "0.0%", _loc ) ) & "</strong>" &
+            "<div class='ind-f'><span>Anterior: <b>" & IF( ISBLANK( _irr7M1 ), "—", FORMAT( _irr7M1, "0.0%", _loc ) ) & "</b></span><em class='" & _irr7Trend & "'>" & _irr7Seta & " " & IF( ISBLANK( _irr7Dif ), "—", FORMAT( ABS( _irr7Dif ) * 100, "0.0", _loc ) & " p.p." ) & "</em></div>" &
+        "</div>" &
+        "<div class='ind-card " & _ifi7Status & "'>" &
+            "<div class='ind-h'><span class='ind-icon ifi'>⚒</span><div><b>IFI7D</b><small>Meta ≤ 2,0%</small></div></div>" &
+            "<strong>" & IF( ISBLANK( _ifi7Atual ), "—", FORMAT( _ifi7Atual, "0.0%", _loc ) ) & "</strong>" &
+            "<div class='ind-f'><span>Anterior: <b>" & IF( ISBLANK( _ifi7M1 ), "—", FORMAT( _ifi7M1, "0.0%", _loc ) ) & "</b></span><em class='" & _ifi7Trend & "'>" & _ifi7Seta & " " & IF( ISBLANK( _ifi7Dif ), "—", FORMAT( ABS( _ifi7Dif ) * 100, "0.0", _loc ) & " p.p." ) & "</em></div>" &
+        "</div>" &
+        "<div class='ind-card " & _puStatus & "'>" &
+            "<div class='ind-h'><span class='ind-icon bars'><i></i><i></i><i></i></span><div><b>PU</b><small>Meta ≥ 3,5</small></div></div>" &
+            "<strong>" & IF( ISBLANK( _puAtual ), "—", FORMAT( _puAtual, "0.0", _loc ) ) & "</strong>" &
+            "<div class='ind-f'><span>Anterior: <b>" & IF( ISBLANK( _puM1 ), "—", FORMAT( _puM1, "0.0", _loc ) ) & "</b></span><em class='" & _puTrend & "'>" & _puSeta & " " & IF( ISBLANK( _puDif ), "—", FORMAT( ABS( _puDif ), "0.0", _loc ) ) & "</em></div>" &
+        "</div>" &
+    "</div>"
+
+VAR _stack =
+    "<u class='cG' style='width:" & FORMAT( DIVIDE( _nG, _qtd ) * 100, "0.0", "en-US" ) & "%'></u>" &
+    "<u class='cY' style='width:" & FORMAT( DIVIDE( _nY, _qtd ) * 100, "0.0", "en-US" ) & "%'></u>" &
+    "<u class='cO' style='width:" & FORMAT( DIVIDE( _nO, _qtd ) * 100, "0.0", "en-US" ) & "%'></u>" &
+    "<u class='cR' style='width:" & FORMAT( DIVIDE( _nR, _qtd ) * 100, "0.0", "en-US" ) & "%'></u>"
+
+VAR _secTopo =
+    "<section class='top'>" &
+        "<div class='podium'>" & _indicadoresTopo & "</div>" &
+        "<div class='sum card'>" &
+            "<div class='stats'>" &
+                "<div class='st k1'><span><i></i>" & _rotuloEnt & "</span><b>" & _qtd & "</b></div>" &
+                "<div class='st k2'><span><i></i>Ating. médio</span><b>" & IF( ISBLANK( _mediaAting ), "—", FORMAT( _mediaAting, "0.0%", _loc ) ) & "</b></div>" &
+                "<div class='st k3'><span><i></i>Na meta</span><b>" & _nG & "</b></div>" &
+                "<div class='st k4'><span><i></i>Críticos</span><b>" & _nR & "</b></div>" &
+            "</div>" &
+            "<div class='dist'><div class='stack'>" & _stack & "</div>" &
+                "<div class='dl'>" &
+                    "<span><i class='cG'></i>≥100% <b>" & _nG & "</b></span>" &
+                    "<span><i class='cY'></i>90–99% <b>" & _nY & "</b></span>" &
+                    "<span><i class='cO'></i>80–89% <b>" & _nO & "</b></span>" &
+                    "<span><i class='cR'></i>&lt;80% <b>" & _nR & "</b></span>" &
+                "</div>" &
+            "</div>" &
+        "</div>" &
+    "</section>"
+
+// ----------------------------------------------------------------------------
+// RANKING COMPLETO
+// ----------------------------------------------------------------------------
+VAR _cabInd =
+    CONCATENATEX(
+        FILTER( _grade, [Entidade] = "__GERAL__" ),
+        "<div>" & [Sigla] & "<small>meta " & [__MetaTxt] & "</small></div>",
+        "",
+        [Ordem], ASC
+    )
+
+VAR _linhas =
+    CONCATENATEX(
+        _rank,
+        VAR _e = [Entidade]
+        VAR _s = [__Seq]
+        VAR _a = [__AtingTot]
+        VAR _t = [__TierTot]
+        VAR _sel = NOT ISBLANK( _entSel ) && _e = _entSel
+        VAR _celulas =
+            CONCATENATEX(
+                FILTER( _grade, [Entidade] = _e ),
+                "<div class='ic " & [__Tier] & "'><b>" & [__Txt] & "</b><i><u style='width:" & [__Larg] & "%'></u></i>" & [__Tip] & "</div>",
+                "",
+                [Ordem], ASC
+            )
+        RETURN
+            "<div class='row grid" & IF( _sel, " sel", "" ) & IF( _a < 0.80, " low", "" ) & "'>" &
+                "<div class='pos" & IF( _s <= 3, " m" & _s, "" ) & "'>" & _s & "</div>" &
+                "<div class='who'><span class='av' style='--a:" & [__Cor] & "'>" & [__Ini] & "</span>" &
+                    "<div class='nm'><b>" & _e & "</b><small>" & [__Sub] & " · " & [__QtdInd] & "/" & _qtdIndicadores & " ind.</small></div></div>" &
+                _celulas &
+                "<div class='pts'><b>" & FORMAT( [__PtsTotal], "0.0", _loc ) & " <small>/" & FORMAT( [__PtsDisp], "0", _loc ) & "</small></b>" &
+                    "<div class='trk'><u class='" & SWITCH( _t, "tG", "G", "tR", "R", "" ) & "' style='width:" & FORMAT( MIN( _a, 1.3 ) / 1.3 * 100, "0.0", "en-US" ) & "%'></u></div></div>" &
+                "<div class='hit " & _t & "'>" & IF( _a >= 1, "▲ ", "▼ " ) & FORMAT( _a, "0.0%", _loc ) & "</div>" &
+            "</div>",
+        "",
+        [__Seq], ASC
+    )
+
+VAR _corpoLista =
+    IF( _qtd = 0, "<div class='empty'>Nenhum resultado no filtro atual.</div>", _linhas )
+
+VAR _painelLista =
+    "<article class='panel card'>" &
+        "<div class='ph'>" &
+            "<div><h2>Ranking <span>" & _rotuloEnt & "</span></h2><p>Pontuação proporcional aos indicadores com dado · teto de 130%</p></div>" &
+            "<div class='ph-r'>" &
+                "<div class='sw'>" &
+                    "<span class='" & IF( _ehSupervisor, "", "on" ) & "'>Técnicos</span>" &
+                    "<span class='" & IF( _ehSupervisor, "on", "" ) & "'>Supervisão</span>" &
+                "</div>" &
+                "<span class='pill'>" & _qtd & "</span>" &
+            "</div>" &
+        "</div>" &
+        "<div class='gh grid'><div>#</div><div>" & IF( _ehSupervisor, "Supervisor", "Técnico" ) & "</div>" & _cabInd & "<div>Pontos<small>obtidos / disp.</small></div><div>Ating.</div></div>" &
+        "<div class='rows'>" & _corpoLista & "</div>" &
+    "</article>"
+
+// ----------------------------------------------------------------------------
+// DETALHE
+// ----------------------------------------------------------------------------
+VAR _ehGeral = _entDetalhe = "__GERAL__"
+VAR _detGrade = FILTER( _grade, [Entidade] = _entDetalhe )
+VAR _detPts = COALESCE( SUMX( _detGrade, [__Pts] ), 0 )
+VAR _detPtsDisp =
+    COALESCE( SUMX( FILTER( _detGrade, NOT ISBLANK( [__Res] ) ), [Pontos] ), 0 )
+VAR _detAting = DIVIDE( _detPts, _detPtsDisp )
+VAR _detQtdInd = COALESCE( COUNTROWS( FILTER( _detGrade, NOT ISBLANK( [__Res] ) ) ), 0 )
+VAR _detCor =
+    SWITCH( TRUE(), _detAting >= 1, "#10AD68", _detAting >= 0.90, "#D09A12", _detAting >= 0.80, "#E0842F", "#DB3F48" )
+VAR _detLinhaRank = FILTER( _rank, [Entidade] = _entDetalhe )
+VAR _detTitulo = IF( _ehGeral, "Visão geral", _entDetalhe )
+VAR _detSub =
+    IF(
+        _ehGeral,
+        "Todos os " & LOWER( _rotuloEnt ) & " do filtro",
+        IF(
+            ISEMPTY( _detLinhaRank ),
+            "Sem dados no filtro",
+            MAXX( _detLinhaRank, [__Seq] ) & "º de " & _qtd & " · " & CONCATENATEX( _detLinhaRank, [__Sub] )
+        )
+    )
+VAR _detAvatar = IF( _ehGeral, "Σ", IF( ISEMPTY( _detLinhaRank ), LEFT( _entDetalhe, 1 ), CONCATENATEX( _detLinhaRank, [__Ini] ) ) )
+VAR _detAvCor = IF( _ehGeral, "#7A5CE0", IF( ISEMPTY( _detLinhaRank ), "#5B6BD6", CONCATENATEX( _detLinhaRank, [__Cor] ) ) )
+
+VAR _detLinhas =
+    CONCATENATEX(
+        _detGrade,
+        "<div class='dr'>" &
+            "<div class='dr-t'><b>" & [NomeTela] & "</b><span class='hit " & [__Tier] & "'>" &
+                IF( ISBLANK( [__Ating] ), "Sem dados", FORMAT( [__Ating], "0.0%", _loc ) ) & "</span></div>" &
+            "<div class='dr-m'><span>Meta " & [__MetaTxt] & " · Real <b>" & [__Txt] & "</b></span>" &
+                "<span><b>" & IF( ISBLANK( [__Pts] ), "—", FORMAT( [__Pts], "0.0", _loc ) ) & "</b>/" & FORMAT( [Pontos], "0", _loc ) & "</span></div>" &
+            "<div class='trk'><u class='" & SWITCH( [__Tier], "tG", "G", "tR", "R", "" ) & "' style='width:" & [__Larg] & "%'></u></div>" &
+        "</div>",
+        "",
+        [Ordem], ASC
+    )
+
+VAR _painelDetalhe =
+    "<aside class='panel card'>" &
+        "<div class='det-h'><span class='eb'>Detalhe</span>" &
+            "<div class='det-id'><span class='av' style='--a:" & _detAvCor & "'>" & _detAvatar & "</span>" &
+            "<div><b>" & _detTitulo & "</b><small>" & _detSub & "</small></div></div>" &
+        "</div>" &
+        "<div class='det-b'>" &
+            "<div class='det-s'>" &
+                "<div class='ring' style='--p:" & FORMAT( MIN( _detAting, 1 ) * 100, "0.0", "en-US" ) & ";--c:" & _detCor & "'>" &
+                    "<div><b>" & FORMAT( _detPts, "0.0", _loc ) & "</b><small>de " & FORMAT( _detPtsDisp, "0", _loc ) & "</small></div></div>" &
+                "<div><span>Atingimento</span><strong style='color:" & _detCor & "'>" & FORMAT( _detAting, "0.0%", _loc ) & "</strong>" &
+                "<em>" & _detQtdInd & " de " & _qtdIndicadores & " com dado</em></div>" &
+            "</div>" &
+            _detLinhas &
+        "</div>" &
+    "</aside>"
+
+// ----------------------------------------------------------------------------
+// CSS
+// ----------------------------------------------------------------------------
+VAR _css = "<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.rk,.rk *{box-sizing:border-box}
+.rk{width:100%;height:100vh;overflow:hidden;padding:4px;display:grid;grid-template-rows:104px minmax(0,1fr);gap:10px;font-family:'Segoe UI',Arial,sans-serif;color:#1B2448}
+.card{background:#fff;border:1px solid #E3E9F4;border-radius:14px;box-shadow:0 4px 14px rgba(35,52,110,.07)}
+
+.top{min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px}
+.podium{min-height:0}
+.ind-top{height:100%;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ind-card{--c:#8A95B0;--bg:#F7F9FC;--bd:#E3E9F4;position:relative;min-width:0;padding:7px 9px 6px 13px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;border:1px solid var(--bd);border-radius:14px;background:linear-gradient(135deg,var(--bg),#fff 75%);box-shadow:0 4px 14px rgba(35,52,110,.07)}
+.ind-card:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.ind-card.good{--c:#10AD68;--bg:#EAF8F1;--bd:#BDE8D2}
+.ind-card.near{--c:#E0842F;--bg:#FFF4E8;--bd:#F1C58D}
+.ind-card.bad{--c:#DB3F48;--bg:#FDEDEF;--bd:#F0BCC0}
+.ind-h{display:flex;align-items:center;gap:8px;min-width:0}
+.ind-h>div{min-width:0}
+.ind-h b{display:block;font-size:13px;font-weight:850;line-height:1.1;color:#1D2757}
+.ind-h small{display:block;margin-top:2px;font-size:9px;font-weight:700;color:#7A86A3;white-space:nowrap}
+.ind-icon{flex:0 0 26px;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--c);background:rgba(255,255,255,.62)}
+.ind-icon.irr{font-size:23px;line-height:1}.ind-icon.ifi{font-size:17px}
+.ind-icon.bars{align-items:flex-end;gap:2px;padding:6px}
+.ind-icon.bars i{display:block;width:4px;border-radius:2px 2px 0 0;background:var(--c)}
+.ind-icon.bars i:nth-child(1){height:7px}.ind-icon.bars i:nth-child(2){height:12px}.ind-icon.bars i:nth-child(3){height:17px}
+.ind-card>strong{display:block;margin:2px 0;font-size:22px;font-weight:900;line-height:1;color:var(--c);letter-spacing:-.02em;white-space:nowrap}
+.ind-f{display:flex;align-items:center;justify-content:space-between;gap:5px;padding-top:4px;border-top:1px solid var(--bd)}
+.ind-f span{min-width:0;font-size:8.5px;font-weight:650;color:#7A86A3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ind-f span b{color:#55607D}.ind-f em{flex:0 0 auto;font-style:normal;font-size:8.5px;font-weight:900;white-space:nowrap}
+.ind-f em.up{color:#0B8F55}.ind-f em.down{color:#C0202B}.ind-f em.flat,.ind-f em.neutral{color:#8A95B0}
+.sum{min-width:0;padding:10px 14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.st{min-width:0;padding:0 10px;border-left:1px solid #EDF1F8}
+.st:first-child{padding-left:0;border-left:none}
+.st span{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7A86A3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st span i{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--k)}
+.st b{display:block;margin-top:3px;font-size:22px;font-weight:900;line-height:1;color:#1D2757;white-space:nowrap}
+.st b small{font-size:10px;font-weight:700;color:#8A95B0;margin-left:2px}
+.k1{--k:#5B6BD6}.k2{--k:#7EC8F5}.k3{--k:#10AD68}.k4{--k:#DB3F48}
+.dist{display:flex;align-items:center;gap:12px}
+.stack{flex:1;min-width:60px;display:flex;height:9px;border-radius:99px;overflow:hidden;background:#EEF2F8}
+.stack u{display:block;height:100%}
+.dl{display:flex;gap:10px;flex:0 0 auto}
+.dl span{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#55607D;white-space:nowrap}
+.dl span i{width:8px;height:8px;border-radius:2px}
+.dl span b{color:#1D2757}
+.cG{background:#10AD68}.cY{background:#E1B42C}.cO{background:#E0842F}.cR{background:#DB3F48}
+
+.bottom{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,27%);gap:10px}
+.panel{min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.ph{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #EDF1F8}
+.ph div{min-width:0}
+.ph h2{margin:0;font-size:15px;font-weight:850;color:#1D2757;white-space:nowrap}
+.ph h2 span{color:#5B4FC9}
+.ph p{margin:2px 0 0;font-size:10px;color:#7A86A3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.sw{display:flex;padding:3px;gap:2px;border-radius:10px;background:#EEF1F8}
+.sw span{padding:5px 12px;border-radius:8px;font-size:10.5px;font-weight:800;color:#7A86A3;white-space:nowrap}
+.sw span.on{color:#fff;background:linear-gradient(120deg,#D9678C,#7A5CE0)}
+.pill{padding:4px 10px;border-radius:99px;background:#EEF0FD;color:#4A4FB8;font-size:10px;font-weight:800;white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:30px minmax(120px,2.1fr) repeat(5,minmax(0,.8fr)) minmax(0,1fr) minmax(0,.75fr);gap:6px;align-items:center}
+.gh{flex:0 0 auto;padding:6px 21px 6px 14px;background:#F6F8FC;border-bottom:1px solid #E6EBF4;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7A86A3}
+.gh div{text-align:center;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gh div:nth-child(2){text-align:left}
+.gh small{display:block;font-size:8.5px;font-weight:700;letter-spacing:0;text-transform:none;color:#A0AAC0}
+.rows{flex:1;min-height:0;overflow-y:scroll;overflow-x:hidden;padding:3px 6px 6px 6px;scrollbar-width:thin;scrollbar-color:#A9B0EC #F0F3F9}
+.rows::-webkit-scrollbar,.det-b::-webkit-scrollbar{width:7px}
+.rows::-webkit-scrollbar-track,.det-b::-webkit-scrollbar-track{background:#F0F3F9;border-radius:99px}
+.rows::-webkit-scrollbar-thumb,.det-b::-webkit-scrollbar-thumb{background:#A9B0EC;border-radius:99px}
+.row{position:relative;min-height:46px;padding:5px 8px;border-radius:10px;border-bottom:1px solid #F0F3F8}
+.row:hover{background:#F5F7FD}
+.row.sel{background:#EEF0FD;box-shadow:inset 0 0 0 1.5px #7A7FE0}
+.row.low:before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:#DB3F48}
+.pos{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#6B7697;background:#EEF2F8}
+.pos.m1{color:#fff;background:#D7A21B}.pos.m2{color:#fff;background:#8EA1B8}.pos.m3{color:#fff;background:#B8784E}
+.who{display:flex;align-items:center;gap:8px;min-width:0}
+.av{flex:0 0 auto;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--a,#5B6BD6);font-size:11px;font-weight:900;line-height:1;text-transform:uppercase}
+.nm{min-width:0;overflow:hidden}
+.nm b{display:block;font-size:12px;font-weight:850;line-height:1.15;color:#1D2757;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm small{display:block;margin-top:2px;font-size:8.5px;font-weight:600;line-height:1.1;color:#7A86A3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who .av{width:30px;height:30px;font-size:11px}
+.ic{min-width:0;padding:4px 3px;border-radius:8px;text-align:center}
+.ic b{display:block;font-size:11.5px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.ic i{display:block;height:3px;margin:3px 4px 0;border-radius:99px;background:rgba(0,0,0,.08);overflow:hidden}
+.ic i u{display:block;height:100%;border-radius:99px;background:currentColor}
+.ic{position:relative;cursor:default}
+.ic .tt{display:none;position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);z-index:30;min-width:118px;padding:6px 9px;border-radius:8px;background:#1D2757;box-shadow:0 6px 18px rgba(20,30,70,.28);pointer-events:none;text-align:left}
+.ic .tt:after{content:'';position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:#1D2757}
+.ic:hover .tt{display:block}
+.ic .tt span{display:flex;justify-content:space-between;gap:14px;line-height:1.55;white-space:nowrap}
+.ic .tt em{font-style:normal;font-size:10px;font-weight:600;color:#B9C3F0}
+.ic .tt b{display:inline;overflow:visible;font-size:11px;font-weight:850;color:#fff}
+.row:nth-child(-n+2) .ic .tt{bottom:auto;top:calc(100% + 6px)}
+.row:nth-child(-n+2) .ic .tt:after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#1D2757}
+.tG{color:#0B8F55;background:#E3F6EC}.tY{color:#9A7300;background:#FBF1CF}.tO{color:#A55310;background:#FCE6D2}.tR{color:#C0202B;background:#FBE1E2}.tN{color:#A0AAC0;background:#F4F6FA}
+.pts{min-width:0}
+.pts b{display:block;font-size:13.5px;font-weight:900;color:#1D2757;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pts b small{font-size:9px;font-weight:700;color:#8A95B0}
+.trk{height:6px;margin-top:4px;border-radius:99px;background:#EDF1F8;overflow:hidden}
+.trk u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7A5CE0,#7EC8F5)}
+.trk u.G{background:linear-gradient(90deg,#0FA464,#5DD39B)}
+.trk u.R{background:linear-gradient(90deg,#DB3F48,#F28C92)}
+.hit{min-width:0;padding:6px 3px;border-radius:8px;text-align:center;font-size:11px;font-weight:900;white-space:nowrap;overflow:hidden}
+.row .hit.tR{animation:pisca 1.1s steps(1) infinite}
+@keyframes pisca{0%{background:#FBE1E2;color:#C0202B}50%{background:#D8232F;color:#fff}}
+.empty{padding:40px;text-align:center;color:#8A95B0;font-size:13px}
+
+.det-h{flex:0 0 auto;padding:12px 14px;color:#fff;background:linear-gradient(135deg,#2C3A86,#5B4FC9)}
+.det-h .eb{font-size:8.5px;font-weight:800;letter-spacing:.2em;color:#B9C3F0;text-transform:uppercase}
+.det-id{display:flex;align-items:center;gap:10px;margin-top:6px;min-width:0}
+.det-id .av{width:38px;height:38px;font-size:13px;box-shadow:0 0 0 2px rgba(255,255,255,.4)}
+.det-id div{min-width:0}
+.det-id b{display:block;font-size:14px;font-weight:850;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det-id small{display:block;font-size:10px;color:#C9D1F5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det-b{flex:1;min-height:0;overflow-y:auto;padding:10px 14px}
+.det-s{display:flex;align-items:center;gap:12px;padding-bottom:10px;border-bottom:1px solid #EDF1F8}
+.ring{width:72px;height:72px;flex:0 0 72px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--c) calc(var(--p)*1%),#EDF1F8 0)}
+.ring div{width:56px;height:56px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring b{font-size:15px;font-weight:900;color:#1D2757;line-height:1}
+.ring small{font-size:8px;font-weight:700;color:#8A95B0}
+.det-s div{min-width:0}
+.det-s span{display:block;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7A86A3}
+.det-s strong{display:block;font-size:24px;font-weight:900;line-height:1.1}
+.det-s em{font-style:normal;font-size:10px;color:#8A95B0}
+.dr{padding:8px 0;border-bottom:1px solid #F0F3F8}
+.dr-t{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.dr-t b{font-size:11.5px;font-weight:800;color:#1D2757;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-t .hit{flex:0 0 auto;padding:2px 7px;font-size:10px}
+.dr-m{display:flex;justify-content:space-between;gap:6px;margin-top:3px;font-size:10px;color:#7A86A3;white-space:nowrap}
+.dr-m b{color:#1D2757}
+.dr .trk{height:5px}
+
+@media (max-width:1250px){
+.top{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+.st b{font-size:19px}
+.dl span{font-size:9px}.dl{gap:7px}
+.grid{gap:4px;grid-template-columns:28px minmax(110px,2fr) repeat(5,minmax(0,.8fr)) minmax(0,.9fr) minmax(0,.75fr)}
+.who .av{display:none}
+.ic b{font-size:10.5px}
+.hit{font-size:10px}
+.sw span{padding:4px 9px}
+.ph p{display:none}
+}
+@media (max-height:700px){
+.rk{grid-template-rows:96px minmax(0,1fr);gap:8px}
+.row{min-height:40px}
+}
+</style>"
+
+RETURN
+    _css &
+    "<div class='rk'>" &
+        _secTopo &
+        "<section class='bottom'>" & _painelLista & _painelDetalhe & "</section>" &
+    "</div>"

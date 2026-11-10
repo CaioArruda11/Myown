@@ -238,6 +238,8 @@ box-shadow:0 14px 30px rgba(5,14,38,.30),inset 0 0 0 1px rgba(255,255,255,.08)}
 @keyframes scan{0%{left:-40%;opacity:0}15%{opacity:1}60%{left:120%;opacity:1}100%{left:120%;opacity:0}}
 @keyframes glow{0%,100%{opacity:1}50%{opacity:.55}}
 @keyframes live{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.6}}
+/* visual estreito (menos de 216px): aperta os espacos para os nomes caberem inteiros */
+@media (max-width:215px){.it{gap:8px;padding:0 6px 0 4px}.ic-w{width:24px;height:24px}.it.on .ic-w{margin-left:3px}.live{display:none}.lb{font-size:12px}.bt b{font-size:16px}.lg{width:36px;height:36px}.brand{gap:9px}.fx{gap:5px;padding:0 6px}.fx b{font-size:9.5px;letter-spacing:0}.fx small{font-size:9.5px}.ctx b{font-size:12.5px}.tg{padding:0 8px;font-size:10px}}
 @media (max-height:610px){.note{display:none}}
 @media (max-height:500px){.sec,.fxs{display:none}}
 @media (prefers-reduced-motion:reduce){.mn *,.mn *::before,.mn *::after{animation:none!important;transition:none!important}}

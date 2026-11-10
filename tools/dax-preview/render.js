@@ -50,6 +50,31 @@ function compose(parts, opts) {
     '</div></body></html>';
 }
 
+/** Pagina "Abertura Hierarquia": menu + linha de filtros nativos + visual do ranking. */
+const LAYOUT_RK = { page: { w: 1280, h: 720 }, menu: { x: 20, y: 6, w: 200, h: 700 }, rk: { x: 236, y: 80, w: 1032, h: 630 } };
+function composeRanking(parts, opts) {
+  const o = opts || {};
+  const L = LAYOUT_RK;
+  const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
+  const frame = (r, html, name, id) => '<iframe name="' + id + '" title="' + name + '" style="' + box(r) + '" srcdoc="' + esc(wrap(html)) + '"></iframe>';
+  const filtros = [['Selecione a AT', 'Todos'], ['Selecione o Mês', o.mes || 'Novembro/2026'], ['Selecione a COR', 'Todos'], ['Coordenador', 'Todos'],
+    ['Supervisor', o.supervisor || 'Todos'], ['Selecione a Visão', o.visao || 'TÉCNICO'], ['Selecione a EPS', 'Todos']];
+  const w = 132;
+  const sl = filtros.map((f, i) => '<div class="sl" style="left:' + (236 + i * (w + 9)) + 'px;top:6px;width:' + w + 'px;height:62px"><b>' + f[0] + '</b><div class="dd">' + f[1] + '</div></div>').join('');
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
+    'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +
+    '.pg{position:relative;width:' + L.page.w + 'px;height:' + L.page.h + 'px;margin:0 auto;background:linear-gradient(180deg,#EEF3FA,#E3EBF6);overflow:hidden}' +
+    'iframe{position:absolute;border:0;background:transparent}' +
+    '.sl{position:absolute;box-sizing:border-box;padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.72);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:11px;color:#1F2937}' +
+    '.sl b{display:block;font-weight:500;margin-bottom:8px;white-space:nowrap}' +
+    '.sl .dd{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:10.5px;color:#344054}.sl .dd:after{content:"⌄";font-size:13px;margin-top:-5px;color:#667085}' +
+    '.csv{position:absolute;left:1232px;top:16px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#D9F0E6;border:1px solid #B5E0CC;color:#2E8B62;font-size:11px;font-weight:600}' +
+    '</style></head><body><div class="pg">' +
+    frame(L.menu, parts.menu, 'Menu lateral', 'menu') + sl + '<div class="csv">CSV</div>' +
+    frame(L.rk, parts.rk, 'Ranking', 'rk') +
+    '</div></body></html>';
+}
+
 async function shots(jobs) {
   const { chromium } = require('playwright');
   const browser = await chromium.launch();
@@ -65,4 +90,4 @@ async function shots(jobs) {
   await browser.close();
 }
 
-module.exports = { wrap, compose, shots, LAYOUT };
+module.exports = { wrap, compose, composeRanking, shots, LAYOUT, LAYOUT_RK };

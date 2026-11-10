@@ -125,3 +125,70 @@ const status = {
 };
 
 module.exports = { corpo, menu, status, HOJE, UTC_NOW };
+
+// ------------------------------------------------------- RANKING DE TECNICOS
+// Base ficticia: N tecnicos distribuidos em supervisores, com varios sem dado
+// em parte dos indicadores (como no print: muita linha com 1/5 ou 2/5).
+const SUPS = ['RENATO SALES', 'JAILTON FERREIRA DA PASCIENCIA', 'FRANCISCO NUNES VIEIRA', 'RENATO FELIPE DA MOTA MATTOS', 'ALEX ALVES ROBERTO',
+  'TIAGO SILVA COELHO', 'NILTON CESAR DA SILVA', 'JUNEILANDO DE BRITO', 'MARCOS VINICIUS LOPES', 'PAULO HENRIQUE RAMOS'];
+const NOMES = ['Fernando', 'Flavio', 'Jaqueline', 'Leonio', 'Marcos', 'Nathan', 'Thiago', 'Alexandre', 'Rudnaldo', 'Cristiano', 'Anderson', 'Bruno', 'Carlos', 'Diego', 'Eduardo',
+  'Fabio', 'Gabriel', 'Henrique', 'Igor', 'Joao', 'Kleber', 'Lucas', 'Mateus', 'Nelson', 'Otavio', 'Paulo', 'Rafael', 'Sergio', 'Tiago', 'Vitor', 'Wesley', 'Yuri'];
+const SOBRE = ['Ranieli Santos De Oliveira', 'Siqueira De Oliveira', 'Barros Da Silva', 'Gabriel Alves', 'Antonio De Toledo', 'Tavares Silva', 'Dos Santos Carvalho',
+  'Osvandir Aparecido', 'De Souza Araujo', 'Alves Da Silva', 'Pereira Lima', 'Costa Ribeiro', 'Souza Martins', 'Rocha Fernandes', 'Gomes Barbosa', 'Almeida Pinto', 'Cardoso Melo'];
+function rng(seed) { let x = seed; return () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; }; }
+function baseRanking(n, seed) {
+  const r = rng(seed);
+  const rows = [];
+  const dono = {};
+  for (let i = 0; i < n; i++) {
+    const nome = NOMES[i % NOMES.length] + ' ' + SOBRE[(i * 7) % SOBRE.length] + (i >= NOMES.length * 4 ? ' ' + (i % 9 + 2) : '');
+    if (dono[nome]) continue;
+    dono[nome] = SUPS[Math.floor(r() * SUPS.length)];
+    const q = 0.55 + r() * 0.9; // qualidade geral do tecnico
+    const tem = () => r() < 0.46;
+    const pct = (meta, on) => { if (!on) return [null, null, null]; const den = 3 + Math.floor(r() * 40); const num = Math.max(0, Math.round(den * meta * (0.2 + r() * 2.2) / q)); return [num / den, num, den]; };
+    const a = pct(0.04, tem()), b = pct(0.02, tem()), c = pct(0.10, tem()), d = pct(0.05, tem());
+    const temPU = r() < 0.5; const dPU = 10 + Math.floor(r() * 30); const nPU = Math.round(dPU * (2.2 + r() * 2.2) * Math.min(1.2, q));
+    rows.push({ Entidade: nome, '@IFI': a[0], '@IFI7': b[0], '@IRR': c[0], '@IRR7': d[0], '@PU': temPU ? nPU / dPU : null,
+      '@nIFI': a[1], '@dIFI': a[2], '@nIFI7': b[1], '@dIFI7': b[2], '@nIRR': c[1], '@dIRR': c[2], '@nIRR7': d[1], '@dIRR7': d[2], '@nPU': temPU ? nPU : null, '@dPU': temPU ? dPU : null });
+  }
+  return { rows, dono };
+}
+function rankingCenario(n, seed, o) {
+  const opt = o || {};
+  const { rows, dono } = baseRanking(n, seed);
+  const sup = !!opt.supervisor;
+  let base = rows;
+  if (sup) {
+    // agrega por supervisor (soma numeradores e denominadores)
+    const m = {};
+    for (const t of rows) {
+      const s = dono[t.Entidade];
+      const g = m[s] || (m[s] = { Entidade: s, '@nIFI': 0, '@dIFI': 0, '@nIFI7': 0, '@dIFI7': 0, '@nIRR': 0, '@dIRR': 0, '@nIRR7': 0, '@dIRR7': 0, '@nPU': 0, '@dPU': 0 });
+      for (const k of Object.keys(g)) if (k !== 'Entidade') g[k] += t[k] || 0;
+    }
+    // mesma ordem de colunas das outras bases (UNION casa as colunas pela posicao)
+    const div = (x, y) => (y ? x / y : null);
+    base = Object.values(m).map((g) => ({ Entidade: g.Entidade, '@IFI': div(g['@nIFI'], g['@dIFI']), '@IFI7': div(g['@nIFI7'], g['@dIFI7']), '@IRR': div(g['@nIRR'], g['@dIRR']),
+      '@IRR7': div(g['@nIRR7'], g['@dIRR7']), '@PU': div(g['@nPU'], g['@dPU']), '@nIFI': g['@nIFI'], '@dIFI': g['@dIFI'], '@nIFI7': g['@nIFI7'], '@dIFI7': g['@dIFI7'],
+      '@nIRR': g['@nIRR'], '@dIRR': g['@dIRR'], '@nIRR7': g['@nIRR7'], '@dIRR7': g['@dIRR7'], '@nPU': g['@nPU'], '@dPU': g['@dPU'] }));
+  }
+  const geral = Object.assign({ Entidade: '__GERAL__', '@IFI': 0.082, '@IFI7': opt.ifi7 === undefined ? NaN : opt.ifi7, '@IRR': 0.294, '@IRR7': opt.irr7 === undefined ? null : opt.irr7, '@PU': 2.4,
+    '@nIFI': 412, '@dIFI': 5024, '@nIFI7': null, '@dIFI7': null, '@nIRR': 1310, '@dIRR': 4456, '@nIRR7': null, '@dIRR7': null, '@nPU': 9120, '@dPU': 3800 }, opt.geral || {});
+  const sel = opt.sel || null;
+  const linhaSel = sel ? base.find((x) => x.Entidade === sel) : null;
+  const ctx = linhaSel || geral;
+  const mocks = {
+    _visao: sup ? 'SUPERVISOR' : 'TÉCNICO', _tecSel: sup ? null : sel, _supSel: sup ? sel : null, _supsContexto: [],
+    _baseTec: sup ? [] : base, _baseSup: sup ? base : [], _baseGeral: [geral],
+    _irr7Atual: ctx['@IRR7'], _irr7M1: opt.m1 ? opt.m1[0] : 0.047, _ifi7Atual: ctx['@IFI7'], _ifi7M1: opt.m1 ? opt.m1[1] : null, _puAtual: ctx['@PU'], _puM1: opt.m1 ? opt.m1[2] : 2.7,
+  };
+  // CALCULATE dentro do ranking: supervisor(es) do tecnico ou quantidade de tecnicos do supervisor
+  const calculate = (node, get) => {
+    const e = get('_e');
+    if (node.args[0].name === 'DISTINCTCOUNT') return rows.filter((t) => dono[t.Entidade] === e).length;
+    return dono[e] || '';
+  };
+  return { mocks, calculate, nomes: base.map((x) => x.Entidade) };
+}
+module.exports.ranking = rankingCenario;
