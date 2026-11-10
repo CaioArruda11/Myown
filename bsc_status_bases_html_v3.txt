@@ -1,0 +1,226 @@
+BSC Status Atualizacao Bases HTML = 
+// ============================================================================
+// ATUALIZACAO DAS BASES  (v3 - refeito do zero)   |   visual 3 de 3
+// Mostra, para cada base, se esta em dia e ate que data ela vai.
+// Independe dos filtros da pagina (REMOVEFILTERS). Fundo TRANSPARENTE.
+//
+// PALETA: troque so a palavra em _tema ->  "OCEANO" | "AURORA" | "GRAFITE"
+// (use o mesmo tema do corpo e do menu).
+//
+// O QUE TEM DE NOVO
+//   - painel escuro, na mesma paleta do menu e da faixa de destaque;
+//   - cabecalho com o resumo ("2 atrasadas" / "todas em dia") e uma BARRA DE
+//     SAUDE: um segmento por base, verde = em dia, vermelho = atrasada;
+//   - cada base em uma linha: luz de status, nome, DATA da base e D-n;
+//   - a base atrasada tem selo cheio e luz pulsando; a em dia fica discreta;
+//   - se o visual for largo (>= 430px) vira 4 x 2 blocos; se for estreito
+//     (< 230px), 1 coluna;
+//   - "hoje" calculado no fuso de Brasilia (no Service o TODAY() e UTC e,
+//     depois das 21h, o D-n contava um dia a mais);
+//   - incluir, renomear ou reordenar uma base = mexer em uma linha de _bases.
+//
+// AJUSTES RAPIDOS: _defasagemAceita (dias tolerados) e _fusoHorario.
+// Nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+
+// ------------------------------------------------------------------- PALETA
+VAR _tema = "OCEANO"
+
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--d2:#43208A;--a1:#F472B6;--a2:#A78BFA;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30)",
+        "GRAFITE",
+            "--d0:#0C1016;--d1:#161C26;--d2:#2B3442;--a1:#7DD3FC;--a2:#CBD5E1;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20)",
+        "--d0:#050E26;--d1:#0A1A42;--d2:#123A7C;--a1:#22D3EE;--a2:#60A5FA;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30)"
+    )
+
+VAR _loc = "pt-BR"
+VAR _defasagemAceita = 1
+VAR _fusoHorario = -3
+
+// "Hoje" no fuso informado (UTCNOW e igual no Desktop e no Service).
+VAR _agora = UTCNOW() + _fusoHorario / 24
+VAR _hoje = DATE( YEAR( _agora ), MONTH( _agora ), DAY( _agora ) )
+
+// ------------------------------------------------- ULTIMA DATA DE CADA BASE
+VAR _dtIFI = CALCULATE(MAX('fALTAS ENCERRADAS 7D'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtIRR7D = CALCULATE(MAX('fREPAROS ABERTOS 7D'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtTMR = CALCULATE(MAX('fTMR_REPAROS ENCERRADOS'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtEficiencia = CALCULATE(MAX('fALTAS BRUTAS EFICIÊNCIA'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtEfetividade = CALCULATE(MAX('f1AGENDA_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtInsta3D = CALCULATE(MAX('fINSTALACAO + ME_3D_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtChegada = CALCULATE(MAX('fCHEGADA_TOTAL'[DAT_REFERENCIA]), REMOVEFILTERS())
+VAR _dtRoteirizacao = CALCULATE(MAX('ANALÍTICO_CENTRALIZADO'[DATA_REFERENCIA]), REMOVEFILTERS())
+
+// Uma linha por base. Ordem = posicao no painel (de cima para baixo, coluna
+// da esquerda primeiro).
+VAR _bases =
+    UNION(
+        ROW( "Base", "IFI", "Ordem", 1, "Data", _dtIFI ),
+        ROW( "Base", "IRR 7D", "Ordem", 2, "Data", _dtIRR7D ),
+        ROW( "Base", "TMR", "Ordem", 3, "Data", _dtTMR ),
+        ROW( "Base", "Eficiência", "Ordem", 4, "Data", _dtEficiencia ),
+        ROW( "Base", "Efetividade", "Ordem", 5, "Data", _dtEfetividade ),
+        ROW( "Base", "Insta 3D", "Ordem", 6, "Data", _dtInsta3D ),
+        ROW( "Base", "Chegada", "Ordem", 7, "Data", _dtChegada ),
+        ROW( "Base", "Roteirização", "Ordem", 8, "Data", _dtRoteirizacao )
+    )
+
+// Defasagem em dias (D-n) e situacao: ok = em dia | late = atrasada | nd = sem data
+VAR _basesDefasagem =
+    ADDCOLUMNS(
+        _bases,
+        "Defasagem", IF( ISBLANK( [Data] ), BLANK(), MAX( 0, INT( _hoje - [Data] ) ) )
+    )
+VAR _basesStatus =
+    ADDCOLUMNS(
+        _basesDefasagem,
+        "Situacao",
+            SWITCH(
+                TRUE(),
+                ISBLANK( [Data] ), "nd",
+                [Defasagem] <= _defasagemAceita, "ok",
+                "late"
+            )
+    )
+
+VAR _qtdBases = COUNTROWS( _basesStatus ) + 0
+VAR _qtdEmDia = COUNTROWS( FILTER( _basesStatus, [Situacao] = "ok" ) ) + 0
+VAR _qtdAtrasadas = COUNTROWS( FILTER( _basesStatus, [Situacao] = "late" ) ) + 0
+VAR _qtdSemData = COUNTROWS( FILTER( _basesStatus, [Situacao] = "nd" ) ) + 0
+
+// ------------------------------------------------------------------- RESUMO
+VAR _resumoClasse =
+    SWITCH(
+        TRUE(),
+        _qtdAtrasadas > 0, "late",
+        _qtdSemData > 0, "nd",
+        "ok"
+    )
+VAR _resumoTexto =
+    SWITCH(
+        TRUE(),
+        _qtdAtrasadas > 0,
+            FORMAT( _qtdAtrasadas, "0", _loc ) & IF( _qtdAtrasadas = 1, " atrasada", " atrasadas" ),
+        _qtdSemData > 0,
+            FORMAT( _qtdSemData, "0", _loc ) & " sem data",
+        "todas em dia"
+    )
+VAR _resumoDica =
+    FORMAT( _qtdEmDia, "0", _loc ) & " de " & FORMAT( _qtdBases, "0", _loc ) & " bases em dia" &
+    IF( _qtdAtrasadas > 0, " · " & FORMAT( _qtdAtrasadas, "0", _loc ) & IF( _qtdAtrasadas = 1, " atrasada", " atrasadas" ), "" ) &
+    IF( _qtdSemData > 0, " · " & FORMAT( _qtdSemData, "0", _loc ) & " sem data", "" ) &
+    ". Hoje: " & FORMAT( _hoje, "dd/mm/yyyy", _loc ) &
+    ". Em dia = base ate D-" & FORMAT( _defasagemAceita, "0", _loc ) & "."
+
+// barra de saude: um segmento por base, na mesma ordem da lista
+VAR _saude =
+    CONCATENATEX(
+        _basesStatus,
+        "<i class='" & [Situacao] & "' title='" & [Base] & "'></i>",
+        "",
+        [Ordem], ASC
+    )
+
+// -------------------------------------------------------------------- LINHAS
+VAR _linhas =
+    CONCATENATEX(
+        _basesStatus,
+        VAR _sit = [Situacao]
+        VAR _dn = IF( _sit = "nd", "S/D", "D-" & FORMAT( [Defasagem], "0", _loc ) )
+        VAR _dica =
+            SWITCH(
+                _sit,
+                "nd", [Base] & ": sem data na base",
+                "ok", [Base] & ": base até " & FORMAT( [Data], "dd/mm/yyyy", _loc ) & " (" & _dn & ") · em dia",
+                [Base] & ": base até " & FORMAT( [Data], "dd/mm/yyyy", _loc ) & " (" & _dn & ") · atrasada, o aceito é até D-" & FORMAT( _defasagemAceita, "0", _loc )
+            )
+        RETURN
+            "<div class='b " & _sit & "' title='" & _dica & "'>" &
+                "<i class='d'></i>" &
+                "<span class='n'>" & [Base] & "</span>" &
+                IF( _sit = "nd", "", "<span class='dt'>" & FORMAT( [Data], "dd/mm", _loc ) & "</span>" ) &
+                "<b class='p'>" & IF( _sit = "nd", "sem data", _dn ) & "</b>" &
+            "</div>",
+        "",
+        [Ordem], ASC
+    )
+
+// ============================================================================
+// CSS  (100vh de proposito: o wrapper do HTML Content nao tem altura definida)
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.st,.st *{box-sizing:border-box}
+.st i{font-style:normal}
+.st{" & _tokens & ";--ok:#34D399;--late:#F87171;--nd:#8391AB;
+position:relative;width:100%;height:100vh;padding:7px 9px 8px;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:4px;overflow:hidden;border-radius:14px;color:#FFFFFF;
+background:radial-gradient(90% 120% at 100% 0%,var(--g2),transparent 65%),radial-gradient(80% 110% at 0% 100%,var(--g1),transparent 70%),linear-gradient(135deg,var(--d1),var(--d0));
+box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;text-align:left;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- CABECALHO: titulo + resumo ---------- */
+.h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;height:15px}
+.t{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;font-weight:800;letter-spacing:.13em;line-height:15px;text-transform:uppercase;color:rgba(255,255,255,.66);white-space:nowrap}
+.s{flex:none;display:inline-flex;align-items:center;gap:5px;height:15px;padding:0 7px;border-radius:99px;font-size:9.5px;font-weight:700;white-space:nowrap}
+.s::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+.s.ok{color:#6EE7B7;background:rgba(52,211,153,.16)}
+.s.late{color:var(--d0);background:var(--late)}
+.s.nd{color:#D5DBEA;background:rgba(255,255,255,.13)}
+
+/* ---------- BARRA DE SAUDE: um segmento por base ---------- */
+.hb{display:flex;gap:2px;height:3px}
+.hb i{flex:1 1 0;border-radius:2px;background:var(--ok)}
+.hb i.late{background:var(--late)}
+.hb i.nd{background:rgba(255,255,255,.25)}
+
+/* ---------- LISTA: 2 colunas x 4 linhas (preenche coluna a coluna) ---------- */
+.g{min-height:0;display:grid;grid-auto-flow:column;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:2px 6px;margin-top:1px}
+.b{min-width:0;min-height:0;display:flex;align-items:center;gap:4px;padding:0 2px 0 4px;border-radius:6px;background:rgba(255,255,255,.055)}
+.d{flex:none;width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:600;line-height:1;white-space:nowrap}
+.dt{flex:none;font-size:10px;font-weight:500;line-height:1;color:rgba(255,255,255,.70);white-space:nowrap}
+.p{flex:none;min-width:26px;height:13px;padding:0 2px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;font-size:9.5px;font-weight:700;line-height:1;color:#6EE7B7;background:rgba(52,211,153,.15);white-space:nowrap}
+/* atrasada: selo cheio + luz pulsando (nao depende so da cor) */
+.b.late{background:rgba(248,113,113,.13)}
+.b.late .d{background:var(--late);box-shadow:0 0 7px var(--late);animation:pulso 1.8s ease-in-out infinite}
+.b.late .dt{color:#FFFFFF}
+.b.late .p{color:var(--d0);background:var(--late)}
+/* sem data */
+.b.nd .d{background:transparent;box-shadow:inset 0 0 0 1.5px var(--nd)}
+.b.nd .n{color:rgba(255,255,255,.70)}
+.b.nd .p{color:#D5DBEA;background:rgba(255,255,255,.12);font-weight:600}
+@keyframes pulso{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- OUTROS TAMANHOS DE VISUAL ---------- */
+/* largo: 4 x 2 blocos (nome em cima; data e D-n embaixo) */
+@media (min-width:430px){
+.g{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px}
+.b{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;column-gap:6px;row-gap:5px;padding:0 7px 0 8px;border-radius:9px}
+.n{grid-column:2 / 4}
+.dt{grid-column:1 / 3}
+.b.nd .p{grid-column:1 / 3;justify-self:start}
+}
+/* estreito: 1 coluna */
+@media (max-width:229px){.g{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(8,minmax(0,1fr))}.t{display:none}.h{justify-content:flex-end}}
+/* muito baixo: sem barra de saude */
+@media (max-height:99px){.st{grid-template-rows:auto minmax(0,1fr)}.hb{display:none}}
+@media (prefers-reduced-motion:reduce){.st *{animation:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _html =
+"<div class='st'>" &
+    "<div class='h'><span class='t'>Atualização das bases</span>" &
+        "<span class='s " & _resumoClasse & "' title='" & _resumoDica & "'>" & _resumoTexto & "</span></div>" &
+    "<div class='hb'>" & _saude & "</div>" &
+    "<div class='g'>" & _linhas & "</div>" &
+"</div>"
+
+RETURN
+    _css & _html

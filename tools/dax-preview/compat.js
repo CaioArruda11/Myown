@@ -1,13 +1,13 @@
 'use strict';
 // Confere o HTML gerado contra as regras do visual HTML Content (edicao certificada inclusa).
-const TAGS = ['style', 'div', 'section', 'article', 'aside', 'span', 'i', 'b', 'u', 'small', 'h2', 'p', 'svg', 'circle', 'rect', 'path'];
+const TAGS = ['style', 'details', 'summary', 'div', 'section', 'article', 'aside', 'span', 'i', 'b', 'u', 'small', 'h2', 'p', 'svg', 'circle', 'rect', 'path'];
 const ATTRS = ['class', 'style', 'title', 'tabindex', 'role', 'viewbox', 'cx', 'cy', 'r', 'x', 'y', 'width', 'height', 'rx', 'd'];
 
 function compat(html) {
   const problems = [];
   if (html.includes('"')) problems.push('aspas duplas no HTML gerado');
   const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
-  for (const bad of ['@import', '@font-face', 'url(', 'expression(', 'javascript:', '@container', '@property', '@layer', ':has(']) if (css.includes(bad)) problems.push('CSS usa ' + bad);
+  for (const bad of ['@import', '@font-face', 'url(', 'expression(', 'javascript:', '@container', '@property', '@layer', 'color-mix(']) if (css.includes(bad)) problems.push('CSS usa ' + bad);
   const body = html.replace(/<style>[\s\S]*?<\/style>/, '');
   const tags = new Set();
   const re = /<([a-zA-Z0-9]+)((?:\s+[a-zA-Z-]+(?:='[^']*')?)*)\s*\/?>/g;

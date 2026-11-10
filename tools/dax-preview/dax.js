@@ -524,6 +524,12 @@ Object.assign(FN, {
     for (const r of tbl(a[0], c)) { const v = ev(a[1], inRow(c, r)); if (v !== null) s = (s === null ? 0 : s) + num(v); }
     return s;
   },
+  AVERAGEX: (a, c) => {
+    let s = 0;
+    let n = 0;
+    for (const r of tbl(a[0], c)) { const v = ev(a[1], inRow(c, r)); if (v !== null) { s += num(v); n++; } }
+    return n ? s / n : null;
+  },
   MAXX: (a, c) => {
     let m = null;
     for (const r of tbl(a[0], c)) { const v = ev(a[1], inRow(c, r)); if (v !== null && (m === null || compare(v, m) > 0)) m = v; }

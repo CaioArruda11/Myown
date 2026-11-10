@@ -34,8 +34,30 @@ const ATS = [
   ['LA', 'PRATA 1', 58.10], ['BT', 'OURO', 57.45], ['FO', 'PRATA 2', 56.90], ['JS', 'PRATA 1', 55.31],
   ['CA', 'PRATA 2', 54.62],
 ];
-const areas = (cor, k) => ATS.filter((a) => !cor || cor === 'GERAL' || a[1] === cor)
-  .map((a) => ({ 'AREA ': a[0], __CorArea: a[1], __Pontos: Math.round(a[2] * (k || 1) * 100) / 100 }));
+// Pontos por indicador de cada AT (alimentam o mapa de calor). Os totais batem com a lista acima.
+const PESOS = { Agenda: 10, TMR: 8, Slot: 8, Instalacao: 10, Produtividade: 8, Roteirizacao: 4, IRT: 8, EficienciaCampo: 10, IFI7: 15, IRR7: 15 };
+const PADRAO = { Agenda: 0.78, TMR: 0.74, Slot: 0.97, Instalacao: 0.6, Produtividade: 1.02, Roteirizacao: 0.93, IRT: 0.7, EficienciaCampo: null, IFI7: 0.76, IRR7: 0.73 };
+const PADRAO_BOM = { Agenda: 1.04, TMR: 1.1, Slot: 1.03, Instalacao: 0.95, Produtividade: 1.02, Roteirizacao: 1.03, IRT: 1.08, EficienciaCampo: 1.03, IFI7: 1.06, IRR7: 0.87 };
+const ruido = (txt) => { let h = 7; for (const ch of txt) h = (h * 31 + ch.charCodeAt(0)) % 9973; return (h % 41) / 100 - 0.2; };
+const areas = (cor, k, padrao) => ATS.filter((a) => !cor || cor === 'GERAL' || a[1] === cor).map((a) => {
+  const alvo = a[2] * (k || 1);
+  const pad = padrao || PADRAO;
+  const bruto = {};
+  let soma = 0;
+  for (const ind of Object.keys(PESOS)) {
+    bruto[ind] = pad[ind] === null ? null : PESOS[ind] * Math.min(1.3, pad[ind] * (1 + ruido(a[0] + ind)));
+    soma += bruto[ind] || 0;
+  }
+  const row = { 'AREA ': a[0], __CorArea: a[1] };
+  let total = 0;
+  for (const ind of Object.keys(PESOS)) {
+    const v = bruto[ind] === null ? null : Math.min(1.3 * PESOS[ind], (bruto[ind] * alvo) / soma);
+    row['__Pontos' + ind] = v === null ? null : Math.round(v * 100) / 100;
+    total += v || 0;
+  }
+  row.__Pontos = Math.round(total * 100) / 100;
+  return row;
+});
 
 const corpoBase = {
   _corSelecionada: 'GERAL', _areaSelecionada: null, _temAreaSelecionada: false,
@@ -53,14 +75,16 @@ const corpo = {
     _corSelecionada: 'BRONZE', _areaSelecionada: 'MA', _temAreaSelecionada: true,
     _areasValidas: areas('BRONZE'),
     _tabIndBase: tabIndBase({
-      '1 AGENDA': { res: 0.701 }, 'TMR': { res: 22.4 }, 'INSTALAÇÃO 3D': { res: 0.69 }, 'IRT': { res: 0.036 },
-      'EFICIÊNCIA DE CAMPO': { res: 0.874 }, 'IFI 7 DIAS': { res: 0.0 }, 'IRR 7 DIAS': { res: 0.097 },
+      '1 AGENDA': { res: 0.542 }, 'TMR': { res: 30.2 }, 'CHEGADA NO SLOT': { res: 0.781 }, 'INSTALAÇÃO 3D': { res: 0.53 }, 'PRODUTIVIDADE PU': { res: 2.61 },
+      'IRT': { res: 0.036 }, 'EFICIÊNCIA DE CAMPO': { res: 0.874 }, 'IFI 7 DIAS': { res: 0.061 }, 'IRR 7 DIAS': { res: 0.142 },
     }),
   }),
+  // so a cor OURO filtrada
+  ouro: Object.assign({}, corpoBase, { _corSelecionada: 'OURO', _areasValidas: areas('OURO') }),
   // resultado bom: quase tudo verde, para ver o outro extremo da escala
   bom: Object.assign({}, corpoBase, {
     _pontosGeral: 101.4, _pontosBronze: 104.2, _pontosOuro: 102.3, _pontosPrata2: 99.1, _pontosPrata1: 93.6,
-    _areasValidas: areas('GERAL', 1.56),
+    _areasValidas: areas('GERAL', 1.56, PADRAO_BOM),
     _tabIndBase: tabIndBase({
       '1 AGENDA': { res: 0.76 }, 'TMR': { res: 21.5 }, 'CHEGADA NO SLOT': { res: 0.83 }, 'INSTALAÇÃO 3D': { res: 0.78 },
       'ROTEIRIZAÇÃO AUTOMÁTICA': { res: 0.88 }, 'IRT': { res: 0.037 }, 'EFICIÊNCIA DE CAMPO': { res: 0.93 },
@@ -77,10 +101,11 @@ const corpo = {
 };
 
 // --------------------------------------------------------------------- MENU
+const QTD = { _qtdATGeral: 17, _qtdATOuro: 4, _qtdATBronze: 5, _qtdATPrata1: 3, _qtdATPrata2: 5 };
 const menu = {
-  geral: { _corSelecionada: 'GERAL', _areaSelecionada: null, _temAreaSelecionada: false },
-  bronzeAT: { _corSelecionada: 'BRONZE', _areaSelecionada: 'MA', _temAreaSelecionada: true },
-  ouro: { _corSelecionada: 'OURO', _areaSelecionada: null, _temAreaSelecionada: false },
+  geral: Object.assign({ _corSelecionada: 'GERAL', _areaSelecionada: null, _temAreaSelecionada: false }, QTD),
+  bronzeAT: Object.assign({ _corSelecionada: 'BRONZE', _areaSelecionada: 'MA', _temAreaSelecionada: true }, QTD),
+  ouro: Object.assign({ _corSelecionada: 'OURO', _areaSelecionada: null, _temAreaSelecionada: false }, QTD),
 };
 
 // ------------------------------------------------------------------- STATUS

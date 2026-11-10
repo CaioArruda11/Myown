@@ -28,7 +28,7 @@ function compose(parts, opts) {
   const o = opts || {};
   const L = LAYOUT;
   const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
-  const frame = (r, html, name) => '<iframe title="' + name + '" style="' + box(r) + '" srcdoc="' + esc(wrap(html)) + '"></iframe>';
+  const frame = (r, html, name, id) => '<iframe name="' + id + '" title="' + name + '" style="' + box(r) + '" srcdoc="' + esc(wrap(html)) + '"></iframe>';
   const cores = ['BRONZE', 'OURO', 'PRATA 1', 'PRATA 2'].map((c) => '<span class="' + (o.cor === c ? 'sel' : '') + '">' + c + '</span>').join('');
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
     'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +
@@ -41,13 +41,12 @@ function compose(parts, opts) {
     '.sl .dd{height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:11px;color:#344054}.sl .dd:after{content:"⌄";font-size:13px;margin-top:-5px;color:#667085}' +
     '.nativo{position:absolute;font:600 9px "Segoe UI",Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#98A2B3}' +
     '</style></head><body><div class="pg">' +
-    frame(L.menu, parts.menu, 'Menu lateral') +
+    frame(L.menu, parts.menu, 'Menu lateral', 'menu') +
     '<div class="sl big" style="' + box(L.cor) + '"><b>Selecione a cor</b><div class="bt">' + cores + '</div></div>' +
     '<div class="sl" style="' + box(L.at) + '"><b>Selecione a AT</b><div class="dd">' + (o.at || 'Todos') + '</div></div>' +
     '<div class="sl" style="' + box(L.mes) + '"><b>Selecione o Mês</b><div class="dd">' + (o.mes || 'Outubro/2026') + '</div></div>' +
-    '<div class="sl" style="' + box(L.status) + ';padding:0;background:rgba(255,255,255,.72)"></div>' +
-    frame(L.status, parts.status, 'Status das bases') +
-    frame(L.corpo, parts.corpo, 'Corpo BSC') +
+    frame(L.status, parts.status, 'Status das bases', 'status') +
+    frame(L.corpo, parts.corpo, 'Corpo BSC', 'corpo') +
     '</div></body></html>';
 }
 
