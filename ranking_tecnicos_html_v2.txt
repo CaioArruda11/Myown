@@ -28,6 +28,10 @@ Ranking Tecnicos HTML =
 //      "Todos | Criticos" mostra so quem esta abaixo de 80%.
 //   4. A linha selecionada no filtro fica presa no topo/rodape ao rolar.
 //   5. Sem "-nan(ind)": divisao por zero vira "sem dados". Sem pisca-pisca.
+//   6. DIAGNOSTICO DE "SEM DADOS" (v2.1): quando um indicador nao tem resultado,
+//      a tela diz o motivo ("sem altas", "sem reparos", "volume baixo") e avisa
+//      quando NINGUEM do filtro tem dado daquele indicador - sinal de que a
+//      base do indicador nao tem linhas para o mes/filtro escolhido.
 //
 // COMPATIBILIDADE COM O HTML CONTENT (nao executa JavaScript)
 //   - so HTML + CSS + SVG embutido; botoes com <details> + :has(), como nas
@@ -511,16 +515,33 @@ VAR _detLinhas =
         VAR _setaDet = SWITCH( _indDet, "IRR 7 DIAS", _irr7Seta, "IFI 7 DIAS", _ifi7Seta, "PRODUTIVIDADE PU", _puSeta, "" )
         VAR _ehPct = ( [Tipo] = "%" )
         VAR _temTend = NOT ISBLANK( _difDet ) && NOT ISBLANK( [__Res] )
+        // por que nao ha resultado: sem volume no denominador, volume abaixo do minimo ou medida em branco
+        VAR _motivoDet =
+            SWITCH(
+                TRUE(),
+                NOT ISBLANK( [__Res] ), "",
+                COALESCE( [__Den], 0 ) = 0, "sem " & LOWER( [RotDen] ),
+                [VolMin] > 0 && [__Den] < [VolMin], "volume baixo",
+                "sem dados"
+            )
         RETURN
             "<div class='v' style='--w:" & [__Larg] & "%'>" &
-            "<div class='dr " & [__Tier] & "' title='" & [NomeTela] & ": real " & [__Txt] & " · meta " & IF( [MenorMelhor] = 1, "≤ ", "≥ " ) & [__MetaTxt] &
+            "<div class='dr " & [__Tier] & "' title='" & [NomeTela] & ": " &
+                SWITCH(
+                    _motivoDet,
+                    "", "",
+                    "volume baixo", "sem resultado porque o volume está abaixo do mínimo (" & [VolMin] & ") · ",
+                    "sem dados", "a medida não devolveu resultado neste filtro · ",
+                    "sem resultado porque não há " & LOWER( [RotDen] ) & " neste filtro · "
+                ) &
+                "real " & [__Txt] & " · meta " & IF( [MenorMelhor] = 1, "≤ ", "≥ " ) & [__MetaTxt] &
                 " · " & [RotDen] & " " & IF( ISBLANK( [__Den] ), "—", FORMAT( [__Den], "#,0", _loc ) ) &
                 " · " & [RotNum] & " " & IF( ISBLANK( [__Num] ), "—", FORMAT( [__Num], "#,0", _loc ) ) & "'>" &
                 "<b class='dr-n'>" & [Sigla] & "</b>" &
                 "<span class='dr-r'>" & [__Txt] & "</span>" &
                 "<span class='dr-m'><i>" & IF( [MenorMelhor] = 1, "≤", "≥" ) & "</i>" & [__MetaTxt] & "</span>" &
                 "<span class='bul'><u></u></span>" &
-                "<b class='dr-a'>" & IF( ISBLANK( [__Ating] ), "sem dados", IF( [__Ating] >= 1, "▲ ", "▼ " ) & FORMAT( [__Ating], "0.0%", _loc ) ) & "</b>" &
+                "<b class='dr-a'>" & IF( ISBLANK( [__Ating] ), IF( _motivoDet = "", "sem dados", _motivoDet ), IF( [__Ating] >= 1, "▲ ", "▼ " ) & FORMAT( [__Ating], "0.0%", _loc ) ) & "</b>" &
                 "<span class='dr-p'><b>" & IF( ISBLANK( [__Pts] ), "—", FORMAT( [__Pts], "0.0", _loc ) ) & "</b>/" & FORMAT( [Pontos], "0", _loc ) & "</span>" &
                 IF(
                     _temTend,
@@ -593,10 +614,36 @@ VAR _heroGrupo =
 // ============================================================================
 // APRESENTACAO - RANKING
 // ============================================================================
+// Para cada indicador: quantas entidades do ranking tem resultado.
+// Zero = ninguem do filtro tem dado (a base do indicador nao tem linhas para
+// o mes/filtro escolhido): a coluna fica marcada e o cabecalho do painel avisa.
+VAR _cfgCobertura =
+    ADDCOLUMNS(
+        _cfg,
+        "__ComDado",
+            VAR _indCob = [Indicador]
+            RETURN
+                COALESCE(
+                    COUNTROWS( FILTER( _grade, [Indicador] = _indCob && [Entidade] <> "__GERAL__" && NOT ISBLANK( [__Res] ) ) ),
+                    0
+                )
+    )
+VAR _semCobertura =
+    IF( _qtd > 0, CONCATENATEX( FILTER( _cfgCobertura, [__ComDado] = 0 ), [Sigla], ", ", [Ordem], ASC ), "" )
+
 VAR _cabInd =
     CONCATENATEX(
-        FILTER( _grade, [Entidade] = "__GERAL__" ),
-        "<span title='" & [NomeTela] & "'>" & [Sigla] & "<small>" & IF( [MenorMelhor] = 1, "≤ ", "≥ " ) & [__MetaTxt] & "</small></span>",
+        _cfgCobertura,
+        VAR _vazio = ( _qtd > 0 && [__ComDado] = 0 )
+        RETURN
+            "<span" & IF( _vazio, " class='nd'", "" ) & " title='" & [NomeTela] &
+                IF( _vazio, ": nenhum resultado neste filtro. Confira se a base deste indicador está atualizada para o mês escolhido.", "" ) & "'>" &
+                [Sigla] & "<small>" &
+                IF(
+                    _vazio,
+                    "sem dado no filtro",
+                    IF( [MenorMelhor] = 1, "≤ ", "≥ " ) & IF( [Tipo] = "%", FORMAT( [Meta], "0.0%", _loc ), FORMAT( [Meta], "0.0", _loc ) )
+                ) & "</small></span>",
         "",
         [Ordem], ASC
     )
@@ -649,6 +696,7 @@ VAR _ajuda =
             "<p><i class='k'>Atingimento</i>pontos obtidos ÷ pontos dos indicadores com dado. Por indicador: real ÷ meta, ou meta ÷ real quando menor é melhor (≤), com teto de " & FORMAT( _teto, "0%", _loc ) & ".</p>" &
             "<p><i class='k'>Cobertura</i>quantos dos " & _qtdIndicadores & " indicadores têm dado. Com 1 ou 2, o atingimento vem de pouca informação.</p>" &
             "<p><i class='k'>Células</i>passe o mouse para ver os volumes do indicador.</p>" &
+            "<p><i class='k'>Sem dados</i>o indicador não tem volume no filtro. Se a coluna inteira ficar vazia, a base dele não tem linhas para o mês escolhido.</p>" &
             "<p class='help-esc'><i class='e tG'>≥100%</i><i class='e tY'>90–99%</i><i class='e tO'>80–89%</i><i class='e tR'>&lt;80%</i></p>" &
         "</div>" &
     "</div>"
@@ -726,7 +774,7 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .dr-m{text-align:right;color:rgba(255,255,255,.66)}
 .dr-m i{margin-right:2px;font-size:10px;color:rgba(255,255,255,.5)}
 .dr-a{text-align:right;font-weight:700;color:var(--s)}
-.dr.tN .dr-a{font-size:9.5px;font-weight:600}
+.dr.tN .dr-a{font-size:9px;font-weight:600;color:#FCD34D}
 .dr.tN .dr-r{color:rgba(255,255,255,.5)}
 .dr-p{text-align:right;color:rgba(255,255,255,.66)}
 .dr-p b{color:#FFFFFF;font-weight:700}
@@ -764,6 +812,10 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .ph h2{flex:none;margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink);white-space:nowrap}
 .cx{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:99px;background:var(--pri-b);color:var(--pri);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .ins{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;color:var(--mut);white-space:nowrap}
+/* aviso: indicador sem dado para ninguem no filtro */
+.ins.warn{color:#8A5A00;font-weight:600}
+.ins.warn b{font-weight:700}
+.ins.warn i{display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#E0A100;box-shadow:0 0 0 3px rgba(224,161,0,.22)}
 
 /* botao de duas posicoes (<details>): fechado = 1a opcao, aberto = 2a */
 .tg{flex:none}
@@ -790,6 +842,8 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .gh{flex:none;height:32px;padding:0 21px 0 14px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:8.5px;font-weight:700;letter-spacing:.07em;line-height:1.25;text-transform:uppercase;text-align:center;white-space:nowrap}
 .gh span:nth-child(2){text-align:left}
 .gh small{display:block;color:#8E99AE;font-size:8.5px;font-weight:600;letter-spacing:0;text-transform:none}
+.gh .nd{color:#8A5A00}
+.gh .nd small{color:#B07A00;font-size:8px}
 .rows{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:4px 6px 6px 8px;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA var(--sf2)}
 .rows::-webkit-scrollbar{width:7px}
 .rows::-webkit-scrollbar-track{background:var(--sf2);border-radius:99px}
@@ -860,7 +914,12 @@ VAR _html =
     "<article class='panel'>" &
         "<div class='ph'>" &
             "<h2>Ranking</h2><span class='cx'>" & _rotuloEnt & " · " & _qtd & "</span>" &
-            "<span class='ins'>pontos proporcionais aos indicadores com dado · teto de " & FORMAT( _teto, "0%", _loc ) & "</span>" &
+            IF(
+                _semCobertura = "",
+                "<span class='ins'>pontos proporcionais aos indicadores com dado · teto de " & FORMAT( _teto, "0%", _loc ) & "</span>",
+                "<span class='ins warn' title='Nenhum " & LOWER( _rotuloUm ) & " tem resultado nestes indicadores. Confira se a base está atualizada para o mês escolhido.'>" &
+                    "<i></i>sem dado para ninguém neste filtro: <b>" & _semCobertura & "</b></span>"
+            ) &
             IF(
                 _qtd > 1,
                 "<details class='tg tg-ord'><summary title='Clique para inverter a ordem da lista'>" &

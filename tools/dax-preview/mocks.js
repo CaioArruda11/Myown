@@ -158,6 +158,8 @@ function rankingCenario(n, seed, o) {
   const opt = o || {};
   const { rows, dono } = baseRanking(n, seed);
   const sup = !!opt.supervisor;
+  // sem7d: ninguem tem os indicadores de 7 dias (base sem linhas no mes), como no print enviado
+  if (opt.sem7d) for (const t of rows) for (const k of ['@IFI7', '@nIFI7', '@dIFI7', '@IRR7', '@nIRR7', '@dIRR7']) t[k] = k.startsWith('@n') || k.startsWith('@d') ? 0 : (k === '@IFI7' ? NaN : null);
   let base = rows;
   if (sup) {
     // agrega por supervisor (soma numeradores e denominadores)
@@ -174,7 +176,7 @@ function rankingCenario(n, seed, o) {
       '@nIRR': g['@nIRR'], '@dIRR': g['@dIRR'], '@nIRR7': g['@nIRR7'], '@dIRR7': g['@dIRR7'], '@nPU': g['@nPU'], '@dPU': g['@dPU'] }));
   }
   const geral = Object.assign({ Entidade: '__GERAL__', '@IFI': 0.082, '@IFI7': opt.ifi7 === undefined ? NaN : opt.ifi7, '@IRR': 0.294, '@IRR7': opt.irr7 === undefined ? null : opt.irr7, '@PU': 2.4,
-    '@nIFI': 412, '@dIFI': 5024, '@nIFI7': null, '@dIFI7': null, '@nIRR': 1310, '@dIRR': 4456, '@nIRR7': null, '@dIRR7': null, '@nPU': 9120, '@dPU': 3800 }, opt.geral || {});
+    '@nIFI': 412, '@dIFI': 5024, '@nIFI7': opt.sem7d ? 0 : null, '@dIFI7': opt.sem7d ? 0 : null, '@nIRR': 1310, '@dIRR': 4456, '@nIRR7': null, '@dIRR7': null, '@nPU': 9120, '@dPU': 3800 }, opt.geral || {});
   const sel = opt.sel || null;
   const linhaSel = sel ? base.find((x) => x.Entidade === sel) : null;
   const ctx = linhaSel || geral;

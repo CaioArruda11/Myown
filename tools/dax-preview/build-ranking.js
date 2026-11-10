@@ -43,6 +43,8 @@ const CEN = {
   geral: base,
   tecnico: M.ranking(253, 11, { sel: base.nomes[40], m1: [0.061, 0.031, 3.1] }),
   supervisor: M.ranking(253, 11, { supervisor: true, irr7: 0.058, ifi7: 0.026, m1: [0.047, 0.031, 2.7] }),
+  // como no print enviado: ninguem tem IFI 7D nem IRR 7D no mes (medida devolve 0/0)
+  sem7d: M.ranking(253, 11, { sem7d: true }),
 };
 
 const L = R.LAYOUT_RK;
@@ -64,6 +66,8 @@ pagina('5-botao-criticos-e-dica', ranking(NOVO, CEN.geral, true), {
   title: 'Ranking v2 · só críticos',
   before: noRk(async (f) => { await f.click('.tg-crit summary'); await f.locator('.row.low .ic:not(.tN)').nth(3).hover(); }),
 });
+
+pagina('6-indicador-sem-dado-no-filtro', ranking(NOVO, CEN.sem7d, true), { title: 'Ranking v2 · IFI 7D e IRR 7D sem dado no filtro' });
 
 // confere medidas do visual no tamanho de referencia
 {
