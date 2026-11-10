@@ -4,7 +4,7 @@ BSC Status Atualizacao Bases HTML =
 // Mostra, para cada base, se esta em dia e ate que data ela vai.
 // Independe dos filtros da pagina (REMOVEFILTERS). Fundo TRANSPARENTE.
 //
-// PALETA: troque so a palavra em _tema ->  "OCEANO" | "AURORA" | "GRAFITE"
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
 // (use o mesmo tema do corpo e do menu).
 //
 // O QUE TEM DE NOVO
@@ -24,7 +24,7 @@ BSC Status Atualizacao Bases HTML =
 // ============================================================================
 
 // ------------------------------------------------------------------- PALETA
-VAR _tema = "OCEANO"
+VAR _tema = "GRAFITE"
 
 VAR _tokens =
     SWITCH(

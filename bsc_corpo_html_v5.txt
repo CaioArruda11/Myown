@@ -4,7 +4,7 @@ BSC Corpo HTML =
 // BSC - CORPO  (v5 - refeito do zero)   |   visual 1 de 3
 // Colocar em um HTML Content ocupando o corpo da pagina. Fundo TRANSPARENTE.
 //
-// PALETA: troque so a palavra em _tema ->  "OCEANO" | "AURORA" | "GRAFITE"
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
 // (use o mesmo tema nas 3 medidas: corpo, menu e atualizacao das bases).
 //
 // O QUE TEM DE NOVO
@@ -34,7 +34,7 @@ BSC Corpo HTML =
 // ============================================================================
 
 // ------------------------------------------------------------------- PALETA
-VAR _tema = "OCEANO"
+VAR _tema = "GRAFITE"
 
 // d0/d1/d2 = fundos escuros | a1/a2 = cores de destaque | g1/g2 = brilhos
 // pri/pri-b = destaque sobre fundo claro

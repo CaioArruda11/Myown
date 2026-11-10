@@ -62,8 +62,9 @@ dash('2-cor-e-AT-selecionadas', 'bronzeAT', 'bronzeAT', 'misto', { title: 'BSC v
 dash('3-resultado-bom', 'bom', 'geral', 'emDia', { title: 'BSC v5 · resultado bom' });
 dash('4-botao-maior-perda', 'print', 'geral', 'print', { title: 'BSC v5 · maior perda', before: noCorpo((f) => f.click('.tg-sort summary')) });
 dash('5-botao-mapa-de-calor', 'print', 'geral', 'misto', { title: 'BSC v5 · mapa de calor', before: noCorpo(async (f) => { await f.click('.tg-map summary'); await f.hover('.bd.c-ouro'); }) });
-dash('6-paleta-AURORA', 'ouro', 'ouro', 'misto', { title: 'BSC v5 · tema AURORA', tema: 'AURORA', cor: 'OURO' });
-dash('7-paleta-GRAFITE', 'print', 'geral', 'emDia', { title: 'BSC v5 · tema GRAFITE', tema: 'GRAFITE' });
+// a paleta padrao das medidas e GRAFITE; estas duas mostram as alternativas
+dash('6-paleta-OCEANO', 'print', 'geral', 'emDia', { title: 'BSC v5 · tema OCEANO', tema: 'OCEANO' });
+dash('7-paleta-AURORA', 'ouro', 'ouro', 'misto', { title: 'BSC v5 · tema AURORA', tema: 'AURORA', cor: 'OURO' });
 
 // ---- painel de atualizacao: estados e tamanhos ----
 {

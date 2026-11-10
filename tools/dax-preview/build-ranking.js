@@ -23,8 +23,7 @@ fs.mkdirSync(out, { recursive: true });
 
 const NOVO = path.join(repo, 'ranking_tecnicos_html_v2.txt');
 const ANTIGO = path.join(repo, 'ranking_tecnicos_html_v1_original.txt');
-const MENU = path.join(repo, 'menu_lateral_html_v6.txt');
-const TEMA = 'GRAFITE';
+const MENU = path.join(repo, 'menu_lateral_hierarquia_html_v6.txt');
 
 let first = true;
 function ranking(file, cen, check) {
@@ -37,7 +36,7 @@ function ranking(file, cen, check) {
   }
   return r.html;
 }
-const menu = dax.evaluate(MENU, Object.assign({}, M.menu.geral, { _paginaAtual: 'Abertura Hierarquia', _tema: TEMA }), { utcNow: M.UTC_NOW }).html;
+const menu = dax.evaluate(MENU, M.menu.geral, { utcNow: M.UTC_NOW }).html;
 
 const base = M.ranking(253, 11);
 const CEN = {

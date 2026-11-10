@@ -1,0 +1,644 @@
+Menu Lateral Animado Hierarquia = 
+// ============================================================================
+// MENU LATERAL COMPLETO COM EFEITOS AUTOMATICOS
+//
+// Os efeitos NAO dependem do hover do HTML e continuam funcionando quando
+// botoes nativos transparentes do Power BI estiverem posicionados por cima.
+//
+// Em cada pagina, altere somente a variavel _paginaAtual para um destes valores:
+// "BSC", "IFI", "IRR", "TDNA Instalação", "TDNA Reparos" ou "Abertura Hierarquia".
+// ============================================================================
+
+VAR _paginaAtual =
+    "Abertura Hierarquia"
+
+VAR _corSelecionada =
+    SELECTEDVALUE(
+        'Seletor Cor'[COR_AREA],
+        "GERAL"
+    )
+
+VAR _areaSelecionada =
+    SELECTEDVALUE(
+        dAT[AREA ]
+    )
+
+VAR _temAreaSelecionada =
+    HASONEVALUE(
+        dAT[AREA ]
+    )
+
+VAR _hexCorSel =
+    SWITCH(
+        _corSelecionada,
+        "OURO", "#D7AA28",
+        "BRONZE", "#B8784E",
+        "PRATA 1", "#8EA1B8",
+        "PRATA 2", "#AAB5C6",
+        "#78CAFF"
+    )
+
+VAR _classeBSC =
+    IF(
+        _paginaAtual = "BSC",
+        "nav-item active",
+        "nav-item"
+    )
+
+VAR _classeIFI =
+    IF(
+        _paginaAtual = "IFI",
+        "nav-item active",
+        "nav-item"
+    )
+
+VAR _classeIRR =
+    IF(
+        _paginaAtual = "IRR",
+        "nav-item active",
+        "nav-item"
+    )
+
+VAR _classeTDNAInstalacao =
+    IF(
+        _paginaAtual = "TDNA Instalação",
+        "nav-item active",
+        "nav-item"
+    )
+
+VAR _classeTDNAReparos =
+    IF(
+        _paginaAtual = "TDNA Reparos",
+        "nav-item active",
+        "nav-item"
+    )
+
+VAR _classeAberturaHierarquia =
+    IF(
+        _paginaAtual = "Abertura Hierarquia",
+        "nav-item hierarchy active",
+        "nav-item hierarchy"
+    )
+
+VAR _css =
+"
+<style>
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: transparent;
+}
+
+.mn,
+.mn * {
+    box-sizing: border-box;
+}
+
+.mn {
+    width: 100%;
+    height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.sidebar {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: #FFFFFF;
+    border-radius: 22px;
+    background: linear-gradient(
+        180deg,
+        #5659A8 0%,
+        #4A4C96 52%,
+        #343572 100%
+    );
+    box-shadow: 0 16px 32px rgba(43,52,113,.28);
+}
+
+.sidebar::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: -60px;
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        rgba(120,202,255,.32),
+        transparent 70%
+    );
+    pointer-events: none;
+}
+
+.brand {
+    position: relative;
+    padding: 6px 6px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.16);
+}
+
+.brand b {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+.brand b span {
+    background: linear-gradient(92deg,#78CAFF,#B9A6FF);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand small {
+    display: block;
+    margin-top: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    opacity: .70;
+}
+
+.nav {
+    position: relative;
+    display: grid;
+    gap: 7px;
+    margin-top: 20px;
+}
+
+/* Cada linha tem a mesma area que o botao nativo colocado por cima. */
+.nav-item {
+    position: relative;
+    width: 100%;
+    height: 36px;
+    padding: 1px;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 11px;
+    color: rgba(255,255,255,.72);
+}
+
+/* Feixe luminoso automatico. Nos itens comuns fica quase invisivel. */
+.nav-item::before {
+    content: '';
+    position: absolute;
+    z-index: -3;
+    inset: -160%;
+    border-radius: inherit;
+    opacity: .10;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0 76%,
+        rgba(120,202,255,.42) 82%,
+        rgba(185,166,255,.38) 88%,
+        transparent 95%
+    );
+    animation: borderBeam 5.8s linear infinite;
+}
+
+/* Fundo interno permanente da linha. */
+.nav-item::after {
+    content: '';
+    position: absolute;
+    z-index: -2;
+    inset: 1px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.012);
+}
+
+.nav-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    padding: 0 11px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 10px;
+}
+
+.nav-label {
+    position: relative;
+    z-index: 3;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* Ponto automatico discreto nos itens nao ativos. */
+.nav-dot {
+    position: relative;
+    z-index: 3;
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    margin-right: 0;
+    overflow: visible;
+    border-radius: 50%;
+    opacity: 0;
+    background: #8A8DDA;
+    box-shadow: 0 0 0 rgba(120,202,255,0);
+}
+
+/* Linha de luz que percorre lentamente os itens comuns. */
+.nav-sheen {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 34%;
+    opacity: .18;
+    transform: skewX(-18deg);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,.12),
+        transparent
+    );
+    animation: softSheen 7.5s ease-in-out infinite;
+}
+
+/* =========================================================
+   PAGINA ATIVA
+   ========================================================= */
+.nav-item.active {
+    color: #FFFFFF;
+    box-shadow:
+        0 7px 17px rgba(53,45,166,.34),
+        0 0 12px rgba(120,202,255,.13);
+}
+
+.nav-item.active::before {
+    opacity: 1;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0 70%,
+        #78CAFF 78%,
+        #B9A6FF 86%,
+        #FFFFFF 91%,
+        transparent 98%
+    );
+    animation: borderBeam 3.1s linear infinite;
+}
+
+.nav-item.active::after {
+    background: linear-gradient(
+        135deg,
+        #75B8ED 0%,
+        #7869E4 100%
+    );
+}
+
+.nav-item.active .nav-content {
+    background: linear-gradient(
+        105deg,
+        rgba(255,255,255,.05),
+        transparent 58%,
+        rgba(185,166,255,.08)
+    );
+}
+
+.nav-item.active .nav-dot {
+    opacity: 1;
+    margin-right: 8px;
+    background: #D9F5FF;
+    box-shadow:
+        0 0 5px rgba(255,255,255,1),
+        0 0 11px rgba(120,202,255,.95),
+        0 0 18px rgba(185,166,255,.58);
+    animation: activeDotPulse 1.9s ease-in-out infinite;
+}
+
+.nav-item.active .nav-sheen {
+    width: 42%;
+    opacity: .50;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,.28),
+        transparent
+    );
+    animation: activeSheen 3.8s ease-in-out infinite;
+}
+
+/* Halo automatico no botao ativo. */
+.nav-item.active .nav-content::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    opacity: .18;
+    transform: translateY(-50%);
+    background: radial-gradient(
+        circle,
+        rgba(217,245,255,.75),
+        rgba(120,202,255,.18) 42%,
+        transparent 72%
+    );
+    animation: activeHalo 2.4s ease-in-out infinite;
+}
+
+.side-context {
+    position: relative;
+    margin-top: auto;
+    padding: 13px;
+    border: 1px solid rgba(255,255,255,.18);
+    overflow: hidden;
+    border-radius: 15px;
+    background: rgba(255,255,255,.09);
+    backdrop-filter: blur(6px);
+}
+
+.side-context::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: " & _hexCorSel & ";
+    box-shadow: 0 0 8px " & _hexCorSel & ";
+}
+
+.side-context small {
+    display: block;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    opacity: .62;
+}
+
+.side-context b {
+    display: block;
+    margin-top: 4px;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.ctx-cor {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+}
+
+.ctx-cor i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: " & _hexCorSel & ";
+    box-shadow: 0 0 8px " & _hexCorSel & ";
+}
+
+@keyframes borderBeam {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes softSheen {
+    0%, 62% {
+        left: -45%;
+        opacity: 0;
+    }
+    68% {
+        opacity: .16;
+    }
+    82% {
+        left: 115%;
+        opacity: .10;
+    }
+    100% {
+        left: 115%;
+        opacity: 0;
+    }
+}
+
+@keyframes activeSheen {
+    0% {
+        left: -48%;
+        opacity: 0;
+    }
+    18% {
+        opacity: .48;
+    }
+    62% {
+        left: 115%;
+        opacity: .28;
+    }
+    100% {
+        left: 115%;
+        opacity: 0;
+    }
+}
+
+@keyframes activeDotPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 5px rgba(255,255,255,.90),
+            0 0 10px rgba(120,202,255,.78),
+            0 0 15px rgba(185,166,255,.40);
+    }
+    50% {
+        transform: scale(1.28);
+        box-shadow:
+            0 0 7px rgba(255,255,255,1),
+            0 0 15px rgba(120,202,255,1),
+            0 0 23px rgba(185,166,255,.72);
+    }
+}
+
+@keyframes activeHalo {
+    0%, 100% {
+        transform: translateY(-50%) scale(.82);
+        opacity: .10;
+    }
+    50% {
+        transform: translateY(-50%) scale(1.18);
+        opacity: .28;
+    }
+}
+
+@keyframes noticePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 8px rgba(120,202,255,.74);
+    }
+    50% {
+        transform: scale(1.18);
+        box-shadow: 0 0 14px rgba(120,202,255,1);
+    }
+}
+
+
+/* Aba especial: Abertura Hierarquia */
+.nav-item.hierarchy {
+    color: #FFFFFF;
+    margin-top: 2px;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.09),
+        0 5px 13px rgba(35,28,99,.16);
+}
+
+.nav-item.hierarchy::before {
+    opacity: .70;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0 69%,
+        #E6AEB8 77%,
+        #B9A6FF 85%,
+        #78CAFF 91%,
+        transparent 98%
+    );
+    animation: borderBeam 4.6s linear infinite;
+}
+
+.nav-item.hierarchy::after {
+    background: linear-gradient(
+        135deg,
+        rgba(198,159,193,.78) 0%,
+        rgba(123,107,218,.86) 48%,
+        rgba(83,92,175,.92) 100%
+    );
+}
+
+.nav-item.hierarchy .nav-content {
+    background: linear-gradient(
+        110deg,
+        rgba(255,255,255,.10),
+        transparent 55%,
+        rgba(120,202,255,.08)
+    );
+}
+
+.nav-item.hierarchy .nav-dot {
+    opacity: 1;
+    margin-right: 8px;
+    background: #FFD8E0;
+    box-shadow:
+        0 0 5px rgba(255,255,255,.90),
+        0 0 11px rgba(230,174,184,.88),
+        0 0 17px rgba(185,166,255,.48);
+    animation: activeDotPulse 2.4s ease-in-out infinite;
+}
+
+.nav-item.hierarchy.active::after {
+    background: linear-gradient(
+        135deg,
+        #E6AEB8 0%,
+        #A98BD1 45%,
+        #665BDC 100%
+    );
+}
+
+.nav-item.hierarchy.active {
+    box-shadow:
+        0 8px 19px rgba(102,91,220,.34),
+        0 0 14px rgba(230,174,184,.20);
+}
+
+</style>
+"
+
+VAR _html =
+"
+<div class='mn'>
+    <aside class='sidebar'>
+
+        <div class='brand'>
+            <b>Indicadores<span>ARF</span></b>
+            <small>BSC OPERACIONAL</small>
+        </div>
+
+        <div class='nav'>
+
+            <div class='" & _classeBSC & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>BSC</span>
+                </div>
+            </div>
+
+            <div class='" & _classeIFI & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>IFI</span>
+                </div>
+            </div>
+
+            <div class='" & _classeIRR & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>IRR</span>
+                </div>
+            </div>
+
+            <div class='" & _classeTDNAInstalacao & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>TDNA Instalação</span>
+                </div>
+            </div>
+
+            <div class='" & _classeTDNAReparos & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>TDNA Reparos</span>
+                </div>
+            </div>
+
+            <div class='" & _classeAberturaHierarquia & "'>
+                <div class='nav-content'>
+                    <span class='nav-sheen'></span>
+                    <i class='nav-dot'></i>
+                    <span class='nav-label'>Abertura Hierarquia</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class='side-context'>
+            <small>Cluster</small>
+            <b>PERUS / BUTANTÃ</b>
+
+            <small style='margin-top:11px'>Cor</small>
+            <b class='ctx-cor'>
+                <i></i>" & _corSelecionada & "
+            </b>
+
+            " &
+            IF(
+                _temAreaSelecionada,
+                "<small style='margin-top:9px'>AT</small><b>" & _areaSelecionada & "</b>",
+                ""
+            ) & "
+        </div>
+
+    </aside>
+</div>
+"
+
+RETURN
+    _css & _html
