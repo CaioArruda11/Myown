@@ -28,9 +28,10 @@ Versão 1.2: usa as tabelas do arquivo novo (`'fINSTALACAO + ME_3D'`, `'fINSTALA
 
 ## Regra do lado direito
 
-- Data de criação da ordem = `[Data Agendada para Execução]`; a coluna `[Indicador Instalação 3D]` diz se ainda conta (`_valorDentro`).
-- A equipe tem 3 dias a partir do dia seguinte à criação: dia útil 1, sábado 0,75, domingo 0,25.
-- **Confirmar:** reproduzi a regra pela sua descrição; o código do Power Query não chegou. Feriado, dia da criação e limite (3 ou mais de 3) podem diferir.
+Igual à coluna `[Indicador Instalação 3D]` do Power Query, recalculada na hora com a data de hoje:
+- data de criação = `[Data Agendada para Execução]`; o dia da criação não conta;
+- cada dia seguinte consome: útil 1, sábado 0,75, domingo 0,25, feriado (`dFeriados`) 0,5;
+- consumo acima de 3 = fora do indicador (já perdida); vence hoje / amanhã = último dia dentro.
 
 ## Se aparecer só texto, sem formatação
 

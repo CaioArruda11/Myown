@@ -101,11 +101,12 @@ function gerarPendentes() {
   });
   return out;
 }
+const FERIADOS = [[2026, 1, 1], [2026, 4, 3], [2026, 4, 21], [2026, 5, 1], [2026, 6, 4], [2026, 9, 7], [2026, 10, 12], [2026, 11, 2], [2026, 11, 20], [2026, 12, 25]].map((f) => serial(f[0], f[1], f[2]));
 const PENDENTES = gerarPendentes();
 // prazo consumido entre a criacao e o fim do dia 'ate': util 1, sabado 0,75, domingo 0,25 (dia da criacao nao conta)
 function prazoGasto(abertura, ate) {
   let t = 0;
-  for (let d = Math.floor(abertura) + 1; d <= ate; d++) { const w = dow(d); t += w === 0 ? 0.25 : w === 6 ? 0.75 : 1; }
+  for (let d = Math.floor(abertura) + 1; d <= ate; d++) { const w = dow(d); t += FERIADOS.includes(d) ? 0.5 : w === 0 ? 0.25 : w === 6 ? 0.75 : 1; }
   return t;
 }
 
@@ -153,9 +154,10 @@ function cenario(o) {
       // comAgenda = carga com agendas variadas (e algumas sem agenda)
       Ordem: p.Ordem, AT: p.AT,
       // coluna calculada [Indicador Instalação 3D]: ordem com mais de 3 dias corridos ja saiu do indicador
-      Ind: opt.semInd ? null : (prazoGasto(p.Abertura, HOJE - 1) >= 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
+      Ind: opt.semInd ? null : (prazoGasto(p.Abertura, HOJE) > 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
       Abertura: opt.semAbertura ? null : Math.floor(p.Abertura), Agenda: null,
     })),
+    _feriados: FERIADOS.map((f) => ({ F: f })),
     _dataCarga: opt.carga === undefined ? null : opt.carga,
   };
 }

@@ -328,17 +328,17 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
 </section>
 
 <section id="falta">
-  <h2>Regra do lado direito <small>e o que confirmar</small></h2>
-  <p class="lead">O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code>. A data de criação da ordem é a <code class="i">[Data Agendada para Execução]</code>, e a coluna <code class="i">[Indicador Instalação 3D]</code> diz se a ordem ainda conta.</p>
+  <h2>Regra do lado direito <small>igual ao seu Power Query</small></h2>
+  <p class="lead">A medida repete, com a data de hoje, a regra da sua coluna <code class="i">[Indicador Instalação 3D]</code>. A data de criação da ordem é a <code class="i">[Data Agendada para Execução]</code>.</p>
   <div class="two">
     <div class="card"><h3>Prazo com pesos</h3>
-      <p>A equipe tem 3 dias a partir do <b>dia seguinte</b> à criação. Dia útil consome 1, sábado 0,75 e domingo 0,25 (VARs <code class="i">_pesoUtil</code>, <code class="i">_pesoSab</code>, <code class="i">_pesoDom</code>). A ordem <b>vence hoje</b> quando o prazo consumido chega a 3 hoje; <b>vence amanhã</b> quando chega amanhã; <b>já perdida</b> quando já tinha chegado a 3 até ontem.</p></div>
-    <div class="card falta"><h3>1 · Confira com o seu Power Query</h3>
-      <p>Não recebi o código da coluna do Power Query (só os prints), então reproduzi a regra pelo que você descreveu. Se a sua coluna tratar feriado, o dia da criação ou o limite (3 ou mais de 3) de outro jeito, me mande o código para eu igualar.</p></div>
-    <div class="card falta"><h3>2 · Valores da coluna</h3>
-      <p>Só vi <b>DENTRO DO INDICADOR</b>. A medida trata esse valor como "ainda conta" (VAR <code class="i">_valorDentro</code>) e qualquer outro como já perdida.</p></div>
-    <div class="card falta"><h3>3 · Só instalações pendentes</h3>
-      <p>Se a carga traz também reparos ou atividades concluídas, é preciso filtrar (modelo comentado na <code class="i">_pendModelo</code>).</p></div>
+      <p>O dia da criação não conta. Cada dia seguinte, até hoje, consome: dia útil <b>1</b>, sábado <b>0,75</b>, domingo <b>0,25</b>, feriado da <code class="i">dFeriados</code> <b>0,5</b> (o feriado vale mesmo se cair no fim de semana, como no seu código). Prazo consumido <b>acima de 3</b> = <b>fora do indicador</b>; 3 ou menos = dentro.</p></div>
+    <div class="card"><h3>Vence hoje, vence amanhã</h3>
+      <p><b>Vence hoje:</b> está dentro, mas amanhã o consumo passa de 3 (hoje é o último dia). <b>Vence amanhã:</b> amanhã ainda está dentro e no dia seguinte passa de 3. Já perdida: consumo atual acima de 3.</p></div>
+    <div class="card falta"><h3>Por que recalcula em vez de ler a coluna</h3>
+      <p>A coluna do Power Query só muda quando a base atualiza, e a medida precisa separar quem vence hoje e amanhã. Recalculando com a mesma regra os números batem com a coluna no dia da atualização. Se a ordem não tiver data, a medida usa o valor da coluna (<code class="i">_valorFora</code>).</p></div>
+    <div class="card falta"><h3>Só instalações pendentes</h3>
+      <p>Se a carga traz também reparos ou atividades concluídas, é preciso filtrar (modelo comentado na <code class="i">_pendModelo</code>). Ordens com status "CARGA FUTURA" (data depois de hoje) ficam como dentro do indicador.</p></div>
   </div>
 </section>
 
@@ -382,7 +382,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <tr><td>Carga do dia</td><td><code class="i">'ETA DIRECT D-0'</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Funcionou no seu teste</b> (1.315 atividades lidas). Não precisa de relacionamento com a <code class="i">dAT</code>: o filtro de cor e AT é aplicado pela coluna AT.</td></tr>
     <tr><td>AT da ordem</td><td><code class="i">'ETA DIRECT D-0'[AT]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Os valores têm que ser os mesmos da <code class="i">dAT[AREA ]</code>.</td></tr>
     <tr><td>Número da ordem</td><td><code class="i">'ETA DIRECT D-0'[Atividade]</code></td><td><code class="i">_pendModelo</code></td><td><b class="pend">Provisório.</b> Foi a coluna numérica que apareceu no print. Se houver uma coluna com o número da ordem, troque.</td></tr>
-    <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorDentro</code></td><td><b class="pend">Ligada, a confirmar.</b> "DENTRO DO INDICADOR" = ainda conta; qualquer outro valor = já perdida.</td></tr>
+    <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorFora</code></td><td><b class="okc">Ligada.</b> Só é usada quando a ordem não tem data; senão a medida recalcula a regra.</td></tr><tr><td>Feriados</td><td><code class="i">dFeriados[Data]</code></td><td><code class="i">_feriados</code></td><td><b class="okc">Ligada</b> (aparece no seu modelo). Cada feriado pesa 0,5.</td></tr>
     <tr><td>Data de criação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Data Agendada para Execução]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada.</b> Separa quem vence hoje e quem vence amanhã.</td></tr>
     
     <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_dataCarga</code></td><td>Com ela o painel avisa quando a carga de hoje ainda não entrou.</td></tr>
@@ -399,8 +399,8 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
       <ul><li>Mês de referência = mês do filtro. Sem filtro, ou com mês futuro, vale o mês atual.</li><li>A curva começa onde a base começa: meses e semanas sem nenhuma instalação antes do primeiro dado não aparecem.</li><li>Semana = segunda a domingo; o rótulo <b>S46</b> é o mesmo número da coluna “Semana do Ano” da <code class="i">dCalendario</code>.</li><li>Dia = os dias do mês que existem na <code class="i">dCalendario</code>.</li><li>A linha “Geral” e as linhas das cores são sempre o total, mesmo com filtro, para servir de comparação.</li></ul>
     </div>
     <div class="card"><h3>Hoje · D-0</h3>
-      <p>Idade = prazo consumido desde o dia seguinte à criação: dia útil 1, sábado 0,75, domingo 0,25. Prazo de 3 (VAR <code class="i">_prazoDias</code>).</p>
-      <ul><li><b>Já perdida:</b> o prazo já tinha chegado a 3 até ontem (ou a coluna marca fora do indicador).</li><li><b>Vence hoje:</b> chega a 3 hoje.</li><li><b>Vence amanhã:</b> chega a 3 amanhã.</li><li><b>No prazo:</b> o resto.</li></ul>
+      <p>Idade = prazo consumido desde o dia seguinte à criação: útil 1, sábado 0,75, domingo 0,25, feriado 0,5. Passou de 3 (VAR <code class="i">_prazoDias</code>) = fora do indicador.</p>
+      <ul><li><b>Já perdida:</b> consumo acima de 3.</li><li><b>Vence hoje:</b> hoje é o último dia dentro.</li><li><b>Vence amanhã:</b> amanhã é o último dia dentro.</li><li><b>No prazo:</b> o resto.</li></ul>
       <p>“Hoje” é o relógio do Power BI no fuso UTC−3 (VAR <code class="i">_fuso</code>), igual no Desktop e no serviço.</p>
     </div>
   </div>
