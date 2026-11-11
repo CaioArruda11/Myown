@@ -906,7 +906,7 @@ VAR _heroHoje =
         "<div class='dk'>" &
             "<span class='live'><i></i>Hoje · D-0</span>" &
             "<b>" & FORMAT( _hoje, "ddd, dd/MM", _loc ) & "</b>" &
-            "<small>não muda com o filtro de mês · prazo em " & _rotDias & "</small>" &
+            "<small title='Prazo: " & _rotDias & "'>não muda com o filtro de mês</small>" &
             _chipCarga &
         "</div>" &
         "<div class='ds'>" &

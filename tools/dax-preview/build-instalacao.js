@@ -91,8 +91,6 @@ painel({ semPend: true, ats: ['PL'] });
 painel({ comAgenda: true, ats: ['PL', 'SA', 'BS', 'MA'] });
 painel({ carga: M.HOJE + 0.3, fimSel: null });
 painel({ fimSel: dax.serial(2026, 1, 31) });
-painel({ diasUteis: true });
-painel({ diasUteis: true, comAgenda: true, ats: M.daCor('OURO') });
 
 // ------------------------------------------------------------ 4 e 5. prints + checagens
 const L = R.LAYOUT_I3;

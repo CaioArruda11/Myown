@@ -134,7 +134,6 @@ function janela(fimSel, qtdMeses, qtdSemanas) {
  *   semInd      true = coluna do indicador tambem nao ligada
  *   semPend     true = carga do dia vazia
  *   semDados    true = nenhuma instalacao na janela
- *   diasUteis   true = troca a configuracao _prazoEmDiasUteis para TRUE() (o mock vale para qualquer VAR)
  */
 function cenario(o) {
   const opt = o || {};
@@ -158,8 +157,6 @@ function cenario(o) {
       Abertura: opt.semAbertura ? null : Math.floor(p.Abertura), Agenda: null,
     })),
     _dataCarga: opt.carga === undefined ? null : opt.carga,
-    // sem a opcao, vale o que esta escrito na medida (padrao: dias corridos)
-    ...(opt.diasUteis ? { _prazoEmDiasUteis: true } : {}),
   };
 }
 
