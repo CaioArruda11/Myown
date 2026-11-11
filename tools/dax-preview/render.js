@@ -75,6 +75,32 @@ function composeRanking(parts, opts) {
     '</div></body></html>';
 }
 
+/** Pagina "Instalacao em ate 3 dias": linha de filtros nativos + um unico visual HTML. */
+const LAYOUT_I3 = { page: { w: 1280, h: 720 }, vis: { x: 8, y: 76, w: 1264, h: 638 } };
+function composeInstalacao(html, opts) {
+  const o = opts || {};
+  const L = LAYOUT_I3;
+  const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
+  const cores = ['OURO', 'PRATA 1', 'PRATA 2', 'BRONZE'].map((c) => '<span class="' + (o.cor === c ? 'sel' : '') + '">' + c + '</span>').join('');
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
+    'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +
+    '.pg{position:relative;width:' + L.page.w + 'px;height:' + L.page.h + 'px;margin:0 auto;background:linear-gradient(180deg,#EEF3FA,#E3EBF6);overflow:hidden}' +
+    'iframe{position:absolute;border:0;background:transparent}' +
+    '.sl{position:absolute;top:8px;height:58px;box-sizing:border-box;padding:7px 10px;border-radius:12px;background:rgba(255,255,255,.72);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:11px;color:#1F2937}' +
+    '.sl b{display:block;font-weight:500;margin-bottom:7px;white-space:nowrap}' +
+    '.sl .dd{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:10.5px;color:#344054}.sl .dd:after{content:"⌄";font-size:13px;margin-top:-5px;color:#667085}' +
+    '.sl .bt{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.sl .bt span{height:22px;display:flex;align-items:center;justify-content:center;background:#F3F7FC;border:1px solid #E3EAF3;font-size:10.5px;color:#475467}' +
+    '.sl .bt span.sel{background:#334155;border-color:#334155;color:#fff}' +
+    '.tt{position:absolute;left:12px;top:8px;height:58px;display:flex;flex-direction:column;justify-content:center;color:#0B1533}.tt b{font-size:17px;font-weight:700;letter-spacing:-.01em}.tt small{margin-top:2px;font-size:10.5px;color:#63708B}' +
+    '</style></head><body><div class="pg">' +
+    '<div class="tt"><b>Instalação em até 3 dias</b><small>título e filtros nativos do Power BI (simulados)</small></div>' +
+    '<div class="sl" style="left:560px;width:170px"><b>Selecione o Mês</b><div class="dd">' + (o.mes || 'Novembro/2026') + '</div></div>' +
+    '<div class="sl" style="left:740px;width:370px"><b>Selecione a cor</b><div class="bt">' + cores + '</div></div>' +
+    '<div class="sl" style="left:1120px;width:152px"><b>Selecione a AT</b><div class="dd">' + (o.at || 'Todos') + '</div></div>' +
+    '<iframe name="i3" title="Painel Instalação 3D" style="' + box(L.vis) + '" srcdoc="' + esc(wrap(html)) + '"></iframe>' +
+    '</div></body></html>';
+}
+
 async function shots(jobs) {
   const { chromium } = require('playwright');
   const browser = await chromium.launch();
@@ -90,4 +116,4 @@ async function shots(jobs) {
   await browser.close();
 }
 
-module.exports = { wrap, compose, composeRanking, shots, LAYOUT, LAYOUT_RK };
+module.exports = { wrap, compose, composeRanking, composeInstalacao, shots, LAYOUT, LAYOUT_RK, LAYOUT_I3 };

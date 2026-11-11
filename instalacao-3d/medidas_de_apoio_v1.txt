@@ -1,0 +1,58 @@
+// ============================================================================
+// MEDIDAS DE APOIO - PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1)
+//
+// Crie estas medidas ANTES da medida "Painel Instalacao 3D HTML".
+// O painel monta uma grade "AT x dia" com DUAS contagens e soma tudo a partir
+// dela (semana, mes, cor, geral). Por isso ele precisa do numerador e do
+// denominador separados, e nao so do percentual pronto.
+//
+// >>> Se voce ja tem a medida do indicador, o caminho mais seguro e copiar
+//     dela o numerador e o denominador para as duas medidas abaixo, mantendo
+//     os nomes [Inst3D Instaladas] e [Inst3D No Prazo]. Assim o painel repete
+//     exatamente a sua regra.
+//
+// Nomes usados aqui (troque pelos do seu modelo):
+//   'fInstalacao'                     tabela com uma linha por ordem de instalacao
+//   'fInstalacao'[DAT_ABERTURA]       data em que a instalacao foi gerada (inicio do prazo)
+//   'fInstalacao'[DAT_ENCERRAMENTO]   data em que foi instalada (em branco = pendente)
+//
+// Relacionamentos esperados:
+//   dCalendario[Data]  1 -> *  'fInstalacao'[DAT_ENCERRAMENTO]   (o indicador e do mes em que instalou)
+//   dAT[AREA ]         1 -> *  'fInstalacao'[AREA]
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// 1) DENOMINADOR: instalacoes concluidas no periodo
+// ----------------------------------------------------------------------------
+Inst3D Instaladas =
+COUNTROWS(
+    FILTER(
+        'fInstalacao',
+        NOT ISBLANK( 'fInstalacao'[DAT_ENCERRAMENTO] )
+    )
+)
+
+
+// ----------------------------------------------------------------------------
+// 2) NUMERADOR: concluidas em ate 3 dias corridos da abertura
+//    (INT tira a hora: conta a diferenca em dias de calendario)
+//    Sua regra e em dias uteis ou em horas? Ajuste so a ultima condicao.
+// ----------------------------------------------------------------------------
+Inst3D No Prazo =
+COUNTROWS(
+    FILTER(
+        'fInstalacao',
+        NOT ISBLANK( 'fInstalacao'[DAT_ENCERRAMENTO] )
+            && INT( 'fInstalacao'[DAT_ENCERRAMENTO] ) - INT( 'fInstalacao'[DAT_ABERTURA] ) <= 3
+    )
+)
+
+
+// ----------------------------------------------------------------------------
+// 3) INDICADOR (so para conferencia / outros visuais)
+//    Voce ja tem esta medida: mantenha a sua. Use esta apenas para conferir
+//    se o numero grande do painel bate com o seu indicador do mes.
+// ----------------------------------------------------------------------------
+Inst3D % =
+DIVIDE( [Inst3D No Prazo], [Inst3D Instaladas] )

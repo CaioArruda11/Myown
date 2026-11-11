@@ -206,7 +206,8 @@ function parse(src) {
 // Checagem estatica: variaveis declaradas antes do uso + funcoes conhecidas
 // ---------------------------------------------------------------------------
 const MODEL_FUNCS = ['CALCULATE', 'CALCULATETABLE', 'SELECTEDVALUE', 'HASONEVALUE', 'VALUES', 'ALL', 'ALLSELECTED',
-  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'DISTINCT', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED', 'CONTAINSROW'];
+  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED',
+  'SUMMARIZE', 'DATESBETWEEN', 'RELATED'];
 const SYMBOLS = ['ASC', 'DESC', 'STRING', 'INTEGER', 'DOUBLE', 'BOOLEAN', 'DATETIME', 'CURRENCY'];
 
 function check(ast, src) {
@@ -310,11 +311,17 @@ function formatDate(s, pat) {
   const d = fromSerial(s);
   const p2 = (n) => String(n).padStart(2, '0');
   const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  return pat.replace(/yyyy|yy|mmmm|mmm|mm|m|dd|d|hh|h|nn|n|ss|s/gi, (tk) => {
+  const mesesL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const diasL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  return pat.replace(/yyyy|yy|mmmm|mmm|mm|m|dddd|ddd|dd|d|hh|h|nn|n|ss|s/gi, (tk) => {
     switch (tk.toLowerCase()) {
       case 'yyyy': return String(d.getUTCFullYear());
       case 'yy': return p2(d.getUTCFullYear() % 100);
-      case 'mmmm': case 'mmm': return meses[d.getUTCMonth()];
+      case 'mmmm': return mesesL[d.getUTCMonth()];
+      case 'mmm': return meses[d.getUTCMonth()];
+      case 'dddd': return diasL[d.getUTCDay()];
+      case 'ddd': return dias[d.getUTCDay()];
       case 'mm': return p2(d.getUTCMonth() + 1);
       case 'm': return String(d.getUTCMonth() + 1);
       case 'dd': return p2(d.getUTCDate());
@@ -482,6 +489,57 @@ Object.assign(FN, {
   YEAR: A((s) => fromSerial(Math.floor(num(s))).getUTCFullYear()),
   MONTH: A((s) => fromSerial(Math.floor(num(s))).getUTCMonth() + 1),
   DAY: A((s) => fromSerial(Math.floor(num(s))).getUTCDate()),
+  EOMONTH: A((s, m) => { const d = fromSerial(Math.floor(num(s))); return serial(d.getUTCFullYear(), d.getUTCMonth() + num(m) + 2, 0); }),
+  EDATE: A((s, m) => {
+    const d = fromSerial(Math.floor(num(s)));
+    const fim = fromSerial(serial(d.getUTCFullYear(), d.getUTCMonth() + num(m) + 2, 0)).getUTCDate();
+    return serial(d.getUTCFullYear(), d.getUTCMonth() + num(m) + 1, Math.min(d.getUTCDate(), fim));
+  }),
+  WEEKDAY: A((s, tipo) => {
+    const w = fromSerial(Math.floor(num(s))).getUTCDay(); // 0 = domingo
+    const t = tipo === undefined ? 1 : num(tipo);
+    return t === 2 ? (w === 0 ? 7 : w) : t === 3 ? (w + 6) % 7 : w + 1;
+  }),
+  SQRT: A((x) => (x === null ? null : Math.sqrt(num(x)))),
+  POWER: A((x, y) => Math.pow(num(x), num(y))),
+  ROUNDUP: A((x, d) => { if (x === null) return null; const f = Math.pow(10, num(d)); const v = num(x) * f; return (Math.sign(v) * Math.ceil(Math.abs(v) - 1e-9)) / f; }),
+  ROUNDDOWN: A((x, d) => { if (x === null) return null; const f = Math.pow(10, num(d)); const v = num(x) * f; return (Math.sign(v) * Math.floor(Math.abs(v) + 1e-9)) / f; }),
+  GENERATESERIES: A((a, b, passo) => { const out = []; const p = passo === undefined ? 1 : num(passo); for (let x = num(a); x <= num(b) + 1e-9; x += p) out.push({ Value: x }); return out; }),
+  CONTAINSROW: (a, c) => {
+    const vals = a.slice(1).map((e) => ev(e, c));
+    return tbl(a[0], c).some((r) => { const rv = Object.values(r); return vals.every((v, i) => compare(rv[i], v) === 0); });
+  },
+  DISTINCT: (a, c) => { const seen = new Set(); return tbl(a[0], c).filter((r) => { const k = JSON.stringify(Object.values(r)); if (seen.has(k)) return false; seen.add(k); return true; }); },
+  // GROUPBY( tabela, [col]..., "nome", <agregador>X( CURRENTGROUP(), expr ) ... )
+  GROUPBY: (a, c) => {
+    const rows = tbl(a[0], c);
+    let i = 1;
+    const cols = [];
+    for (; i < a.length && a[i].k === 'col'; i++) cols.push(a[i]);
+    const grupos = new Map();
+    for (const r of rows) {
+      const rc = inRow(c, r);
+      const chave = cols.map((n) => ev(n, rc));
+      const k = JSON.stringify(chave);
+      if (!grupos.has(k)) grupos.set(k, { chave, linhas: [] });
+      grupos.get(k).linhas.push(r);
+    }
+    const out = [];
+    for (const g of grupos.values()) {
+      const o = {};
+      cols.forEach((n, j) => { o[n.name] = g.chave[j]; });
+      c.rt.grupos.push(g.linhas);
+      for (let j = i; j + 1 < a.length; j += 2) o[str(ev(a[j], c))] = ev(a[j + 1], c);
+      c.rt.grupos.pop();
+      out.push(o);
+    }
+    return out;
+  },
+  CURRENTGROUP: (a, c) => {
+    if (!c.rt.grupos.length) throw new Error('CURRENTGROUP fora de GROUPBY');
+    return c.rt.grupos[c.rt.grupos.length - 1];
+  },
+  COUNTX: (a, c) => { let n = 0; for (const r of tbl(a[0], c)) if (ev(a[1], inRow(c, r)) !== null) n++; return n === 0 ? null : n; },
   UTCNOW: () => CLOCK.utcNow,
   NOW: () => CLOCK.utcNow,
   TODAY: () => Math.floor(CLOCK.utcNow),
@@ -598,7 +656,7 @@ function evaluate(file, mocks, opts) {
   const chk = check(ast, src);
   if (chk.problems.length) throw new Error(file + ':\n  ' + chk.problems.join('\n  '));
   if (opts && opts.utcNow !== undefined) CLOCK = { utcNow: opts.utcNow };
-  const rt = { mocks: mocks || {}, usedMocks: new Set(), stack: [], topVars: null, calculate: opts && opts.calculate };
+  const rt = { mocks: mocks || {}, usedMocks: new Set(), stack: [], grupos: [], topVars: null, calculate: opts && opts.calculate };
   const html = ev(ast, { env: null, row: null, rt, top: true });
   const unusedMocks = Object.keys(rt.mocks).filter((k) => !rt.usedMocks.has(k));
   const notEvaluated = rt.topVars ? [...rt.topVars.values()].filter((s) => !s.done).map((s) => s.name) : [];
