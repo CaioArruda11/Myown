@@ -65,10 +65,11 @@ function painel(cen) {
 }
 
 const CEN = [
-  { id: 'geral', rotulo: 'Geral · nov/26', nota: 'Sem filtro de cor ou AT, mês em andamento.', cen: {}, pg: { mes: 'Novembro/2026' } },
+  { id: 'geral', rotulo: 'Geral · nov/26', nota: 'Sem filtro de cor ou AT, mês em andamento. O lado direito aparece como fica depois de ligar a coluna de abertura.', cen: {}, pg: { mes: 'Novembro/2026' } },
   { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
-  { id: 'at', rotulo: 'AT MA · carga atrasada', nota: 'Uma AT selecionada e a carga de hoje ainda não entrou (aviso amarelo no topo direito).', cen: { ats: ['MA'], carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
+  { id: 'at', rotulo: 'AT MA · colunas opcionais', nota: 'Uma AT selecionada, com as duas colunas opcionais ligadas: agendamento (coluna Agenda e aviso “em risco”) e data da carga (aviso amarelo de carga atrasada).', cen: { ats: ['MA'], comAgenda: true, carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
   { id: 'out', rotulo: 'Mês fechado · out/26', nota: 'Trocar o mês muda só o lado esquerdo. O lado direito continua no dia de hoje.', cen: { fimSel: dax.serial(2026, 10, 31) }, pg: { mes: 'Outubro/2026' } },
+  { id: 'hoje', rotulo: 'Como cola hoje', nota: 'É assim que a medida aparece se você colar agora: lado esquerdo completo; lado direito avisando que falta ligar a data de abertura da ETA DIRECT D-0.', cen: { semAbertura: true }, pg: { mes: 'Novembro/2026' } },
 ];
 for (const c of CEN) {
   c.html = painel(c.cen);
@@ -77,8 +78,9 @@ for (const c of CEN) {
 // estados extremos: precisam avaliar e passar nas regras, mesmo sem print
 painel({ semDados: true, semPend: true });
 painel({ semPend: true, ats: ['PL'] });
-painel({ semAgenda: true, ats: ['PL', 'SA', 'BS', 'MA'] });
-painel({ carga: null, fimSel: null });
+painel({ comAgenda: true, ats: ['PL', 'SA', 'BS', 'MA'] });
+painel({ carga: M.HOJE + 0.3, fimSel: null });
+painel({ fimSel: dax.serial(2026, 1, 31) });
 
 // ------------------------------------------------------------ 4 e 5. prints + checagens
 const L = R.LAYOUT_I3;
@@ -88,16 +90,17 @@ const arq = (nome, html) => { const f = path.join(tmp, nome + '.html'); fs.write
 function print(nome, c, before) {
   jobs.push({ file: arq(nome, c.pagina), out: path.join(out, nome + '.png'), w: L.page.w, h: L.page.h, scale: 2, before: before && noPainel(before) });
 }
-const [GERAL, BRONZE, AT, OUT] = CEN;
+const [GERAL, BRONZE, AT, OUT, HOJE] = CEN;
 print('1-visao-geral', GERAL);
 print('2-curva-semanal-e-destaque-da-cor', GERAL, async (f) => { await f.click('.b1 summary'); await f.hover('.hc .c-prata2'); });
-print('3-curva-diaria-e-dica', GERAL, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(8).hover(); });
+print('3-curva-diaria-e-dica', GERAL, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(5).hover(); });
 print('4-cor-BRONZE-ordens-perdidas', BRONZE, async (f) => { await f.click('.c1 summary'); });
-print('5-AT-selecionada-carga-atrasada', AT, async (f) => { await f.click('.b1 summary'); });
-print('6-mes-fechado-o-lado-direito-nao-muda', OUT, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(21).hover(); });
+print('5-AT-selecionada-com-agenda-e-aviso-de-carga', AT, async (f) => { await f.click('.b1 summary'); });
+print('6-mes-fechado-o-lado-direito-nao-muda', OUT, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(14).hover(); });
 
 // o painel ao lado de um menu lateral (visual mais estreito)
 jobs.push({ file: arq('estreito', R.wrap(GERAL.html)), out: path.join(out, '7-visual-estreito-1032x630.png'), w: 1032, h: 630, scale: 2 });
+print('8-como-cola-hoje-falta-ligar-a-abertura', HOJE);
 
 // tamanho de referencia: tudo cabe, nada cortado, botoes levam para a visao certa
 jobs.push({
@@ -273,6 +276,8 @@ td:first-child{font-weight:600;white-space:nowrap}
 .eG{background:#DDF5EA;color:#04704B}.eY{background:#FFF1C7;color:#7A5600}.eO{background:#FFD9BC;color:#8A3404}.eR{background:#FBC6C6;color:#A3161A}
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
 .two .card{padding:16px 18px}
+.card.falta{border-left:4px solid #E0A100}
+.okc{color:#04704B}.pend{color:#7A5600}.falt{color:#A3161A}
 .two h3{margin:0 0 6px;font-size:15px}
 .two p,.two li{color:var(--ink2);font-size:13.5px}
 .two ul{margin:6px 0 0;padding-left:18px}
@@ -282,12 +287,12 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
 </head>
 <body>
 <header><div class="wrap">
-  <div class="eyebrow">Power BI · visual HTML Content · v1</div>
+  <div class="eyebrow">Power BI · visual HTML Content · v1.1</div>
   <h1>Painel · Instalação em até 3 dias</h1>
-  <p>Prévia do painel e todo o código DAX na mesma página. Lado esquerdo: a curva do indicador por mês, semana ou dia, aberta por cor e por AT. Lado direito: fixo no dia de hoje (D-0), com as ordens que já perdemos e as que estão para vencer.</p>
-  <div class="tags"><span>1 medida principal</span><span>3 medidas de apoio</span><span>${linhasPrincipal} linhas de DAX</span><span>prévia com dados fictícios</span></div>
+  <p>Prévia do painel e todo o código DAX na mesma página, já com os nomes das suas tabelas. Lado esquerdo: a curva do indicador por mês, semana ou dia, aberta por cor e por AT. Lado direito: fixo no dia de hoje (D-0), com as ordens que já perdemos e as que estão para vencer.</p>
+  <div class="tags"><span>1 medida principal</span><span>2 medidas de apoio + 1 opcional</span><span>ligado às suas tabelas</span><span>${linhasPrincipal} linhas de DAX</span><span>prévia com dados fictícios</span></div>
 </div></header>
-<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#montar">Como montar</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
+<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#falta">O que falta</a><a href="#montar">Como montar</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
 
 <div class="wrap">
 <section id="previa">
@@ -310,40 +315,57 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   </div>
 </section>
 
+<section id="falta">
+  <h2>O que ainda falta <small>para o lado direito</small></h2>
+  <p class="lead">O lado esquerdo já está ligado às suas tabelas e funciona assim que você colar. O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code>, mas no print só dá para ver as primeiras colunas dela.</p>
+  <div class="two">
+    <div class="card falta"><h3>1 · Data de abertura da ordem</h3>
+      <p>É dela que o prazo de 3 dias começa a contar. Na VAR <code class="i">_pendModelo</code>, troque o <code class="i">BLANK()</code> da linha <code class="i">"Abertura"</code> pela coluna da <code class="i">'ETA DIRECT D-0'</code>. Enquanto isso não for feito, o lado direito mostra um aviso em vez de números (cenário “Como cola hoje”).</p></div>
+    <div class="card falta"><h3>2 · Só instalações pendentes</h3>
+      <p>Se a carga do dia traz também reparos ou atividades já concluídas, é preciso filtrar. O modelo do filtro está comentado dentro da <code class="i">_pendModelo</code>; faltam os nomes das colunas de tipo e de status.</p></div>
+    <div class="card falta"><h3>3 · Dias úteis ou corridos?</h3>
+      <p>Como a sua <code class="i">dCalendario</code> só tem dias úteis e existe a <code class="i">dFeriados</code>, deixei o prazo do lado direito em <b>dias úteis</b>. Se for em dias corridos, troque <code class="i">_prazoEmDiasUteis</code> para <code class="i">FALSE()</code>.</p></div>
+    <div class="card falta"><h3>4 · Colunas da dAT</h3>
+      <p>Usei <code class="i">dAT[AREA ]</code> e <code class="i">dAT[COR_AREA ]</code> (com o espaço no final), como nos seus outros painéis. Se neste arquivo os nomes forem outros, troque nas VARs <code class="i">_gradeModelo</code> e <code class="i">_atsCtx</code>.</p></div>
+  </div>
+</section>
+
 <section id="montar">
   <h2>Como montar <small>no seu arquivo</small></h2>
-  <p class="lead">O painel é um visual só. Leva alguns minutos; o único trabalho de verdade é trocar os nomes das tabelas e colunas pelos do seu modelo.</p>
+  <p class="lead">O painel é um visual só e já usa os nomes do seu modelo.</p>
   <div class="card"><ol class="steps">
-    <li><b>Crie as medidas de apoio</b> (bloco 1 do código). O painel precisa do numerador e do denominador separados para somar por dia, semana, mês, AT e cor. Como você já tem a medida do indicador, o mais seguro é copiar dela as duas contagens, mantendo os nomes <code class="i">[Inst3D No Prazo]</code> e <code class="i">[Inst3D Instaladas]</code>.</li>
-    <li><b>Crie a medida principal</b> (bloco 2) e ajuste só as 5 VARs marcadas com <code class="i">&lt;&lt;&lt; MODELO</code>: são as únicas que leem tabelas e colunas. A lista do que cada uma espera está em <a href="#modelo">Mapa do modelo</a>.</li>
+    <li><b>Crie as duas medidas de apoio:</b> <code class="i">INSTALACAO_3D NO PRAZO</code> e <code class="i">INSTALACAO_3D TOTAL</code>. São o numerador e o denominador da sua <code class="i">% INSTALACAO_3D</code>, cada um em uma medida. A terceira (a sua medida reescrita com <code class="i">DIVIDE</code>) é opcional.</li>
+    <li><b>Crie a medida principal</b> (bloco 4 do código). As tabelas, a <code class="i">dCalendario[Data]</code> e as duas medidas já estão com os nomes do seu arquivo.</li>
     <li><b>Insira o visual HTML Content</b>, arraste a medida para o campo de valores e deixe o visual sem título e com fundo transparente.</li>
     <li><b>Tamanho de referência:</b> 1264 × 638 px, em uma página 1280 × 720 com uma faixa de filtros em cima. O painel se ajusta sozinho; a partir de cerca de 1030 px de largura ele continua inteiro (cabe ao lado de um menu lateral).</li>
-    <li><b>Filtros da página:</b> Mês (da <code class="i">dCalendario</code>), Cor (<code class="i">dAT[COR_AREA ]</code>) e AT (<code class="i">dAT[AREA ]</code>). O lado direito ignora o mês por conta própria: não precisa mexer em “Editar interações”.</li>
-    <li><b>Confira:</b> o número grande do mês tem que ser igual ao da sua medida atual do indicador. Se não for, a diferença está nas duas medidas de apoio.</li>
+    <li><b>Filtros da página:</b> mês (ou qualquer coluna da <code class="i">dCalendario</code>), cor e AT (colunas da <code class="i">dAT</code>). O lado direito ignora o mês por conta própria: não precisa mexer em “Editar interações”.</li>
+    <li><b>Confira o lado esquerdo:</b> o número grande do mês tem que ser igual ao da sua <code class="i">% INSTALACAO_3D</code> com o mesmo filtro.</li>
+    <li><b>Ligue o lado direito:</b> informe a coluna de abertura na <code class="i">_pendModelo</code> (itens 1 e 2 de <a href="#falta">O que ainda falta</a>).</li>
   </ol></div>
 </section>
 
 <section id="codigo">
   <h2>Código <small>DAX</small></h2>
   <p class="lead">Os mesmos textos estão na pasta em <code class="i">medidas_de_apoio_v1.txt</code> e <code class="i">painel_instalacao_3d_html_v1.txt</code>.</p>
-  ${apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · denominador' : i === 1 ? 'medida de apoio · numerador' : 'medida de apoio · conferência (você já tem a sua)', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)).join('\n  ')}
+  ${apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · numerador da sua medida' : i === 1 ? 'medida de apoio · denominador da sua medida' : 'opcional · a sua medida reescrita com DIVIDE', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)).join('\n  ')}
   ${bloco('mp', '4 · Painel Instalacao 3D HTML', 'medida principal · ' + linhasPrincipal + ' linhas · vai no visual HTML Content', principalTxt, false)}
 </section>
 
 <section id="modelo">
-  <h2>Mapa do modelo <small>o que trocar</small></h2>
-  <p class="lead">Como o arquivo está sendo criado do zero, usei os nomes das dimensões dos seus outros painéis e um nome genérico para a tabela de ordens. Troque pelos seus nestes pontos.</p>
+  <h2>Mapa do modelo <small>o que a medida lê</small></h2>
+  <p class="lead">Tudo que a medida principal lê do modelo está em 6 VARs marcadas com <code class="i">&lt;&lt;&lt; MODELO</code>. O que veio dos seus prints já está com o nome certo.</p>
   <div class="card tb"><table>
-    <tr><th>O painel precisa de</th><th>Nome usado no código</th><th>Onde aparece</th><th>Observação</th></tr>
-    <tr><td>Calendário</td><td><code class="i">dCalendario[Data]</code></td><td><code class="i">_fimSel</code> <code class="i">_gradeModelo</code> <code class="i">_pendModelo</code></td><td>Só a coluna de data. Semana e mês são calculados pela medida (semana de segunda a domingo).</td></tr>
-    <tr><td>AT e cor da área</td><td><code class="i">dAT[AREA ]</code> <code class="i">dAT[COR_AREA ]</code></td><td><code class="i">_gradeModelo</code> <code class="i">_atsCtx</code> <code class="i">_pendModelo</code></td><td>Os filtros de cor e de AT da página devem usar estas colunas. Nomes das cores esperados: OURO, PRATA 1, PRATA 2, BRONZE (tabela <code class="i">_coresCfg</code>).</td></tr>
-    <tr><td>Medidas de volume</td><td><code class="i">[Inst3D No Prazo]</code> <code class="i">[Inst3D Instaladas]</code></td><td><code class="i">_gradeModelo</code></td><td>Precisam responder ao filtro de data e de AT (qualquer contagem normal responde).</td></tr>
-    <tr><td>Ordens de instalação</td><td><code class="i">'fInstalacao'</code></td><td><code class="i">_pendModelo</code> <code class="i">_dataCarga</code> e medidas de apoio</td><td>Uma linha por ordem, incluindo as que ainda não foram instaladas.</td></tr>
-    <tr><td>Número da ordem</td><td><code class="i">[NUM_ORDEM]</code></td><td><code class="i">_pendModelo</code></td><td>Aparece na lista de ordens.</td></tr>
-    <tr><td>Abertura</td><td><code class="i">[DAT_ABERTURA]</code></td><td><code class="i">_pendModelo</code> e numerador</td><td>Data em que a instalação foi gerada: é daqui que o prazo de 3 dias começa a contar.</td></tr>
-    <tr><td>Encerramento</td><td><code class="i">[DAT_ENCERRAMENTO]</code></td><td><code class="i">_pendModelo</code> e medidas de apoio</td><td>Em branco = ordem pendente. Se o seu modelo marca pendência por status, troque o filtro do <code class="i">_pendModelo</code>.</td></tr>
-    <tr><td>Agendamento <em>(opcional)</em></td><td><code class="i">[DAT_AGENDAMENTO]</code></td><td><code class="i">_pendModelo</code></td><td>Sem essa coluna, use <code class="i">"Agenda", BLANK()</code>: a coluna Agenda e o aviso “em risco” somem sozinhos.</td></tr>
-    <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">[DAT_REFERENCIA]</code></td><td><code class="i">_dataCarga</code></td><td>Avisa quando a carga de hoje ainda não entrou. Sem essa coluna, use <code class="i">BLANK()</code>.</td></tr>
+    <tr><th>O painel precisa de</th><th>Nome usado no código</th><th>Onde aparece</th><th>Situação</th></tr>
+    <tr><td>Calendário</td><td><code class="i">dCalendario[Data]</code></td><td><code class="i">_fimSel</code> <code class="i">_gradeModelo</code> <code class="i">_calModelo</code></td><td><b class="okc">Confirmado no print.</b> Só a coluna de data é usada. Como a tabela só tem dias úteis, o eixo diário mostra só esses dias, e uma instalação com data de sábado, domingo ou feriado fica de fora (como já fica na sua medida quando há filtro de mês).</td></tr>
+    <tr><td>Instalações no prazo</td><td><code class="i">'fINSTALACAO + ME_3D'[num_Total]</code></td><td><code class="i">[INSTALACAO_3D NO PRAZO]</code></td><td><b class="okc">Confirmado no print.</b></td></tr>
+    <tr><td>Total de instalações</td><td><code class="i">'fINSTALACAO + ME_3D_TOTAL'[num_Total]</code></td><td><code class="i">[INSTALACAO_3D TOTAL]</code></td><td><b class="okc">Confirmado no print.</b> As duas tabelas precisam estar relacionadas com a <code class="i">dCalendario</code> e com a <code class="i">dAT</code>.</td></tr>
+    <tr><td>AT e cor da área</td><td><code class="i">dAT[AREA ]</code> <code class="i">dAT[COR_AREA ]</code></td><td><code class="i">_gradeModelo</code> <code class="i">_atsCtx</code></td><td><b class="pend">A confirmar.</b> A tabela existe; os nomes das colunas vieram dos seus outros painéis. Cores esperadas: OURO, PRATA 1, PRATA 2, BRONZE (tabela <code class="i">_coresCfg</code>).</td></tr>
+    <tr><td>Carga do dia</td><td><code class="i">'ETA DIRECT D-0'</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Não precisa de relacionamento com a <code class="i">dAT</code>: o filtro de cor e AT é aplicado pela coluna AT.</td></tr>
+    <tr><td>AT da ordem</td><td><code class="i">'ETA DIRECT D-0'[AT]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Os valores têm que ser os mesmos da <code class="i">dAT[AREA ]</code>.</td></tr>
+    <tr><td>Número da ordem</td><td><code class="i">'ETA DIRECT D-0'[Atividade]</code></td><td><code class="i">_pendModelo</code></td><td><b class="pend">Provisório.</b> Foi a coluna numérica que apareceu no print. Se houver uma coluna com o número da ordem, troque.</td></tr>
+    <tr><td>Data de abertura</td><td><code class="i">BLANK()</code></td><td><code class="i">_pendModelo</code></td><td><b class="falt">Falta.</b> Sem ela o lado direito não calcula.</td></tr>
+    <tr><td>Agendamento <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_pendModelo</code></td><td>Com ela aparecem a coluna Agenda e o aviso “em risco” (sem agenda, ou agenda para depois do vencimento).</td></tr>
+    <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_dataCarga</code></td><td>Com ela o painel avisa quando a carga de hoje ainda não entrou.</td></tr>
   </table></div>
 </section>
 
@@ -351,14 +373,14 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <h2>Regras de cálculo <small>para conferir</small></h2>
   <div class="two">
     <div class="card"><h3>Indicador e cores</h3>
-      <p>Indicador = instalações concluídas em até 3 dias da abertura ÷ instalações concluídas. Meta de 81% (VAR <code class="i">_meta</code>).</p>
+      <p>Indicador = <code class="i">[INSTALACAO_3D NO PRAZO]</code> ÷ <code class="i">[INSTALACAO_3D TOTAL]</code>, a mesma conta da sua medida. Meta de 81% (VAR <code class="i">_meta</code>).</p>
       <p>A cor de pontos e células compara o resultado com a meta, na mesma escala do BSC:</p>
       <div class="esc"><span class="eG">na meta</span><span class="eY">até 10% abaixo</span><span class="eO">até 20% abaixo</span><span class="eR">mais de 20% abaixo</span></div>
-      <ul><li>Mês de referência = mês do filtro. Sem filtro, ou com mês futuro, vale o mês atual.</li><li>A linha “Geral” e as linhas das cores são sempre o total, mesmo com filtro, para servir de comparação.</li></ul>
+      <ul><li>Mês de referência = mês do filtro. Sem filtro, ou com mês futuro, vale o mês atual.</li><li>A curva começa onde a base começa: meses e semanas sem nenhuma instalação antes do primeiro dado não aparecem.</li><li>Semana = segunda a domingo; o rótulo <b>S46</b> é o mesmo número da coluna “Semana do Ano” da <code class="i">dCalendario</code>.</li><li>A linha “Geral” e as linhas das cores são sempre o total, mesmo com filtro, para servir de comparação.</li></ul>
     </div>
     <div class="card"><h3>Hoje · D-0</h3>
-      <p>Idade = dias corridos entre a abertura e hoje. Vencimento = abertura + 3 dias (VAR <code class="i">_prazoDias</code>).</p>
-      <ul><li><b>Já perdida:</b> D+4 ou mais, ainda pendente.</li><li><b>Vence hoje:</b> D+3, último dia do prazo.</li><li><b>Vence amanhã:</b> D+2.</li><li><b>No prazo:</b> D+0 e D+1.</li><li><b>Em risco:</b> ainda no prazo, mas sem agenda ou com agenda para depois do vencimento.</li></ul>
+      <p>Idade = dias passados entre a abertura e hoje, contados em <b>dias úteis</b> (os dias que existem na <code class="i">dCalendario</code>) ou em dias corridos, conforme a VAR <code class="i">_prazoEmDiasUteis</code>. Prazo de 3 dias (VAR <code class="i">_prazoDias</code>).</p>
+      <ul><li><b>Já perdida:</b> D+4 ou mais, ainda na carga.</li><li><b>Vence hoje:</b> D+3, último dia do prazo.</li><li><b>Vence amanhã:</b> D+2.</li><li><b>No prazo:</b> D+0 e D+1.</li><li><b>Em risco</b> (só com a coluna de agendamento): ainda no prazo, mas sem agenda ou com agenda para depois do vencimento.</li></ul>
       <p>“Hoje” é o relógio do Power BI no fuso UTC−3 (VAR <code class="i">_fuso</code>), igual no Desktop e no serviço.</p>
     </div>
   </div>

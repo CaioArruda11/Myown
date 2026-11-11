@@ -1,9 +1,18 @@
 Painel Instalacao 3D HTML =
 
 // ============================================================================
-// PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1)
+// PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1.1 - ligado ao modelo real)
 // Um unico visual HTML Content ocupando o corpo da pagina. Fundo TRANSPARENTE.
 // Mesma linguagem visual do BSC v5 e do Ranking v2.
+//
+// v1.1: usa as tabelas do arquivo novo
+//   - indicador: 'fINSTALACAO + ME_3D' (no prazo) e 'fINSTALACAO + ME_3D_TOTAL'
+//     (total), pelas medidas [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL];
+//   - dCalendario so com dias uteis: o eixo diario mostra so os dias que
+//     existem nela, e o prazo do lado D-0 pode ser contado em dias uteis;
+//   - lado D-0 le a 'ETA DIRECT D-0'. FALTA informar a coluna com a data de
+//     abertura da ordem (ver _pendModelo); ate la o lado direito avisa o que
+//     falta em vez de mostrar numeros.
 //
 // PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
 //
@@ -23,12 +32,12 @@ Painel Instalacao 3D HTML =
 //   As duas metades respeitam os filtros de COR e de AT.
 //
 // O QUE AJUSTAR
-//   - bloco 1 (CONFIGURACAO): meta, prazo, fuso, quantos meses/semanas;
+//   - bloco 1 (CONFIGURACAO): meta, prazo (dias uteis ou corridos), fuso,
+//     quantos meses/semanas;
 //   - VARs marcadas com "<<< MODELO": sao as UNICAS que leem tabelas, colunas
-//     e medidas. Troque ali os nomes pelos do seu modelo. Todo o resto usa
-//     so o que essas VARs devolvem.
-//   - medidas usadas: [Inst3D No Prazo] e [Inst3D Instaladas] (arquivo
-//     medidas_de_apoio_v1.txt).
+//     e medidas. Todo o resto usa so o que essas VARs devolvem.
+//   - medidas usadas: [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL]
+//     (arquivo medidas_de_apoio_v1.txt).
 //
 // COMPATIBILIDADE COM O HTML CONTENT (nao executa JavaScript)
 //   - so HTML + CSS; botoes com <details> + :has(), como nas paginas IFI/IRR;
@@ -58,7 +67,12 @@ VAR _tokens =
 // ============================================================================
 VAR _loc = "pt-BR"
 VAR _meta = 0.81              // meta do indicador (81%)
-VAR _prazoDias = 3            // prazo, em dias corridos, contado da abertura
+VAR _prazoDias = 3            // prazo, em dias, contado da abertura da ordem
+// Como contar os dias do prazo no lado D-0:
+//   TRUE()  = dias UTEIS: conta so os dias que existem na dCalendario (ela nao
+//             tem sabado, domingo nem feriado);
+//   FALSE() = dias corridos.
+VAR _prazoEmDiasUteis = TRUE()
 VAR _fuso = -3                // fuso de Brasilia (UTC-3)
 VAR _qtdMeses = 12            // meses na curva mensal
 VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
@@ -100,6 +114,9 @@ VAR _semRef = _ref - WEEKDAY( _ref, 2 ) + 1                   // segunda-feira d
 VAR _semIni0 = _semRef - 7 * ( _qtdSemanas - 1 )              // 1a semana da curva semanal
 VAR _janIni = MIN( _mesIni0, _semIni0 )
 VAR _janFim = MAX( _mesFim, _semRef + 6 )
+// dias do calendario: a janela da curva + os ultimos 90 dias (prazo do lado D-0)
+VAR _calIni = MIN( _janIni, _hoje - 90 )
+VAR _calFim = MAX( _janFim, _hoje + 30 )
 
 // ============================================================================
 // 3. MODELO  (unicas VARs, junto com _fimSel, que leem o modelo)
@@ -108,6 +125,8 @@ VAR _janFim = MAX( _mesFim, _semRef + 6 )
 //     - ignora o filtro de mes (a curva sempre mostra a janela inteira);
 //     - ignora o filtro de cor/AT (para comparar a selecao com o Geral e com
 //       as cores); o filtro e aplicado depois, em memoria, com _atsCtx.
+//     As duas tabelas fINSTALACAO precisam estar relacionadas com a
+//     dCalendario (data) e com a dAT (AT), como ja estao para a sua medida.
 VAR _gradeModelo =
     CALCULATETABLE(
         ADDCOLUMNS(
@@ -115,36 +134,56 @@ VAR _gradeModelo =
                 SUMMARIZE( dAT, dAT[AREA ], dAT[COR_AREA ] ),
                 VALUES( dCalendario[Data] )
             ),
-            "@n", [Inst3D No Prazo],
-            "@d", [Inst3D Instaladas]
+            "@n", [INSTALACAO_3D NO PRAZO],
+            "@d", [INSTALACAO_3D TOTAL]
         ),
         REMOVEFILTERS( dAT ),
         REMOVEFILTERS( dCalendario ),
-        DATESBETWEEN( dCalendario[Data], _janIni, _janFim )
+        dCalendario[Data] >= _janIni && dCalendario[Data] <= _janFim
     )
 
 // <<< MODELO: ATs que estao no filtro da pagina (cor e/ou AT selecionadas).
 VAR _atsCtx = VALUES( dAT[AREA ] )
 
-// <<< MODELO: carteira pendente = ordens de instalacao ainda sem encerramento.
-//     Respeita o filtro de cor/AT e IGNORA o filtro de mes (e sempre D-0).
-//     Nao tem data de agendamento? Troque a ultima linha por:  "Agenda", BLANK()
+// <<< MODELO: os dias que existem na dCalendario (so dias uteis). Servem para
+//     montar o eixo diario e para contar o prazo em dias uteis.
+VAR _calModelo =
+    CALCULATETABLE(
+        VALUES( dCalendario[Data] ),
+        REMOVEFILTERS( dCalendario ),
+        dCalendario[Data] >= _calIni && dCalendario[Data] <= _calFim
+    )
+
+// <<< MODELO: carga do dia = 'ETA DIRECT D-0'. IGNORA o filtro de mes.
+//     O filtro de cor/AT e aplicado mais abaixo pela coluna AT, entao nao
+//     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
+//     mesmos da dAT[AREA ]).
+//
+//     >>> FALTA LIGAR (troque os BLANK() pelas colunas da 'ETA DIRECT D-0'):
+//         "Abertura" = data em que a ordem de instalacao foi gerada (e dela
+//                      que o prazo comeca a contar). SEM ela o lado direito
+//                      nao calcula nada e mostra um aviso.
+//         "Agenda"   = data agendada (opcional; se ficar BLANK() a coluna some).
+//     >>> Se a carga tiver reparos ou atividades ja concluidas, filtre aqui,
+//         trocando a linha  'ETA DIRECT D-0',  por algo como:
+//         FILTER( 'ETA DIRECT D-0', 'ETA DIRECT D-0'[coluna do tipo] = "Instalação"
+//                                   && 'ETA DIRECT D-0'[coluna do status] <> "Concluída" ),
 VAR _pendModelo =
     CALCULATETABLE(
         SELECTCOLUMNS(
-            FILTER( 'fInstalacao', ISBLANK( 'fInstalacao'[DAT_ENCERRAMENTO] ) ),
-            "Ordem", "" & 'fInstalacao'[NUM_ORDEM],
-            "AT", RELATED( dAT[AREA ] ),
-            "Cor", RELATED( dAT[COR_AREA ] ),
-            "Abertura", 'fInstalacao'[DAT_ABERTURA],
-            "Agenda", 'fInstalacao'[DAT_AGENDAMENTO]
+            'ETA DIRECT D-0',
+            "Ordem", "" & 'ETA DIRECT D-0'[Atividade],
+            "AT", TRIM( 'ETA DIRECT D-0'[AT] ),
+            "Abertura", BLANK(),
+            "Agenda", BLANK()
         ),
         REMOVEFILTERS( dCalendario )
     )
 
-// <<< MODELO: data da ultima carga da base (para avisar quando a carga de hoje
-//     ainda nao entrou). Nao tem essa coluna? Troque por:  BLANK()
-VAR _dataCarga = CALCULATE( MAX( 'fInstalacao'[DAT_REFERENCIA] ), REMOVEFILTERS() )
+// <<< MODELO (opcional): data/hora da ultima carga da 'ETA DIRECT D-0', para
+//     avisar quando a carga de hoje ainda nao entrou. Exemplo:
+//     CALCULATE( MAX( 'ETA DIRECT D-0'[coluna da data da carga] ), REMOVEFILTERS() )
+VAR _dataCarga = BLANK()
 
 // ============================================================================
 // 4. GRADE AT x DIA  ->  AT / COR / GERAL / SELECAO  x  MES / SEMANA / DIA
@@ -253,6 +292,9 @@ VAR _series =
 
 // ---- periodos de cada curva ----
 // Rot = rotulo do eixo | RotM = rotulo medio (resumo) | RotL = rotulo longo (dica)
+// _diasCal = dias que existem na dCalendario | _primeiroDia = inicio dos dados
+VAR _diasCal = SELECTCOLUMNS( _calModelo, "Dia", dCalendario[Data] )
+VAR _primeiroDia = MINX( _grade, [Dia] )
 VAR _perM =
     SELECTCOLUMNS(
         ADDCOLUMNS( GENERATESERIES( 1, _qtdMeses ), "@i", EDATE( _mesIni, [Value] - _qtdMeses ) ),
@@ -272,24 +314,35 @@ VAR _perS =
         "Ord", [Value],
         "Ini", [@i],
         "Fim", [@i] + 6,
-        "Rot", FORMAT( [@i], "dd/MM", _loc ),
-        "RotM", "sem. " & FORMAT( [@i], "dd/MM", _loc ),
-        "RotL", "semana de " & FORMAT( [@i], "dd/MM", _loc ) & " a " & FORMAT( [@i] + 6, "dd/MM", _loc ),
+        // S + numero da semana no ano: o mesmo numero da coluna Semana do Ano da dCalendario
+        "Rot", "S" & WEEKNUM( [@i], 2 ),
+        "RotM", "S" & WEEKNUM( [@i], 2 ),
+        "RotL", "Semana " & WEEKNUM( [@i], 2 ) & " · " & FORMAT( [@i], "dd/MM", _loc ) & " a " & FORMAT( [@i] + 6, "dd/MM", _loc ),
         "Fds", 0
     )
+// Dia: so os dias do mes que existem na dCalendario (ela nao tem fim de semana nem feriado).
+VAR _diasMes = FILTER( _diasCal, [Dia] >= _mesIni && [Dia] <= _mesFim )
 VAR _perD =
     SELECTCOLUMNS(
-        ADDCOLUMNS( GENERATESERIES( 1, DAY( _mesFim ) ), "@i", _mesIni + [Value] - 1 ),
+        _diasMes,
         "Gran", "D",
-        "Ord", [Value],
-        "Ini", [@i],
-        "Fim", [@i],
-        "Rot", FORMAT( [@i], "dd", _loc ),
-        "RotM", FORMAT( [@i], "dd/MM", _loc ),
-        "RotL", FORMAT( [@i], "ddd, dd/MM", _loc ),
-        "Fds", IF( WEEKDAY( [@i], 2 ) >= 6, 1, 0 )
+        "Ord",
+            VAR _d0 = [Dia]
+            RETURN COUNTROWS( FILTER( _diasMes, [Dia] <= _d0 ) ),
+        "Ini", [Dia],
+        "Fim", [Dia],
+        "Rot", FORMAT( [Dia], "dd", _loc ),
+        "RotM", FORMAT( [Dia], "dd/MM", _loc ),
+        "RotL", FORMAT( [Dia], "ddd, dd/MM", _loc ),
+        "Fds", IF( WEEKDAY( [Dia], 2 ) >= 6, 1, 0 )
     )
-VAR _per = UNION( _perM, _perS, _perD )
+// A curva comeca onde os dados comecam: periodos anteriores a primeira
+// instalacao da base ficam de fora (base nova tem menos de 12 meses).
+VAR _per =
+    FILTER(
+        UNION( _perM, _perS, _perD ),
+        ISBLANK( _primeiroDia ) || [Fim] >= _primeiroDia
+    )
 
 // ---- serie principal em cada periodo ----
 VAR _seriePrincipal = FILTER( _series, [Ent] = _entPrincipal )
@@ -531,6 +584,8 @@ VAR _views =
         VAR _ordG = [OrdG]
         VAR _dG = FILTER( _serieP, [Gran] = _g )
         VAR _nPer = COUNTROWS( _dG ) + 0
+        VAR _ordMax = MAXX( _dG, [Ord] )
+        VAR _ordMeio = ( MINX( _dG, [Ord] ) + _ordMax ) / 2
         VAR _comV = FILTER( _dG, NOT ISBLANK( [P] ) )
         VAR _minV = MINX( _comV, [P] )
         VAR _maxV = MAXX( _comV, [P] )
@@ -566,7 +621,7 @@ VAR _views =
         VAR _yUlt = MAXX( FILTER( _dY, [Ord] = _ultOrd ), [Y] )
         VAR _clsMeta =
             IF(
-                _ultOrd = _nPer && NOT ISBLANK( _yUlt ) && ABS( _yUlt - _yMeta ) < 16,
+                _ultOrd = _ordMax && NOT ISBLANK( _yUlt ) && ABS( _yUlt - _yMeta ) < 16,
                 IF( _yUlt >= _yMeta, " up", " dw" ),
                 ""
             )
@@ -598,13 +653,13 @@ VAR _views =
                 RETURN
                     IF(
                         ISBLANK( _pv ),
-                        "<div class='pt nd" & IF( _futuro, " fu", "" ) & IF( _atual, " hj", "" ) & IF( _o > _nPer / 2, " tr", "" ) & "'>" &
+                        "<div class='pt nd" & IF( _futuro, " fu", "" ) & IF( _atual, " hj", "" ) & IF( _o > _ordMeio, " tr", "" ) & "'>" &
                             IF( _futuro, "", "<span class='tip'><b>" & [RotL] & "</b><span>Sem instalações concluídas</span></span>" ) &
                         "</div>",
                         "<div class='v' style='--y:" & FORMAT( _y, "0.00", "en-US" ) & "%;--a:" & FORMAT( _ya, "0.00", "en-US" ) & "%;--c:" & FORMAT( _yc, "0.00", "en-US" ) &
                             "%;--l:" & IF( ISBLANK( _yAnt ), "50%", "0%" ) & ";--r:" & IF( ISBLANK( _yPro ), "50%", "100%" ) &
                             ";--p:" & FORMAT( _ep, "0.00", "en-US" ) & "px;--q:" & FORMAT( _eq, "0.00", "en-US" ) & "px'>" &
-                        "<div class='pt " & _tierP & IF( _atual, " hj", "" ) & IF( _o > _nPer / 2, " tr", "" ) & "'>" &
+                        "<div class='pt " & _tierP & IF( _atual, " hj", "" ) & IF( _o > _ordMeio, " tr", "" ) & "'>" &
                             "<i class='ln'></i><u class='dot'></u>" &
                             IF( _o = _ultOrd, "<em class='lb'>" & FORMAT( _pv, "0.0%", _loc ) & "</em>", "" ) &
                             _dica &
@@ -717,24 +772,54 @@ VAR _views =
     )
 
 // ============================================================================
-// 8. HOJE (D-0): CARTEIRA PENDENTE
-// Idade = dias corridos desde a abertura. Vence = abertura + prazo.
-//   P = ja perdida (venceu antes de hoje)   H = vence hoje
-//   A = vence amanha                        N = no prazo (vence em 2+ dias)
+// 8. HOJE (D-0): ORDENS PENDENTES NA CARGA DO DIA ('ETA DIRECT D-0')
+// Idade = dias passados desde a abertura (uteis ou corridos, conforme
+// _prazoEmDiasUteis). O ultimo dia do prazo e a idade = _prazoDias.
+//   P = ja perdida (idade maior que o prazo)   H = vence hoje (idade = prazo)
+//   A = vence amanha (idade = prazo - 1)       N = no prazo
 // ============================================================================
+VAR _rotDias = IF( _prazoEmDiasUteis, "dias úteis", "dias corridos" )
+// Dias uteis recentes da dCalendario, como numero inteiro. So os ultimos 90
+// dias: ordem mais velha que isso ja esta perdida de qualquer forma.
+VAR _uteis = SELECTCOLUMNS( FILTER( _diasCal, [Dia] >= _hoje - 90 ), "U", INT( [Dia] ) )
+
+VAR _qCarga = COUNTROWS( _pendModelo ) + 0
+VAR _qComAbertura = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ) ) + 0
+// a carga tem linhas, mas a coluna de abertura ainda nao foi informada em _pendModelo
+VAR _semAbertura = _qCarga > 0 && _qComAbertura = 0
+// so as ordens das ATs do filtro (vale mesmo sem relacionamento com a dAT)
+VAR _pend0 =
+    FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) && CONTAINSROW( _atsCtx, [AT] ) )
 VAR _pend1 =
     ADDCOLUMNS(
-        FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ),
-        "CorN", UPPER( TRIM( [Cor] ) ),
-        "Vence", INT( [Abertura] ) + _prazoDias,
-        "Idade", _hojeN - INT( [Abertura] ),
+        _pend0,
+        "CorN",
+            VAR _a0 = [AT]
+            RETURN COALESCE( MAXX( FILTER( _atsTodas, [AT] = _a0 ), [Cor] ), "" ),
+        "AbN", INT( [Abertura] ),
         "AgN", IF( ISBLANK( [Agenda] ), BLANK(), INT( [Agenda] ) )
     )
 VAR _temAgenda = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) ) ) + 0 > 0
 VAR _pend2 =
     ADDCOLUMNS(
         _pend1,
-        "Resta", [Vence] - _hojeN,
+        "Idade",
+            VAR _ab1 = [AbN]
+            RETURN
+                IF(
+                    _prazoEmDiasUteis,
+                    COUNTROWS( FILTER( _uteis, [U] > _ab1 && [U] <= _hojeN ) ) + 0,
+                    _hojeN - _ab1
+                ),
+        // ultimo dia do prazo (so para saber se a agenda cai depois dele)
+        "Vence",
+            VAR _ab2 = [AbN]
+            RETURN
+                IF(
+                    _prazoEmDiasUteis,
+                    COALESCE( MAXX( TOPN( _prazoDias, FILTER( _uteis, [U] > _ab2 ), [U], ASC ), [U] ), _ab2 + _prazoDias ),
+                    _ab2 + _prazoDias
+                ),
         "ClsC",
             VAR _c8 = [CorN]
             RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c8 ), [ClsCor] ), "c-outra" )
@@ -743,8 +828,8 @@ VAR _pend2 =
 VAR _pend =
     ADDCOLUMNS(
         _pend2,
-        "Sit", SWITCH( TRUE(), [Resta] < 0, "P", [Resta] = 0, "H", [Resta] = 1, "A", "N" ),
-        "Risco", IF( _temAgenda && [Resta] >= 0 && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
+        "Sit", SWITCH( TRUE(), [Idade] > _prazoDias, "P", [Idade] = _prazoDias, "H", [Idade] = _prazoDias - 1, "A", "N" ),
+        "Risco", IF( _temAgenda && [Idade] <= _prazoDias && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
     )
 VAR _pendAgg = GROUPBY( _pend, [AT], [CorN], [Sit], "Q", SUMX( CURRENTGROUP(), 1 ) )
 
@@ -753,7 +838,7 @@ VAR _qP = SUMX( FILTER( _pendAgg, [Sit] = "P" ), [Q] ) + 0
 VAR _qH = SUMX( FILTER( _pendAgg, [Sit] = "H" ), [Q] ) + 0
 VAR _qA = SUMX( FILTER( _pendAgg, [Sit] = "A" ), [Q] ) + 0
 VAR _qN = SUMX( FILTER( _pendAgg, [Sit] = "N" ), [Q] ) + 0
-VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Resta] = -1 ) ) + 0
+VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Idade] = _prazoDias + 1 ) ) + 0
 VAR _qRiscoH = COUNTROWS( FILTER( _pend, [Sit] = "H" && [Risco] = 1 ) ) + 0
 VAR _qRiscoA = COUNTROWS( FILTER( _pend, [Sit] = "A" && [Risco] = 1 ) ) + 0
 
@@ -779,17 +864,24 @@ VAR _heroHoje =
         "<div class='dk'>" &
             "<span class='live'><i></i>Hoje · D-0</span>" &
             "<b>" & FORMAT( _hoje, "ddd, dd/MM", _loc ) & "</b>" &
-            "<small>não muda com o filtro de mês</small>" &
+            "<small>não muda com o filtro de mês · prazo em " & _rotDias & "</small>" &
             _chipCarga &
         "</div>" &
         "<div class='ds'>" &
-            "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qN, "#,0", _loc ) & " no prazo</em></div>" &
-            "<div class='st tR' title='Pendentes que já passaram do prazo de " & _prazoDias & " dias: contam contra o indicador quando forem instaladas.'><small><i></i>Já perdidas</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" &
-                IF( _qViraramHoje > 0, "+" & _qViraramHoje & " desde ontem", "D+" & ( _prazoDias + 1 ) & " ou mais" ) & "</em></div>" &
-            "<div class='st tO' title='Último dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
-                IF( _qRiscoH > 0, _qRiscoH & " em risco", "D+" & _prazoDias & " · último dia" ) & "</em></div>" &
-            "<div class='st tY' title='Vencem amanhã. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
-                IF( _qRiscoA > 0, _qRiscoA & " em risco", "D+" & ( _prazoDias - 1 ) ) & "</em></div>" &
+            IF(
+                _semAbertura,
+                "<div class='st'><small>Na carga</small><b>" & FORMAT( _qCarga, "#,0", _loc ) & "</b><em>atividades</em></div>" &
+                "<div class='st tR'><small><i></i>Já perdidas</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tO'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tY'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
+                "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qN, "#,0", _loc ) & " no prazo</em></div>" &
+                "<div class='st tR' title='Pendentes que já passaram do prazo de " & _prazoDias & " " & _rotDias & ": contam contra o indicador quando forem instaladas.'><small><i></i>Já perdidas</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" &
+                    IF( _qViraramHoje > 0, "+" & _qViraramHoje & " desde ontem", "D+" & ( _prazoDias + 1 ) & " ou mais" ) & "</em></div>" &
+                "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
+                    IF( _qRiscoH > 0, _qRiscoH & " em risco", "D+" & _prazoDias & " · último dia" ) & "</em></div>" &
+                "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
+                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "D+" & ( _prazoDias - 1 ) ) & "</em></div>"
+            ) &
         "</div>" &
         "<div class='cb' title='Composição da carteira pendente: já perdidas, vencem hoje, vencem amanhã e no prazo.'>" & _barraCarteira & "</div>" &
     "</section>"
@@ -1033,9 +1125,9 @@ VAR _ajuda =
     "<div class='help' tabindex='0' role='note' aria-label='Como ler este painel'><span class='help-b'>?</span>" &
         "<div class='help-pop'>" &
             "<b>Como ler</b>" &
-            "<p><i class='k'>Indicador</i>instalações concluídas em até " & _prazoDias & " dias da abertura ÷ instalações concluídas. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
+            "<p><i class='k'>Indicador</i>instalações no prazo de " & _prazoDias & " dias ÷ total de instalações. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
             "<p><i class='k'>Lado esquerdo</i>segue o filtro de mês. Os botões Mês, Semana e Dia trocam a curva e as colunas da tabela. Cada linha é uma cor ou uma AT; passe o mouse em uma célula para ver os volumes.</p>" &
-            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: ordens ainda pendentes na carga do dia. Perdida = já passou do prazo; vence hoje = último dia do prazo.</p>" &
+            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: ordens pendentes na carga do dia (ETA DIRECT D-0). O prazo é de " & _prazoDias & " " & _rotDias & " a partir da abertura. Perdida = já passou do prazo; vence hoje = último dia.</p>" &
             "<p class='help-esc'><i class='e tG'>na meta</i><i class='e tY'>até −10%</i><i class='e tO'>até −20%</i><i class='e tR'>abaixo</i></p>" &
         "</div>" &
     "</div>"
@@ -1341,18 +1433,30 @@ VAR _painelCurva =
         ) &
     "</article>"
 
+// O que dizer quando nao ha ordem para mostrar: o motivo, e nao so um vazio.
+VAR _avisoHoje =
+    SWITCH(
+        TRUE(),
+        _qCarga = 0,
+            "<b>Nenhuma atividade na carga de hoje</b>A tabela ETA DIRECT D-0 não tem linhas para o filtro atual.",
+        _semAbertura,
+            "<b>Falta ligar a data de abertura</b>A carga de hoje tem " & FORMAT( _qCarga, "#,0", _loc ) &
+                " atividades, mas a medida ainda não sabe quando cada ordem foi aberta. Informe a coluna na VAR _pendModelo, na linha Abertura.",
+        "<b>Nenhuma ordem pendente nas ATs do filtro</b>Se a carga tem ordens dessas ATs, confira se a coluna AT da ETA DIRECT D-0 usa os mesmos nomes da dAT."
+    )
+
 VAR _painelHoje =
     "<article class='panel d0" & IF( _temAgenda, "", " na" ) & "'>" &
         IF(
             _qPend = 0,
-            "<div class='empty'><b>Nenhuma ordem pendente</b>Não há instalação em aberto na carga de hoje para o filtro de cor e AT atual.</div>",
+            "<div class='empty'>" & _avisoHoje & "</div>",
             "<div class='crs'>" & _linhasCoresHoje & "</div>" &
             "<div class='ag' title='Ordens pendentes por AT. Quanto mais forte a cor, maior a quantidade naquela linha.'>" &
                 "<div class='ar ah'><span class='al'>Por AT</span><div class='as'>" & _cabATs & "</div></div>" &
                 _linhasATs &
             "</div>" &
             "<div class='lh'><h2>Ordens</h2>" & _botoesLista & "</div>" &
-            "<div class='oh'><span>Ordem</span><span>AT</span><span>Aberta</span><span>Idade</span>" & IF( _temAgenda, "<span>Agenda</span>", "" ) & "</div>" &
+            "<div class='oh'><span>Ordem</span><span>AT</span><span>Aberta</span><span title='Dias passados desde a abertura, em " & _rotDias & "'>" & IF( _prazoEmDiasUteis, "Dias úteis", "Idade" ) & "</span>" & IF( _temAgenda, "<span>Agenda</span>", "" ) & "</div>" &
             _listas
         ) &
     "</article>"

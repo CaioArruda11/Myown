@@ -500,6 +500,14 @@ Object.assign(FN, {
     const t = tipo === undefined ? 1 : num(tipo);
     return t === 2 ? (w === 0 ? 7 : w) : t === 3 ? (w + 6) % 7 : w + 1;
   }),
+  // semana 1 = a que contem 1o de janeiro; tipo 1 = comeca no domingo, tipo 2 = na segunda
+  WEEKNUM: A((s, tipo) => {
+    const d = fromSerial(Math.floor(num(s)));
+    const jan1 = Date.UTC(d.getUTCFullYear(), 0, 1);
+    const w1 = new Date(jan1).getUTCDay(); // 0 = domingo
+    const desloc = (tipo === undefined ? 1 : num(tipo)) === 2 ? (w1 + 6) % 7 : w1;
+    return Math.floor(((d.getTime() - jan1) / DAY + desloc) / 7) + 1;
+  }),
   SQRT: A((x) => (x === null ? null : Math.sqrt(num(x)))),
   POWER: A((x, y) => Math.pow(num(x), num(y))),
   ROUNDUP: A((x, d) => { if (x === null) return null; const f = Math.pow(10, num(d)); const v = num(x) * f; return (Math.sign(v) * Math.ceil(Math.abs(v) - 1e-9)) / f; }),
