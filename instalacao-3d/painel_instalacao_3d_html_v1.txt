@@ -81,6 +81,9 @@ VAR _qtdMeses = 12            // meses na curva mensal
 VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
 VAR _visaoInicial = "Mês"     // curva que abre primeiro: "Mês" | "Semana" | "Dia"
 VAR _maxLinhas = 60           // ordens listadas em cada aba (as mais urgentes)
+// Valor da coluna 'ETA DIRECT D-0'[Indicador Instalação 3D] que significa que a
+// ordem AINDA conta dentro do indicador. Qualquer outro valor = ja perdida.
+VAR _valorDentro = "DENTRO DO INDICADOR"
 
 // Cores das areas: nome (como esta na coluna de cor), ordem na tela e classe.
 VAR _coresCfg =
@@ -162,11 +165,13 @@ VAR _calModelo =
 //     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
 //     mesmos da dAT[AREA ]).
 //
-//     >>> FALTA LIGAR (troque os BLANK() pelas colunas da 'ETA DIRECT D-0'):
-//         "Abertura" = data em que a ordem de instalacao foi gerada (e dela
-//                      que o prazo comeca a contar). SEM ela o lado direito
-//                      nao calcula nada e mostra um aviso.
-//         "Agenda"   = ja ligada na coluna [Data Agendada para Execução].
+//         "Ind"      = coluna calculada [Indicador Instalação 3D]: diz se a ordem
+//                      ainda esta DENTRO DO INDICADOR (ver _valorDentro). E ela
+//                      que separa as ja perdidas das demais.
+//         "Agenda"   = [Data Agendada para Execução].
+//         "Abertura" = OPCIONAL. Data em que a ordem foi gerada. Com ela o painel
+//                      separa tambem quem vence hoje e quem vence amanha; sem
+//                      ela mostra so perdidas x dentro do indicador.
 //     >>> Se a carga tiver reparos ou atividades ja concluidas, filtre aqui,
 //         trocando a linha  'ETA DIRECT D-0',  por algo como:
 //         FILTER( 'ETA DIRECT D-0', 'ETA DIRECT D-0'[coluna do tipo] = "Instalação"
@@ -177,6 +182,7 @@ VAR _pendModelo =
             'ETA DIRECT D-0',
             "Ordem", "" & 'ETA DIRECT D-0'[Atividade],
             "AT", TRIM( 'ETA DIRECT D-0'[AT] ),
+            "Ind", UPPER( TRIM( 'ETA DIRECT D-0'[Indicador Instalação 3D] ) ),
             "Abertura", BLANK(),
             "Agenda", 'ETA DIRECT D-0'[Data Agendada para Execução]
         ),
@@ -793,18 +799,23 @@ VAR _uteis =
 
 VAR _qCarga = COUNTROWS( _pendModelo ) + 0
 VAR _qComAbertura = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ) ) + 0
-// a carga tem linhas, mas a coluna de abertura ainda nao foi informada em _pendModelo
-VAR _semAbertura = _qCarga > 0 && _qComAbertura = 0
+VAR _temInd = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Ind] ) ) ) + 0 > 0
+// _semAbertura = nem a coluna do indicador nem a de abertura estao ligadas
+VAR _semAbertura = _qCarga > 0 && _qComAbertura = 0 && NOT _temInd
+// _soInd = so a coluna do indicador esta ligada: separa perdidas x dentro, mas
+// nao consegue dizer quem vence hoje ou amanha (isso precisa da abertura)
+VAR _soInd = _qCarga > 0 && _qComAbertura = 0 && _temInd
 // so as ordens das ATs do filtro (vale mesmo sem relacionamento com a dAT)
 VAR _pend0 =
-    FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) && CONTAINSROW( _atsCtx, [AT] ) )
+    FILTER( _pendModelo, ( NOT ISBLANK( [Abertura] ) || NOT ISBLANK( [Ind] ) ) && CONTAINSROW( _atsCtx, [AT] ) )
 VAR _pend1 =
     ADDCOLUMNS(
         _pend0,
         "CorN",
             VAR _a0 = [AT]
             RETURN COALESCE( MAXX( FILTER( _atsTodas, [AT] = _a0 ), [Cor] ), "" ),
-        "AbN", INT( [Abertura] ),
+        "AbN", IF( ISBLANK( [Abertura] ), BLANK(), INT( [Abertura] ) ),
+        "Fora", IF( ISBLANK( [Ind] ), 0, IF( [Ind] = _valorDentro, 0, 1 ) ),
         "AgN", IF( ISBLANK( [Agenda] ), BLANK(), INT( [Agenda] ) )
     )
 // A coluna Agenda so aparece quando informa alguma coisa: se todas as ordens
@@ -820,18 +831,26 @@ VAR _pend2 =
             VAR _ab1 = [AbN]
             RETURN
                 IF(
-                    _prazoEmDiasUteis,
-                    COUNTROWS( FILTER( _uteis, [U] > _ab1 && [U] <= _hojeN ) ) + 0,
-                    _hojeN - _ab1
+                    ISBLANK( _ab1 ),
+                    BLANK(),
+                    IF(
+                        _prazoEmDiasUteis,
+                        COUNTROWS( FILTER( _uteis, [U] > _ab1 && [U] <= _hojeN ) ) + 0,
+                        _hojeN - _ab1
+                    )
                 ),
         // ultimo dia do prazo (so para saber se a agenda cai depois dele)
         "Vence",
             VAR _ab2 = [AbN]
             RETURN
                 IF(
-                    _prazoEmDiasUteis,
-                    COALESCE( MAXX( TOPN( _prazoDias, FILTER( _uteis, [U] > _ab2 ), [U], ASC ), [U] ), _ab2 + _prazoDias ),
-                    _ab2 + _prazoDias
+                    ISBLANK( _ab2 ),
+                    BLANK(),
+                    IF(
+                        _prazoEmDiasUteis,
+                        COALESCE( MAXX( TOPN( _prazoDias, FILTER( _uteis, [U] > _ab2 ), [U], ASC ), [U] ), _ab2 + _prazoDias ),
+                        _ab2 + _prazoDias
+                    )
                 ),
         "ClsC",
             VAR _c8 = [CorN]
@@ -841,8 +860,18 @@ VAR _pend2 =
 VAR _pend =
     ADDCOLUMNS(
         _pend2,
-        "Sit", SWITCH( TRUE(), [Idade] > _prazoDias, "P", [Idade] = _prazoDias, "H", [Idade] = _prazoDias - 1, "A", "N" ),
-        "Risco", IF( _temAgenda && [Idade] <= _prazoDias && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
+        // a coluna do indicador manda: fora = ja perdida. Sem ela, vale a idade.
+        "Sit",
+            SWITCH(
+                TRUE(),
+                [Fora] = 1, "P",
+                ISBLANK( [Idade] ), "N",
+                NOT _temInd && [Idade] > _prazoDias, "P",
+                [Idade] = _prazoDias, "H",
+                [Idade] = _prazoDias - 1, "A",
+                "N"
+            ),
+        "Risco", IF( _temAgenda && [Fora] = 0 && NOT ISBLANK( [Idade] ) && [Idade] <= _prazoDias && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
     )
 VAR _pendAgg = GROUPBY( _pend, [AT], [CorN], [Sit], "Q", SUMX( CURRENTGROUP(), 1 ) )
 
@@ -851,7 +880,7 @@ VAR _qP = SUMX( FILTER( _pendAgg, [Sit] = "P" ), [Q] ) + 0
 VAR _qH = SUMX( FILTER( _pendAgg, [Sit] = "H" ), [Q] ) + 0
 VAR _qA = SUMX( FILTER( _pendAgg, [Sit] = "A" ), [Q] ) + 0
 VAR _qN = SUMX( FILTER( _pendAgg, [Sit] = "N" ), [Q] ) + 0
-VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Idade] = _prazoDias + 1 ) ) + 0
+VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Fora] = 1 && [Idade] = _prazoDias + 1 ) ) + 0
 VAR _qRiscoH = COUNTROWS( FILTER( _pend, [Sit] = "H" && [Risco] = 1 ) ) + 0
 VAR _qRiscoA = COUNTROWS( FILTER( _pend, [Sit] = "A" && [Risco] = 1 ) ) + 0
 
@@ -887,6 +916,12 @@ VAR _heroHoje =
                 "<div class='st tR'><small><i></i>Já perdidas</small><b>—</b><em>falta a abertura</em></div>" &
                 "<div class='st tO'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
                 "<div class='st tY'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
+                IF(
+                    _soInd,
+                    "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qN, "#,0", _loc ) & " dentro do indicador</em></div>" &
+                    "<div class='st tR' title='Ordens que a coluna Indicador Instalação 3D marca como fora do indicador.'><small><i></i>Já perdidas</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>fora do indicador</em></div>" &
+                    "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                    "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
                 "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qN, "#,0", _loc ) & " no prazo</em></div>" &
                 "<div class='st tR' title='Pendentes que já passaram do prazo de " & _prazoDias & " " & _rotDias & ": contam contra o indicador quando forem instaladas.'><small><i></i>Já perdidas</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" &
                     IF( _qViraramHoje > 0, "+" & _qViraramHoje & " desde ontem", "D+" & ( _prazoDias + 1 ) & " ou mais" ) & "</em></div>" &
@@ -894,6 +929,7 @@ VAR _heroHoje =
                     IF( _qRiscoH > 0, _qRiscoH & " em risco", "D+" & _prazoDias & " · último dia" ) & "</em></div>" &
                 "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
                     IF( _qRiscoA > 0, _qRiscoA & " em risco", "D+" & ( _prazoDias - 1 ) ) & "</em></div>"
+                )
             ) &
         "</div>" &
         "<div class='cb' title='Composição da carteira pendente: já perdidas, vencem hoje, vencem amanhã e no prazo.'>" & _barraCarteira & "</div>" &
@@ -1039,8 +1075,8 @@ VAR _listas =
                     "<div class='or" & IF( [Risco] = 1, " rk", "" ) & "'>" &
                         "<b class='on'>" & [Ordem] & "</b>" &
                         "<span class='oa " & [ClsC] & "'><i class='cd'></i>" & [AT] & "</span>" &
-                        "<span class='od'>" & FORMAT( [Abertura], "dd/MM", _loc ) & "</span>" &
-                        "<span class='oi'>D+" & [Idade] & "</span>" &
+                        "<span class='od'>" & IF( ISBLANK( [Abertura] ), "—", FORMAT( [Abertura], "dd/MM", _loc ) ) & "</span>" &
+                        IF( ISBLANK( [Idade] ), "<span class='oi'>—</span>", "<span class='oi'>D+" & [Idade] & "</span>" ) &
                         IF( _temAgenda, "<span class='og'>" & _agTxt & "</span>", "" ) &
                     "</div>",
                 "",
@@ -1052,7 +1088,8 @@ VAR _listas =
             "<div class='lv l-" & [SufA] & " " & [TierA] & IF( [PosA] = _lA, " ini", "" ) & "'>" &
                 IF(
                     _qTodasA = 0,
-                    "<div class='empty'><b>" & [VazioA] & "</b>Carteira de hoje, no filtro de cor e AT atual.</div>",
+                    "<div class='empty'><b>" & IF( _soInd && [SitA] <> "P", "Sem a data de abertura não dá para separar", [VazioA] ) & "</b>" &
+                        IF( _soInd && [SitA] <> "P", "Ligue a linha Abertura na VAR _pendModelo para ver quem vence hoje e amanhã.", "Carteira de hoje, no filtro de cor e AT atual." ) & "</div>",
                     _linhasA &
                         IF(
                             _qTodasA > _maxLinhas,
@@ -1455,8 +1492,8 @@ VAR _avisoHoje =
         _qCarga = 0,
             "<b>Nenhuma atividade na carga de hoje</b>A tabela ETA DIRECT D-0 não tem linhas para o filtro atual.",
         _semAbertura,
-            "<b>Falta ligar a data de abertura</b>A carga de hoje tem " & FORMAT( _qCarga, "#,0", _loc ) &
-                " atividades, mas a medida ainda não sabe quando cada ordem foi aberta. Informe a coluna na VAR _pendModelo, na linha Abertura.",
+            "<b>Falta ligar a coluna do indicador</b>A carga de hoje tem " & FORMAT( _qCarga, "#,0", _loc ) &
+                " atividades, mas a medida não sabe quais estão dentro do indicador. Confira a linha Ind na VAR _pendModelo.",
         "<b>Nenhuma ordem pendente nas ATs do filtro</b>Se a carga tem ordens dessas ATs, confira se a coluna AT da ETA DIRECT D-0 usa os mesmos nomes da dAT."
     )
 

@@ -27,6 +27,7 @@ fs.mkdirSync(out, { recursive: true });
 
 const PRINCIPAL = path.join(src, 'painel_instalacao_3d_html_v1.txt');
 const APOIO = path.join(src, 'medidas_de_apoio_v1.txt');
+const MENU = path.join(src, 'menu_lateral_instalacao_html_v1.txt');
 
 // ------------------------------------------------------------ 1. medidas de apoio
 // O arquivo tem varias medidas: cada uma comeca em uma linha "Nome =".
@@ -50,6 +51,14 @@ function medidasDeApoio() {
 const apoio = medidasDeApoio();
 console.log('apoio  : sintaxe ok | ' + apoio.map((m) => m.nome).join(', '));
 
+// ------------------------------------------------------------ menu lateral
+const mnu = dax.evaluate(MENU, require('./mocks.js').menu.geral, { utcNow: M.UTC_NOW });
+{
+  const c = compat(mnu.html, { estrito: true });
+  if (mnu.unusedMocks.length || c.problems.length) throw new Error('menu: ' + mnu.unusedMocks.concat(c.problems).join('; '));
+  console.log('menu   : sintaxe ok | medida ' + fs.readFileSync(MENU, 'utf8').length + ' caracteres -> HTML ' + mnu.html.length);
+}
+
 // ------------------------------------------------------------ 2 e 3. medida principal
 let primeiro = true;
 function painel(cen) {
@@ -69,7 +78,8 @@ const CEN = [
   { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
   { id: 'at', rotulo: 'AT MA · agendas variadas', nota: 'Uma AT selecionada, em uma carga com ordens agendadas para outros dias ou sem agenda: aparecem a coluna Agenda e o aviso “em risco”. No topo direito, o aviso opcional de carga atrasada.', cen: { ats: ['MA'], comAgenda: true, carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
   { id: 'out', rotulo: 'Mês fechado · out/26', nota: 'Trocar o mês muda só o lado esquerdo. O lado direito continua no dia de hoje.', cen: { fimSel: dax.serial(2026, 10, 31) }, pg: { mes: 'Outubro/2026' } },
-  { id: 'hoje', rotulo: 'Como cola hoje', nota: 'É assim que a medida aparece se você colar agora: lado esquerdo completo; lado direito avisando que falta ligar a data de abertura da ETA DIRECT D-0.', cen: { semAbertura: true }, pg: { mes: 'Novembro/2026' } },
+  { id: 'hoje', rotulo: 'Só a coluna do indicador', nota: 'Só a coluna Indicador Instalação 3D ligada: o lado direito separa já perdidas (fora do indicador) das que estão dentro, mas vencem hoje e amanhã ficam em “—” até ligar a data de abertura.', cen: { semAbertura: true }, pg: { mes: 'Novembro/2026' } },
+  { id: 'nada', rotulo: 'Nada ligado no D-0', nota: 'Carga lida, mas sem a coluna do indicador nem a abertura: o lado direito avisa o que falta.', cen: { semAbertura: true, semInd: true }, pg: { mes: 'Novembro/2026' } },
 ];
 for (const c of CEN) {
   c.html = painel(c.cen);
@@ -92,7 +102,7 @@ const arq = (nome, html) => { const f = path.join(tmp, nome + '.html'); fs.write
 function print(nome, c, before) {
   jobs.push({ file: arq(nome, c.pagina), out: path.join(out, nome + '.png'), w: L.page.w, h: L.page.h, scale: 2, before: before && noPainel(before) });
 }
-const [GERAL, BRONZE, AT, OUT, HOJE] = CEN;
+const [GERAL, BRONZE, AT, OUT, HOJE, NADA] = CEN;
 print('1-visao-geral', GERAL);
 print('2-curva-semanal-e-destaque-da-cor', GERAL, async (f) => { await f.click('.b1 summary'); await f.hover('.hc .c-prata2'); });
 print('3-curva-diaria-e-dica', GERAL, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(5).hover(); });
@@ -102,7 +112,9 @@ print('6-mes-fechado-o-lado-direito-nao-muda', OUT, async (f) => { await f.click
 
 // o painel ao lado de um menu lateral (visual mais estreito)
 jobs.push({ file: arq('estreito', R.wrap(GERAL.html)), out: path.join(out, '7-visual-estreito-1032x630.png'), w: 1032, h: 630, scale: 2 });
-print('8-como-cola-hoje-falta-ligar-a-abertura', HOJE);
+print('8-so-a-coluna-do-indicador', HOJE);
+print('9-nada-ligado-no-lado-direito', NADA);
+jobs.push({ file: arq('com-menu', R.composeInstalacaoMenu(mnu.html, GERAL.html, { title: 'Instalação 3D · com menu' })), out: path.join(out, '10-com-o-menu-lateral.png'), w: 1280, h: 720, scale: 2 });
 
 // tamanho de referencia: tudo cabe, nada cortado, botoes levam para a visao certa
 jobs.push({
@@ -294,7 +306,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <p>Prévia do painel e todo o código DAX na mesma página, já com os nomes das suas tabelas. Lado esquerdo: a curva do indicador por mês, semana ou dia, aberta por cor e por AT. Lado direito: fixo no dia de hoje (D-0), com as ordens que já perdemos e as que estão para vencer.</p>
   <div class="tags"><span>1 medida principal</span><span>2 medidas de apoio + 1 opcional</span><span>ligado às suas tabelas</span><span>${linhasPrincipal} linhas de DAX</span><span>prévia com dados fictícios</span></div>
 </div></header>
-<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#falta">O que falta</a><a href="#montar">Como montar</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
+<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#falta">O que falta</a><a href="#montar">Como montar</a><a href="#menu">Menu</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
 
 <div class="wrap">
 <section id="previa">
@@ -319,10 +331,12 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
 
 <section id="falta">
   <h2>O que ainda falta <small>para o lado direito</small></h2>
-  <p class="lead">O lado esquerdo já roda com as suas tabelas. O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code> e já usa a coluna de agenda; falta saber quando cada ordem foi gerada.</p>
+  <p class="lead">O lado esquerdo roda com as suas tabelas. O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code> e usa a sua coluna <code class="i">[Indicador Instalação 3D]</code> para separar as ordens já perdidas das que ainda estão dentro do indicador.</p>
   <div class="two">
-    <div class="card falta"><h3>1 · Data em que a ordem foi gerada</h3>
-      <p>É dela que o prazo de 3 dias começa a contar. A <code class="i">[Data Agendada para Execução]</code> diz para quando a visita está marcada, não quando a ordem nasceu. Na VAR <code class="i">_pendModelo</code>, troque o <code class="i">BLANK()</code> da linha <code class="i">"Abertura"</code> pela coluna de criação da ordem. Enquanto isso não for feito, o lado direito mostra um aviso em vez de números (cenário “Como cola hoje”).</p></div>
+    <div class="card falta"><h3>1 · Valores da sua coluna</h3>
+      <p>Só vi o valor <b>DENTRO DO INDICADOR</b>. A medida trata esse valor como "ainda conta" (VAR <code class="i">_valorDentro</code>) e <b>qualquer outro</b> como já perdida. Se a sua coluna tem mais de dois valores (por exemplo, um para quem vence hoje), me diga quais.</p></div>
+    <div class="card falta"><h3>1b · Vence hoje e vence amanhã</h3>
+      <p>Só a coluna do indicador não diz quando a ordem vence. Para separar "vencem hoje" e "vencem amanhã", falta a data em que a ordem foi gerada: preencha a linha <code class="i">"Abertura"</code> da <code class="i">_pendModelo</code>. Enquanto isso, esses dois cartões mostram “—” (cenário “Só a coluna do indicador”).</p></div>
     <div class="card falta"><h3>2 · Só instalações pendentes</h3>
       <p>Se a carga do dia traz também reparos ou atividades já concluídas, é preciso filtrar. O modelo do filtro está comentado dentro da <code class="i">_pendModelo</code>; faltam os nomes das colunas de tipo e de status.</p></div>
     <div class="card falta"><h3>3 · Dias corridos ou úteis?</h3>
@@ -342,7 +356,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <li><b>Tamanho de referência:</b> 1264 × 638 px, em uma página 1280 × 720 com uma faixa de filtros em cima. O painel se ajusta sozinho; a partir de cerca de 1030 px de largura ele continua inteiro (cabe ao lado de um menu lateral).</li>
     <li><b>Filtros da página:</b> mês (ou qualquer coluna da <code class="i">dCalendario</code>), cor e AT (colunas da <code class="i">dAT</code>). O lado direito ignora o mês por conta própria: não precisa mexer em “Editar interações”.</li>
     <li><b>Confira o lado esquerdo:</b> o número grande do mês tem que ser igual ao da sua <code class="i">% INSTALACAO_3D</code> com o mesmo filtro.</li>
-    <li><b>Ligue o lado direito:</b> informe na <code class="i">_pendModelo</code> a coluna com a data em que a ordem foi gerada (itens 1 e 2 de <a href="#falta">O que ainda falta</a>).</li>
+    <li><b>Lado direito:</b> a coluna <code class="i">[Indicador Instalação 3D]</code> já está ligada na <code class="i">_pendModelo</code>; confira os valores e a data de abertura em <a href="#falta">O que ainda falta</a>.</li>
   </ol></div>
 </section>
 
@@ -350,7 +364,14 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <h2>Código <small>DAX</small></h2>
   <p class="lead">Os mesmos textos estão na pasta em <code class="i">medidas_de_apoio_v1.txt</code> e <code class="i">painel_instalacao_3d_html_v1.txt</code>.</p>
   ${apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · numerador da sua medida' : i === 1 ? 'medida de apoio · denominador da sua medida' : 'opcional · a sua medida reescrita com DIVIDE', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)).join('\n  ')}
+  ${bloco('mn', '5 · Menu Lateral Instalacao HTML', 'segundo visual HTML, ao lado do painel · 4 páginas · cole em cada página e troque só _paginaAtual', fs.readFileSync(MENU, 'utf8').replace(/\s+$/, '') + '\n', false)}
   ${bloco('mp', '4 · Painel Instalacao 3D HTML', 'medida principal · ' + linhasPrincipal + ' linhas · vai no visual HTML Content', principalTxt, false)}
+</section>
+
+<section id="menu">
+  <h2>Menu lateral <small>4 páginas</small></h2>
+  <p class="lead">Mesmo modelo do menu do BSC: INSTALAÇÃO 3D, CHEGADA NO SLOT, ROTEIRIZAÇÃO e TMR. Em cada página, coloque o visual do menu com 200 px de largura e troque só a VAR <code class="i">_paginaAtual</code>. Os botões nativos transparentes (um por item, 36 px de altura, 7 px de intervalo, começando a 109 px do topo) fazem a navegação. A cor e a AT vêm da <code class="i">dAT</code>, sem usar a tabela <code class="i">'Seletor Cor'</code>.</p>
+  <div class="card pv"><img src="10-com-o-menu-lateral.png" alt="Painel ao lado do menu lateral" style="width:100%;border-radius:12px;display:block"></div>
 </section>
 
 <section id="modelo">
@@ -365,7 +386,8 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <tr><td>Carga do dia</td><td><code class="i">'ETA DIRECT D-0'</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Funcionou no seu teste</b> (1.315 atividades lidas). Não precisa de relacionamento com a <code class="i">dAT</code>: o filtro de cor e AT é aplicado pela coluna AT.</td></tr>
     <tr><td>AT da ordem</td><td><code class="i">'ETA DIRECT D-0'[AT]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Os valores têm que ser os mesmos da <code class="i">dAT[AREA ]</code>.</td></tr>
     <tr><td>Número da ordem</td><td><code class="i">'ETA DIRECT D-0'[Atividade]</code></td><td><code class="i">_pendModelo</code></td><td><b class="pend">Provisório.</b> Foi a coluna numérica que apareceu no print. Se houver uma coluna com o número da ordem, troque.</td></tr>
-    <tr><td>Data em que a ordem foi gerada</td><td><code class="i">BLANK()</code></td><td><code class="i">_pendModelo</code></td><td><b class="falt">Falta.</b> Sem ela o lado direito não calcula.</td></tr>
+    <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorDentro</code></td><td><b class="pend">Ligada, a confirmar.</b> Suponho que a coluna está na <code class="i">'ETA DIRECT D-0'</code>. "DENTRO DO INDICADOR" = ainda conta; qualquer outro valor = já perdida.</td></tr>
+    <tr><td>Data em que a ordem foi gerada</td><td><code class="i">BLANK()</code></td><td><code class="i">_pendModelo</code></td><td><b class="falt">Falta</b> (opcional). Sem ela, "vencem hoje" e "vencem amanhã" ficam em “—”.</td></tr>
     <tr><td>Agendamento</td><td><code class="i">'ETA DIRECT D-0'[Data Agendada para Execução]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada</b> (coluna do seu print). A coluna Agenda e o aviso “em risco” só aparecem quando há ordem agendada para outro dia ou sem agenda; se tudo está agendado para hoje, ela ficaria repetindo “hoje”.</td></tr>
     <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_dataCarga</code></td><td>Com ela o painel avisa quando a carga de hoje ainda não entrou.</td></tr>
   </table></div>

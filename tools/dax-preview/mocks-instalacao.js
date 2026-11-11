@@ -124,7 +124,8 @@ function janela(fimSel, qtdMeses, qtdSemanas) {
  *   ats         siglas das ATs no filtro | null = todas
  *   carga       data da ultima carga (serial) | padrao: coluna nao ligada (BLANK)
  *   comAgenda   true = agendas variadas (padrao: todas agendadas para hoje, como em uma carga D-0)
- *   semAbertura true = como a medida sai de fabrica: coluna de abertura ainda nao ligada
+ *   semAbertura true = coluna de abertura nao ligada (so a coluna do indicador)
+ *   semInd      true = coluna do indicador tambem nao ligada
  *   semPend     true = carga do dia vazia
  *   semDados    true = nenhuma instalacao na janela
  *   diasUteis   true = troca a configuracao _prazoEmDiasUteis para TRUE() (o mock vale para qualquer VAR)
@@ -145,7 +146,10 @@ function cenario(o) {
     _pendModelo: opt.semPend ? [] : PENDENTES.map((p) => ({
       // [Data Agendada para Execução]: em uma carga D-0 pura todas as ordens estao agendadas para hoje;
       // comAgenda = carga com agendas variadas (e algumas sem agenda)
-      Ordem: p.Ordem, AT: p.AT, Abertura: opt.semAbertura ? null : p.Abertura, Agenda: opt.comAgenda ? p.Agenda : HOJE,
+      Ordem: p.Ordem, AT: p.AT,
+      // coluna calculada [Indicador Instalação 3D]: ordem com mais de 3 dias corridos ja saiu do indicador
+      Ind: opt.semInd ? null : (HOJE - Math.floor(p.Abertura) > 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
+      Abertura: opt.semAbertura ? null : p.Abertura, Agenda: opt.comAgenda ? p.Agenda : HOJE,
     })),
     _dataCarga: opt.carga === undefined ? null : opt.carga,
     // sem a opcao, vale o que esta escrito na medida (padrao: dias corridos)
