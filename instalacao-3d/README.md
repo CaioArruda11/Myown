@@ -5,7 +5,7 @@ Um único visual **HTML Content** para o Power BI, gerado por uma medida DAX.
 - **Lado esquerdo** (segue o filtro de mês): resultado do mês, curva por **Mês | Semana | Dia** e abertura por **cor** e por **AT**.
 - **Lado direito** (fixo em **D-0**): ordens pendentes na carga de hoje (`'ETA DIRECT D-0'`) — já perdidas, vencem hoje, vencem amanhã — por cor, por AT e a lista das ordens.
 
-Versão 1.1: já usa as tabelas do arquivo novo (`'fINSTALACAO + ME_3D'`, `'fINSTALACAO + ME_3D_TOTAL'`, `dCalendario` só com dias úteis, `'ETA DIRECT D-0'`).
+Versão 1.2: usa as tabelas do arquivo novo (`'fINSTALACAO + ME_3D'`, `'fINSTALACAO + ME_3D_TOTAL'`, `dCalendario`, `'ETA DIRECT D-0'`) e não perde mais o CSS em visuais HTML que filtram o conteúdo.
 
 ![Visão geral](1-visao-geral.png)
 
@@ -22,16 +22,19 @@ Versão 1.1: já usa as tabelas do arquivo novo (`'fINSTALACAO + ME_3D'`, `'fINS
 
 1. Crie `INSTALACAO_3D NO PRAZO` e `INSTALACAO_3D TOTAL` (numerador e denominador da sua `% INSTALACAO_3D`).
 2. Crie a medida principal. O lado esquerdo já funciona com os nomes do seu modelo.
-3. Coloque a medida em um visual HTML Content, sem título e com fundo transparente. Tamanho de referência: 1264 × 638 px.
+3. Coloque a medida no visual HTML (de preferência o mesmo dos outros painéis), sem título e com fundo transparente. Tamanho de referência: 1264 × 638 px.
 4. Filtros da página: mês, cor e AT. O lado direito ignora o mês sozinho.
 5. Confira se o número grande do mês bate com a sua `% INSTALACAO_3D`.
 
 ## O que ainda falta (lado direito)
 
-- **Data de abertura da ordem** na `'ETA DIRECT D-0'`: troque o `BLANK()` da linha `"Abertura"` na VAR `_pendModelo`. Sem ela o lado direito mostra um aviso (print 8).
+- **Data em que a ordem foi gerada** na `'ETA DIRECT D-0'`: troque o `BLANK()` da linha `"Abertura"` na VAR `_pendModelo`. Sem ela o lado direito mostra um aviso (print 8). A `[Data Agendada para Execução]` já está ligada como agenda.
 - **Filtro de instalações pendentes**, se a carga trouxer reparos ou atividades concluídas.
-- **Dias úteis ou corridos:** está em dias úteis (`_prazoEmDiasUteis = TRUE()`), contados pelos dias que existem na `dCalendario`.
-- **Colunas da `dAT`:** o código usa `dAT[AREA ]` e `dAT[COR_AREA ]`.
+- **Dias corridos ou úteis:** está em dias corridos (`_prazoEmDiasUteis = FALSE()`).
+
+## Se aparecer só texto, sem formatação
+
+O visual descartou o bloco de CSS. A v1.2 já evita os dois motivos conhecidos (o `<style>` na frente de tudo e o sinal de menor dentro do CSS). Se ainda acontecer, copie um visual HTML de um dos outros painéis para este arquivo e troque só a medida.
 
 O mapa completo dos nomes usados e as regras de cálculo estão no `index.html`.
 

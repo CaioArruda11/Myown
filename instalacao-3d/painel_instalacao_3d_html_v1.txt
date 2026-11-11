@@ -1,15 +1,16 @@
 Painel Instalacao 3D HTML =
 
 // ============================================================================
-// PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1.1 - ligado ao modelo real)
+// PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1.2 - ligado ao modelo real)
 // Um unico visual HTML Content ocupando o corpo da pagina. Fundo TRANSPARENTE.
 // Mesma linguagem visual do BSC v5 e do Ranking v2.
 //
+// v1.2: CSS a prova de filtro (ver COMPATIBILIDADE) e coluna de agenda ligada.
 // v1.1: usa as tabelas do arquivo novo
 //   - indicador: 'fINSTALACAO + ME_3D' (no prazo) e 'fINSTALACAO + ME_3D_TOTAL'
 //     (total), pelas medidas [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL];
-//   - dCalendario so com dias uteis: o eixo diario mostra so os dias que
-//     existem nela, e o prazo do lado D-0 pode ser contado em dias uteis;
+//   - o eixo diario mostra os dias que existem na dCalendario; o prazo do
+//     lado D-0 pode ser contado em dias corridos (padrao) ou uteis;
 //   - lado D-0 le a 'ETA DIRECT D-0'. FALTA informar a coluna com a data de
 //     abertura da ordem (ver _pendModelo); ate la o lado direito avisa o que
 //     falta em vez de mostrar numeros.
@@ -32,15 +33,17 @@ Painel Instalacao 3D HTML =
 //   As duas metades respeitam os filtros de COR e de AT.
 //
 // O QUE AJUSTAR
-//   - bloco 1 (CONFIGURACAO): meta, prazo (dias uteis ou corridos), fuso,
+//   - bloco 1 (CONFIGURACAO): meta, prazo (dias corridos ou uteis), fuso,
 //     quantos meses/semanas;
 //   - VARs marcadas com "<<< MODELO": sao as UNICAS que leem tabelas, colunas
 //     e medidas. Todo o resto usa so o que essas VARs devolvem.
 //   - medidas usadas: [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL]
 //     (arquivo medidas_de_apoio_v1.txt).
 //
-// COMPATIBILIDADE COM O HTML CONTENT (nao executa JavaScript)
+// COMPATIBILIDADE COM O VISUAL HTML (nao executa JavaScript)
 //   - so HTML + CSS; botoes com <details> + :has(), como nas paginas IFI/IRR;
+//   - o bloco <style> fica dentro da div principal e o CSS nao tem o sinal de
+//     menor (v1.2): sem isso, visuais que filtram o HTML descartam o CSS todo;
 //   - atributo style so carrega variaveis CSS e fica em um <div class='v'>
 //     neutro; nenhum nome entra em atributo (title), so em texto;
 //   - 100vh de proposito: o visual envolve o conteudo em um wrapper sem altura;
@@ -69,10 +72,10 @@ VAR _loc = "pt-BR"
 VAR _meta = 0.81              // meta do indicador (81%)
 VAR _prazoDias = 3            // prazo, em dias, contado da abertura da ordem
 // Como contar os dias do prazo no lado D-0:
-//   TRUE()  = dias UTEIS: conta so os dias que existem na dCalendario (ela nao
-//             tem sabado, domingo nem feriado);
-//   FALSE() = dias corridos.
-VAR _prazoEmDiasUteis = TRUE()
+//   FALSE() = dias corridos;
+//   TRUE()  = dias UTEIS: conta so segunda a sexta, e so os dias que existem
+//             na dCalendario (um feriado fica de fora se nao estiver nela).
+VAR _prazoEmDiasUteis = FALSE()
 VAR _fuso = -3                // fuso de Brasilia (UTC-3)
 VAR _qtdMeses = 12            // meses na curva mensal
 VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
@@ -145,8 +148,8 @@ VAR _gradeModelo =
 // <<< MODELO: ATs que estao no filtro da pagina (cor e/ou AT selecionadas).
 VAR _atsCtx = VALUES( dAT[AREA ] )
 
-// <<< MODELO: os dias que existem na dCalendario (so dias uteis). Servem para
-//     montar o eixo diario e para contar o prazo em dias uteis.
+// <<< MODELO: os dias que existem na dCalendario. Servem para montar o eixo
+//     diario e para contar o prazo quando ele e em dias uteis.
 VAR _calModelo =
     CALCULATETABLE(
         VALUES( dCalendario[Data] ),
@@ -163,7 +166,7 @@ VAR _calModelo =
 //         "Abertura" = data em que a ordem de instalacao foi gerada (e dela
 //                      que o prazo comeca a contar). SEM ela o lado direito
 //                      nao calcula nada e mostra um aviso.
-//         "Agenda"   = data agendada (opcional; se ficar BLANK() a coluna some).
+//         "Agenda"   = ja ligada na coluna [Data Agendada para Execução].
 //     >>> Se a carga tiver reparos ou atividades ja concluidas, filtre aqui,
 //         trocando a linha  'ETA DIRECT D-0',  por algo como:
 //         FILTER( 'ETA DIRECT D-0', 'ETA DIRECT D-0'[coluna do tipo] = "Instalação"
@@ -175,7 +178,7 @@ VAR _pendModelo =
             "Ordem", "" & 'ETA DIRECT D-0'[Atividade],
             "AT", TRIM( 'ETA DIRECT D-0'[AT] ),
             "Abertura", BLANK(),
-            "Agenda", BLANK()
+            "Agenda", 'ETA DIRECT D-0'[Data Agendada para Execução]
         ),
         REMOVEFILTERS( dCalendario )
     )
@@ -320,7 +323,7 @@ VAR _perS =
         "RotL", "Semana " & WEEKNUM( [@i], 2 ) & " · " & FORMAT( [@i], "dd/MM", _loc ) & " a " & FORMAT( [@i] + 6, "dd/MM", _loc ),
         "Fds", 0
     )
-// Dia: so os dias do mes que existem na dCalendario (ela nao tem fim de semana nem feriado).
+// Dia: os dias do mes que existem na dCalendario.
 VAR _diasMes = FILTER( _diasCal, [Dia] >= _mesIni && [Dia] <= _mesFim )
 VAR _perD =
     SELECTCOLUMNS(
@@ -779,9 +782,14 @@ VAR _views =
 //   A = vence amanha (idade = prazo - 1)       N = no prazo
 // ============================================================================
 VAR _rotDias = IF( _prazoEmDiasUteis, "dias úteis", "dias corridos" )
-// Dias uteis recentes da dCalendario, como numero inteiro. So os ultimos 90
-// dias: ordem mais velha que isso ja esta perdida de qualquer forma.
-VAR _uteis = SELECTCOLUMNS( FILTER( _diasCal, [Dia] >= _hoje - 90 ), "U", INT( [Dia] ) )
+// Dias uteis recentes (segunda a sexta que existem na dCalendario), como
+// numero inteiro. So os ultimos 90 dias: ordem mais velha que isso ja esta
+// perdida de qualquer forma. So e usado quando _prazoEmDiasUteis = TRUE().
+VAR _uteis =
+    SELECTCOLUMNS(
+        FILTER( _diasCal, [Dia] >= _hoje - 90 && WEEKDAY( [Dia], 2 ) <= 5 ),
+        "U", INT( [Dia] )
+    )
 
 VAR _qCarga = COUNTROWS( _pendModelo ) + 0
 VAR _qComAbertura = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ) ) + 0
@@ -799,7 +807,12 @@ VAR _pend1 =
         "AbN", INT( [Abertura] ),
         "AgN", IF( ISBLANK( [Agenda] ), BLANK(), INT( [Agenda] ) )
     )
-VAR _temAgenda = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) ) ) + 0 > 0
+// A coluna Agenda so aparece quando informa alguma coisa: se todas as ordens
+// estao agendadas para hoje (carga D-0 pura), ela seria uma coluna de "hoje".
+VAR _qAgDiferente = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) && [AgN] <> _hojeN ) ) + 0
+VAR _qAgVazia = COUNTROWS( FILTER( _pend1, ISBLANK( [AgN] ) ) ) + 0
+VAR _qAgCheia = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) ) ) + 0
+VAR _temAgenda = _qAgDiferente > 0 || ( _qAgVazia > 0 && _qAgCheia > 0 )
 VAR _pend2 =
     ADDCOLUMNS(
         _pend1,
@@ -1136,6 +1149,8 @@ VAR _ajuda =
 // CSS
 // - 100vh de proposito (o wrapper do HTML Content nao tem altura definida).
 // - Nao usar aspas duplas aqui dentro (quebram a string DAX).
+// - Nao escrever o sinal de menor aqui dentro, nem em comentario: o filtro de
+//   alguns visuais entende como tag e descarta o bloco de CSS inteiro.
 // - .v = wrapper neutro que carrega as variaveis de posicao/tamanho:
 //   --w largura da barra | --y --a --c --l --r --p --q ponto e traco da curva
 //   --g linha de grade | --m linha da meta
@@ -1249,7 +1264,7 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .ins b{color:var(--ink);font-weight:700}
 .sp{flex:1 1 auto}
 
-/* ---------- BOTOES (3 posicoes, com <details>) ---------- */
+/* ---------- BOTOES (3 posicoes, com a tag details) ---------- */
 .seg{position:relative;flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:26px;padding:2px;overflow:hidden;border-radius:9px;background:var(--sf2);box-shadow:inset 0 0 0 1px var(--ln);--n:3}
 .sg{width:186px}
 .sl{flex:1 1 auto}
@@ -1461,8 +1476,12 @@ VAR _painelHoje =
         ) &
     "</article>"
 
+// O bloco de CSS vai DENTRO da div principal, nunca na frente dela: visuais
+// HTML que filtram o conteudo jogam fora um <style> que seja a primeira coisa
+// do texto, e o painel aparece como texto cru.
 VAR _html =
 "<div class='i3'>" &
+    _css &
     "<section class='hero hp'>" & _heroResultado & _heroVolumes & _heroCores & "</section>" &
     _heroHoje &
     _painelCurva &
@@ -1470,4 +1489,4 @@ VAR _html =
 "</div>"
 
 RETURN
-    _css & _html
+    _html

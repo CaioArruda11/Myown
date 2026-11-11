@@ -3,8 +3,8 @@
 // Dados FICTICIOS do painel "Instalacao em ate 3 dias".
 //
 // Um "modelo de mentira" pequeno, no formato do arquivo real:
-//   - dCalendario so com DIAS UTEIS (sem sabado, domingo e feriado), comecando
-//     em 02/01/2026, como no print enviado;
+//   - dCalendario com todos os dias de 02/01/2026 a 03/03/2027 (426 linhas,
+//     como no arquivo real; o teste no Power BI mostrou sabado e domingo com dado);
 //   - instalacoes por AT x dia: total ('fINSTALACAO + ME_3D_TOTAL') e no prazo
 //     ('fINSTALACAO + ME_3D');
 //   - carga do dia ('ETA DIRECT D-0'): ordens pendentes com AT e data de abertura.
@@ -33,12 +33,9 @@ const dt = (s) => new Date(EPOCH + Math.round(s) * DAY);
 const dow = (s) => dt(s).getUTCDay(); // 0 = domingo
 
 // ---------------------------------------------------------------- CALENDARIO
-// Dias uteis de 02/01/2026 a 31/08/2027 (426 linhas no arquivo real).
-const FERIADOS = [[2026, 1, 1], [2026, 2, 16], [2026, 2, 17], [2026, 4, 3], [2026, 4, 21], [2026, 5, 1], [2026, 6, 4], [2026, 9, 7], [2026, 10, 12],
-  [2026, 11, 2], [2026, 11, 20], [2026, 12, 25], [2027, 1, 1], [2027, 2, 8], [2027, 2, 9], [2027, 3, 26], [2027, 4, 21], [2027, 5, 27]].map((f) => serial(f[0], f[1], f[2]));
 const CALENDARIO = [];
-for (let d = serial(2026, 1, 2); d <= serial(2027, 8, 31); d++) if (dow(d) !== 0 && dow(d) !== 6 && !FERIADOS.includes(d)) CALENDARIO.push(d);
-const UTEIS_ATE_HOJE = CALENDARIO.filter((d) => d <= HOJE);
+for (let d = serial(2026, 1, 2); d <= serial(2027, 3, 3); d++) CALENDARIO.push(d);
+const DIAS_ATE_HOJE = CALENDARIO.filter((d) => d <= HOJE);
 
 // Deslocamento da taxa de todas as ATs em cada mes de 2026 (jan a nov):
 // comeca fraco, melhora ate bater a meta no meio do ano e recua em novembro.
@@ -47,19 +44,22 @@ const GERAL_MES = [-0.06, -0.075, -0.04, -0.02, 0.0, 0.025, 0.062, 0.075, 0.058,
 const diaRuim = (d) => { const h = (d * 2654435761) % 97; return h < 6 ? -0.09 : h < 14 ? -0.04 : h > 88 ? 0.03 : 0; };
 
 // ---------------------------------------------------------------- INSTALADAS
-// Uma linha por AT x dia util, do inicio do calendario ate hoje (hoje = carga parcial).
+// Uma linha por AT x dia, do inicio do calendario ate hoje (hoje = carga parcial).
+// Fim de semana tem menos volume.
 function gerarInstaladas() {
   const r = rng(20261111);
   const out = [];
   ATS.forEach(([at, cor, vol, taxa], k) => {
-    for (const d of UTEIS_ATE_HOJE) {
+    for (const d of DIAS_ATE_HOJE) {
+      const w = dow(d);
+      const fator = w === 0 ? 0.12 : w === 6 ? 0.55 : 1;
       const mes = dt(d).getUTCMonth();
       // movimento comum a todas as ATs (mes a mes) + onda propria da AT + dias ruins na operacao
       const onda = GERAL_MES[mes] + 0.022 * Math.sin((mes + k * 1.7) / 1.9) + diaRuim(d);
       const parcial = d === HOJE ? 0.38 : 1;
-      const total = Math.round(vol * 1.25 * parcial * (0.78 + 0.44 * r()));
+      const total = Math.round(vol * fator * parcial * (0.78 + 0.44 * r()));
       if (total <= 0) { r(); continue; }
-      const p = Math.max(0.2, Math.min(0.99, taxa + onda + (r() - 0.5) * 0.16 - (dow(d) === 1 ? 0.035 : 0)));
+      const p = Math.max(0.2, Math.min(0.99, taxa + onda + (r() - 0.5) * 0.16 - (w === 1 ? 0.035 : 0)));
       out.push({ at, cor, dia: d, total, prazo: Math.min(total, Math.round(total * p)) });
     }
   });
@@ -68,14 +68,12 @@ function gerarInstaladas() {
 const INSTALADAS = gerarInstaladas();
 
 // ----------------------------------------------------------------- PENDENTES
-// Idade em DIAS UTEIS desde a abertura: 0-1 no prazo, 2 vence amanha,
-// 3 vence hoje, 4+ ja perdida. A abertura cai no dia util correspondente
-// (algumas no sabado seguinte, para testar abertura fora do calendario).
+// Carga do dia ('ETA DIRECT D-0'). Idade em dias corridos desde a abertura:
+// 0-1 no prazo, 2 vence amanha, 3 vence hoje, 4+ ja perdida.
 function gerarPendentes() {
   const r = rng(771);
   const out = [];
   let seq = 418250000;
-  const n = UTEIS_ATE_HOJE.length;
   ATS.forEach(([at, , vol, taxa]) => {
     const qtd = Math.round(vol * (1.15 + (1 - taxa) * 2.4));
     for (let i = 0; i < qtd; i++) {
@@ -88,19 +86,15 @@ function gerarPendentes() {
       else if (x < velha + 0.32) idade = 2;
       else if (x < velha + 0.62) idade = 1;
       else idade = 0;
-      let dia = UTEIS_ATE_HOJE[n - 1 - idade];
-      if (idade > 0 && dow(dia) === 5 && r() < 0.25) dia += 1; // aberta no sabado: conta a partir da segunda
-      const abertura = dia + (8 + Math.floor(r() * 11)) / 24 + Math.floor(r() * 60) / 1440;
-      // ultimo dia do prazo = 3o dia util depois da abertura
-      const depois = CALENDARIO.filter((d) => d > Math.floor(abertura));
-      const vence = depois[2];
+      const abertura = HOJE - idade + (8 + Math.floor(r() * 11)) / 24 + Math.floor(r() * 60) / 1440;
+      const vence = HOJE - idade + 3;
+      // agenda "variada": so usada no cenario comAgenda
       let agenda = null;
       const y = r();
       if (idade <= 3) {
-        const noPrazo = CALENDARIO.filter((d) => d >= HOJE && d <= vence);
-        if (y < 0.68 && noPrazo.length) agenda = noPrazo[Math.floor(r() * noPrazo.length)]; // dentro do prazo
-        else if (y < 0.86) agenda = CALENDARIO.filter((d) => d > vence)[Math.floor(r() * 3)]; // depois do prazo
-      } else if (y < 0.62) agenda = CALENDARIO.filter((d) => d >= HOJE)[Math.floor(r() * 4)];
+        if (y < 0.68) agenda = HOJE + Math.floor(r() * (vence - HOJE + 1)); // dentro do prazo
+        else if (y < 0.86) agenda = vence + 1 + Math.floor(r() * 3);        // depois do prazo
+      } else if (y < 0.62) agenda = HOJE + Math.floor(r() * 4);
       seq += 1 + Math.floor(r() * 37);
       out.push({ Ordem: String(seq), AT: at, Abertura: abertura, Agenda: agenda });
     }
@@ -129,10 +123,11 @@ function janela(fimSel, qtdMeses, qtdSemanas) {
  *   fimSel      ultima data do filtro de mes (serial) | null = sem filtro
  *   ats         siglas das ATs no filtro | null = todas
  *   carga       data da ultima carga (serial) | padrao: coluna nao ligada (BLANK)
- *   comAgenda   true = coluna de agendamento ligada
+ *   comAgenda   true = agendas variadas (padrao: todas agendadas para hoje, como em uma carga D-0)
  *   semAbertura true = como a medida sai de fabrica: coluna de abertura ainda nao ligada
  *   semPend     true = carga do dia vazia
  *   semDados    true = nenhuma instalacao na janela
+ *   diasUteis   true = troca a configuracao _prazoEmDiasUteis para TRUE() (o mock vale para qualquer VAR)
  */
 function cenario(o) {
   const opt = o || {};
@@ -148,9 +143,13 @@ function cenario(o) {
     _calModelo: CALENDARIO.filter((d) => d >= j.calIni && d <= j.calFim).map((d) => ({ Data: d })),
     // a carga do dia nao tem relacionamento com a dAT: vem inteira e a medida filtra pela coluna AT
     _pendModelo: opt.semPend ? [] : PENDENTES.map((p) => ({
-      Ordem: p.Ordem, AT: p.AT, Abertura: opt.semAbertura ? null : p.Abertura, Agenda: opt.comAgenda && !opt.semAbertura ? p.Agenda : null,
+      // [Data Agendada para Execução]: em uma carga D-0 pura todas as ordens estao agendadas para hoje;
+      // comAgenda = carga com agendas variadas (e algumas sem agenda)
+      Ordem: p.Ordem, AT: p.AT, Abertura: opt.semAbertura ? null : p.Abertura, Agenda: opt.comAgenda ? p.Agenda : HOJE,
     })),
     _dataCarga: opt.carga === undefined ? null : opt.carga,
+    // sem a opcao, vale o que esta escrito na medida (padrao: dias corridos)
+    ...(opt.diasUteis ? { _prazoEmDiasUteis: true } : {}),
   };
 }
 
