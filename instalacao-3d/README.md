@@ -26,11 +26,11 @@ Versão 1.2: usa as tabelas do arquivo novo (`'fINSTALACAO + ME_3D'`, `'fINSTALA
 4. Filtros da página: mês, cor e AT. O lado direito ignora o mês sozinho.
 5. Confira se o número grande do mês bate com a sua `% INSTALACAO_3D`.
 
-## O que ainda falta (lado direito)
+## Regra do lado direito
 
-- **Data em que a ordem foi gerada** na `'ETA DIRECT D-0'`: troque o `BLANK()` da linha `"Abertura"` na VAR `_pendModelo`. Sem ela o lado direito mostra um aviso (print 8). A `[Data Agendada para Execução]` já está ligada como agenda.
-- **Filtro de instalações pendentes**, se a carga trouxer reparos ou atividades concluídas.
-- **Dias corridos ou úteis:** está em dias corridos (`_prazoEmDiasUteis = FALSE()`).
+- Data de criação da ordem = `[Data Agendada para Execução]`; a coluna `[Indicador Instalação 3D]` diz se ainda conta (`_valorDentro`).
+- A equipe tem 3 dias a partir do dia seguinte à criação: dia útil 1, sábado 0,75, domingo 0,25.
+- **Confirmar:** reproduzi a regra pela sua descrição; o código do Power Query não chegou. Feriado, dia da criação e limite (3 ou mais de 3) podem diferir.
 
 ## Se aparecer só texto, sem formatação
 

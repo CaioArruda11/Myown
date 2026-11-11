@@ -102,6 +102,12 @@ function gerarPendentes() {
   return out;
 }
 const PENDENTES = gerarPendentes();
+// prazo consumido entre a criacao e o fim do dia 'ate': util 1, sabado 0,75, domingo 0,25 (dia da criacao nao conta)
+function prazoGasto(abertura, ate) {
+  let t = 0;
+  for (let d = Math.floor(abertura) + 1; d <= ate; d++) { const w = dow(d); t += w === 0 ? 0.25 : w === 6 ? 0.75 : 1; }
+  return t;
+}
 
 // ------------------------------------------------------------------ CENARIOS
 // Repete em JS as janelas que a medida pede ao modelo.
@@ -148,8 +154,8 @@ function cenario(o) {
       // comAgenda = carga com agendas variadas (e algumas sem agenda)
       Ordem: p.Ordem, AT: p.AT,
       // coluna calculada [Indicador Instalação 3D]: ordem com mais de 3 dias corridos ja saiu do indicador
-      Ind: opt.semInd ? null : (HOJE - Math.floor(p.Abertura) > 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
-      Abertura: opt.semAbertura ? null : p.Abertura, Agenda: opt.comAgenda ? p.Agenda : HOJE,
+      Ind: opt.semInd ? null : (prazoGasto(p.Abertura, HOJE - 1) >= 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
+      Abertura: opt.semAbertura ? null : Math.floor(p.Abertura), Agenda: null,
     })),
     _dataCarga: opt.carga === undefined ? null : opt.carga,
     // sem a opcao, vale o que esta escrito na medida (padrao: dias corridos)

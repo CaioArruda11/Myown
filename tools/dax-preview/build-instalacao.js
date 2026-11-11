@@ -78,7 +78,7 @@ const CEN = [
   { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
   { id: 'at', rotulo: 'AT MA · agendas variadas', nota: 'Uma AT selecionada, em uma carga com ordens agendadas para outros dias ou sem agenda: aparecem a coluna Agenda e o aviso “em risco”. No topo direito, o aviso opcional de carga atrasada.', cen: { ats: ['MA'], comAgenda: true, carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
   { id: 'out', rotulo: 'Mês fechado · out/26', nota: 'Trocar o mês muda só o lado esquerdo. O lado direito continua no dia de hoje.', cen: { fimSel: dax.serial(2026, 10, 31) }, pg: { mes: 'Outubro/2026' } },
-  { id: 'hoje', rotulo: 'Só a coluna do indicador', nota: 'Só a coluna Indicador Instalação 3D ligada: o lado direito separa já perdidas (fora do indicador) das que estão dentro, mas vencem hoje e amanhã ficam em “—” até ligar a data de abertura.', cen: { semAbertura: true }, pg: { mes: 'Novembro/2026' } },
+  { id: 'hoje', rotulo: 'Sem a data de criação', nota: 'Se a data de criação não vier: o lado direito separa só já perdidas x dentro do indicador, e vencem hoje e amanhã ficam em “—”.', cen: { semAbertura: true }, pg: { mes: 'Novembro/2026' } },
   { id: 'nada', rotulo: 'Nada ligado no D-0', nota: 'Carga lida, mas sem a coluna do indicador nem a abertura: o lado direito avisa o que falta.', cen: { semAbertura: true, semInd: true }, pg: { mes: 'Novembro/2026' } },
 ];
 for (const c of CEN) {
@@ -330,19 +330,17 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
 </section>
 
 <section id="falta">
-  <h2>O que ainda falta <small>para o lado direito</small></h2>
-  <p class="lead">O lado esquerdo roda com as suas tabelas. O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code> e usa a sua coluna <code class="i">[Indicador Instalação 3D]</code> para separar as ordens já perdidas das que ainda estão dentro do indicador.</p>
+  <h2>Regra do lado direito <small>e o que confirmar</small></h2>
+  <p class="lead">O lado direito (D-0) lê a <code class="i">'ETA DIRECT D-0'</code>. A data de criação da ordem é a <code class="i">[Data Agendada para Execução]</code>, e a coluna <code class="i">[Indicador Instalação 3D]</code> diz se a ordem ainda conta.</p>
   <div class="two">
-    <div class="card falta"><h3>1 · Valores da sua coluna</h3>
-      <p>Só vi o valor <b>DENTRO DO INDICADOR</b>. A medida trata esse valor como "ainda conta" (VAR <code class="i">_valorDentro</code>) e <b>qualquer outro</b> como já perdida. Se a sua coluna tem mais de dois valores (por exemplo, um para quem vence hoje), me diga quais.</p></div>
-    <div class="card falta"><h3>1b · Vence hoje e vence amanhã</h3>
-      <p>Só a coluna do indicador não diz quando a ordem vence. Para separar "vencem hoje" e "vencem amanhã", falta a data em que a ordem foi gerada: preencha a linha <code class="i">"Abertura"</code> da <code class="i">_pendModelo</code>. Enquanto isso, esses dois cartões mostram “—” (cenário “Só a coluna do indicador”).</p></div>
-    <div class="card falta"><h3>2 · Só instalações pendentes</h3>
-      <p>Se a carga do dia traz também reparos ou atividades já concluídas, é preciso filtrar. O modelo do filtro está comentado dentro da <code class="i">_pendModelo</code>; faltam os nomes das colunas de tipo e de status.</p></div>
-    <div class="card falta"><h3>3 · Dias corridos ou úteis?</h3>
-      <p>O prazo do lado direito está em <b>dias corridos</b>. Se a regra for em dias úteis, troque <code class="i">_prazoEmDiasUteis</code> para <code class="i">TRUE()</code>: ele passa a contar só segunda a sexta, entre os dias que existem na <code class="i">dCalendario</code>.</p></div>
-    <div class="card falta"><h3>Se aparecer só texto, sem formatação</h3>
-      <p>O visual jogou fora o bloco de CSS. Foi o que aconteceu na primeira colagem; a versão 1.2 da medida já evita os dois motivos conhecidos (o <code class="i">&lt;style&gt;</code> na frente de tudo e o sinal de menor dentro do CSS). Se ainda acontecer, o caminho mais seguro é copiar um visual HTML de um dos seus outros painéis e trocar só a medida.</p></div>
+    <div class="card"><h3>Prazo com pesos</h3>
+      <p>A equipe tem 3 dias a partir do <b>dia seguinte</b> à criação. Dia útil consome 1, sábado 0,75 e domingo 0,25 (VARs <code class="i">_pesoUtil</code>, <code class="i">_pesoSab</code>, <code class="i">_pesoDom</code>). A ordem <b>vence hoje</b> quando o prazo consumido chega a 3 hoje; <b>vence amanhã</b> quando chega amanhã; <b>já perdida</b> quando já tinha chegado a 3 até ontem.</p></div>
+    <div class="card falta"><h3>1 · Confira com o seu Power Query</h3>
+      <p>Não recebi o código da coluna do Power Query (só os prints), então reproduzi a regra pelo que você descreveu. Se a sua coluna tratar feriado, o dia da criação ou o limite (3 ou mais de 3) de outro jeito, me mande o código para eu igualar.</p></div>
+    <div class="card falta"><h3>2 · Valores da coluna</h3>
+      <p>Só vi <b>DENTRO DO INDICADOR</b>. A medida trata esse valor como "ainda conta" (VAR <code class="i">_valorDentro</code>) e qualquer outro como já perdida.</p></div>
+    <div class="card falta"><h3>3 · Só instalações pendentes</h3>
+      <p>Se a carga traz também reparos ou atividades concluídas, é preciso filtrar (modelo comentado na <code class="i">_pendModelo</code>).</p></div>
   </div>
 </section>
 
@@ -356,7 +354,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <li><b>Tamanho de referência:</b> 1264 × 638 px, em uma página 1280 × 720 com uma faixa de filtros em cima. O painel se ajusta sozinho; a partir de cerca de 1030 px de largura ele continua inteiro (cabe ao lado de um menu lateral).</li>
     <li><b>Filtros da página:</b> mês (ou qualquer coluna da <code class="i">dCalendario</code>), cor e AT (colunas da <code class="i">dAT</code>). O lado direito ignora o mês por conta própria: não precisa mexer em “Editar interações”.</li>
     <li><b>Confira o lado esquerdo:</b> o número grande do mês tem que ser igual ao da sua <code class="i">% INSTALACAO_3D</code> com o mesmo filtro.</li>
-    <li><b>Lado direito:</b> a coluna <code class="i">[Indicador Instalação 3D]</code> já está ligada na <code class="i">_pendModelo</code>; confira os valores e a data de abertura em <a href="#falta">O que ainda falta</a>.</li>
+    <li><b>Lado direito:</b> a coluna do indicador e a data de criação já estão ligadas na <code class="i">_pendModelo</code>; confira a regra em <a href="#falta">Regra do lado direito</a>.</li>
   </ol></div>
 </section>
 
@@ -386,9 +384,9 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <tr><td>Carga do dia</td><td><code class="i">'ETA DIRECT D-0'</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Funcionou no seu teste</b> (1.315 atividades lidas). Não precisa de relacionamento com a <code class="i">dAT</code>: o filtro de cor e AT é aplicado pela coluna AT.</td></tr>
     <tr><td>AT da ordem</td><td><code class="i">'ETA DIRECT D-0'[AT]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Os valores têm que ser os mesmos da <code class="i">dAT[AREA ]</code>.</td></tr>
     <tr><td>Número da ordem</td><td><code class="i">'ETA DIRECT D-0'[Atividade]</code></td><td><code class="i">_pendModelo</code></td><td><b class="pend">Provisório.</b> Foi a coluna numérica que apareceu no print. Se houver uma coluna com o número da ordem, troque.</td></tr>
-    <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorDentro</code></td><td><b class="pend">Ligada, a confirmar.</b> Suponho que a coluna está na <code class="i">'ETA DIRECT D-0'</code>. "DENTRO DO INDICADOR" = ainda conta; qualquer outro valor = já perdida.</td></tr>
-    <tr><td>Data em que a ordem foi gerada</td><td><code class="i">BLANK()</code></td><td><code class="i">_pendModelo</code></td><td><b class="falt">Falta</b> (opcional). Sem ela, "vencem hoje" e "vencem amanhã" ficam em “—”.</td></tr>
-    <tr><td>Agendamento</td><td><code class="i">'ETA DIRECT D-0'[Data Agendada para Execução]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada</b> (coluna do seu print). A coluna Agenda e o aviso “em risco” só aparecem quando há ordem agendada para outro dia ou sem agenda; se tudo está agendado para hoje, ela ficaria repetindo “hoje”.</td></tr>
+    <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorDentro</code></td><td><b class="pend">Ligada, a confirmar.</b> "DENTRO DO INDICADOR" = ainda conta; qualquer outro valor = já perdida.</td></tr>
+    <tr><td>Data de criação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Data Agendada para Execução]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada.</b> Separa quem vence hoje e quem vence amanhã.</td></tr>
+    
     <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_dataCarga</code></td><td>Com ela o painel avisa quando a carga de hoje ainda não entrou.</td></tr>
   </table></div>
 </section>
@@ -403,8 +401,8 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
       <ul><li>Mês de referência = mês do filtro. Sem filtro, ou com mês futuro, vale o mês atual.</li><li>A curva começa onde a base começa: meses e semanas sem nenhuma instalação antes do primeiro dado não aparecem.</li><li>Semana = segunda a domingo; o rótulo <b>S46</b> é o mesmo número da coluna “Semana do Ano” da <code class="i">dCalendario</code>.</li><li>Dia = os dias do mês que existem na <code class="i">dCalendario</code>.</li><li>A linha “Geral” e as linhas das cores são sempre o total, mesmo com filtro, para servir de comparação.</li></ul>
     </div>
     <div class="card"><h3>Hoje · D-0</h3>
-      <p>Idade = dias passados entre a data em que a ordem foi gerada e hoje, em <b>dias corridos</b>. Com <code class="i">_prazoEmDiasUteis = TRUE()</code> passa a contar só segunda a sexta, entre os dias que existem na <code class="i">dCalendario</code>. Prazo de 3 dias (VAR <code class="i">_prazoDias</code>).</p>
-      <ul><li><b>Já perdida:</b> D+4 ou mais, ainda na carga.</li><li><b>Vence hoje:</b> D+3, último dia do prazo.</li><li><b>Vence amanhã:</b> D+2.</li><li><b>No prazo:</b> D+0 e D+1.</li><li><b>Em risco:</b> ainda no prazo, mas sem agenda ou com agenda para depois do vencimento.</li></ul>
+      <p>Idade = prazo consumido desde o dia seguinte à criação: dia útil 1, sábado 0,75, domingo 0,25. Prazo de 3 (VAR <code class="i">_prazoDias</code>).</p>
+      <ul><li><b>Já perdida:</b> o prazo já tinha chegado a 3 até ontem (ou a coluna marca fora do indicador).</li><li><b>Vence hoje:</b> chega a 3 hoje.</li><li><b>Vence amanhã:</b> chega a 3 amanhã.</li><li><b>No prazo:</b> o resto.</li></ul>
       <p>“Hoje” é o relógio do Power BI no fuso UTC−3 (VAR <code class="i">_fuso</code>), igual no Desktop e no serviço.</p>
     </div>
   </div>

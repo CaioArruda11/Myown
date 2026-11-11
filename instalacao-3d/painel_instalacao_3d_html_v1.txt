@@ -70,12 +70,12 @@ VAR _tokens =
 // ============================================================================
 VAR _loc = "pt-BR"
 VAR _meta = 0.81              // meta do indicador (81%)
-VAR _prazoDias = 3            // prazo, em dias, contado da abertura da ordem
-// Como contar os dias do prazo no lado D-0:
-//   FALSE() = dias corridos;
-//   TRUE()  = dias UTEIS: conta so segunda a sexta, e so os dias que existem
-//             na dCalendario (um feriado fica de fora se nao estiver nela).
-VAR _prazoEmDiasUteis = FALSE()
+VAR _prazoDias = 3            // prazo, em dias de peso (ver abaixo), contado do dia seguinte a criacao da ordem
+// Quanto cada dia consome do prazo (o dia da criacao da ordem nao conta):
+// dia util = 1, sabado = 0,75, domingo = 0,25. A equipe tem _prazoDias desses.
+VAR _pesoUtil = 1
+VAR _pesoSab = 0.75
+VAR _pesoDom = 0.25
 VAR _fuso = -3                // fuso de Brasilia (UTC-3)
 VAR _qtdMeses = 12            // meses na curva mensal
 VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
@@ -168,10 +168,10 @@ VAR _calModelo =
 //         "Ind"      = coluna calculada [Indicador Instalação 3D]: diz se a ordem
 //                      ainda esta DENTRO DO INDICADOR (ver _valorDentro). E ela
 //                      que separa as ja perdidas das demais.
-//         "Agenda"   = [Data Agendada para Execução].
-//         "Abertura" = OPCIONAL. Data em que a ordem foi gerada. Com ela o painel
-//                      separa tambem quem vence hoje e quem vence amanha; sem
-//                      ela mostra so perdidas x dentro do indicador.
+//         "Abertura" = [Data Agendada para Execução]: e a data de CRIACAO da ordem
+//                      (o prazo conta a partir do dia seguinte). Com ela o painel
+//                      separa quem vence hoje e quem vence amanha.
+//         "Agenda"   = nao usada (BLANK): a data agendada ja e a de criacao.
 //     >>> Se a carga tiver reparos ou atividades ja concluidas, filtre aqui,
 //         trocando a linha  'ETA DIRECT D-0',  por algo como:
 //         FILTER( 'ETA DIRECT D-0', 'ETA DIRECT D-0'[coluna do tipo] = "Instalação"
@@ -183,8 +183,8 @@ VAR _pendModelo =
             "Ordem", "" & 'ETA DIRECT D-0'[Atividade],
             "AT", TRIM( 'ETA DIRECT D-0'[AT] ),
             "Ind", UPPER( TRIM( 'ETA DIRECT D-0'[Indicador Instalação 3D] ) ),
-            "Abertura", BLANK(),
-            "Agenda", 'ETA DIRECT D-0'[Data Agendada para Execução]
+            "Abertura", 'ETA DIRECT D-0'[Data Agendada para Execução],
+            "Agenda", BLANK()
         ),
         REMOVEFILTERS( dCalendario )
     )
@@ -783,19 +783,16 @@ VAR _views =
 // ============================================================================
 // 8. HOJE (D-0): ORDENS PENDENTES NA CARGA DO DIA ('ETA DIRECT D-0')
 // Idade = dias passados desde a abertura (uteis ou corridos, conforme
-// _prazoEmDiasUteis). O ultimo dia do prazo e a idade = _prazoDias.
+// pesos por dia). O ultimo dia do prazo e quando a idade chega a _prazoDias.
 //   P = ja perdida (idade maior que o prazo)   H = vence hoje (idade = prazo)
 //   A = vence amanha (idade = prazo - 1)       N = no prazo
 // ============================================================================
-VAR _rotDias = IF( _prazoEmDiasUteis, "dias úteis", "dias corridos" )
-// Dias uteis recentes (segunda a sexta que existem na dCalendario), como
-// numero inteiro. So os ultimos 90 dias: ordem mais velha que isso ja esta
-// perdida de qualquer forma. So e usado quando _prazoEmDiasUteis = TRUE().
-VAR _uteis =
-    SELECTCOLUMNS(
-        FILTER( _diasCal, [Dia] >= _hoje - 90 && WEEKDAY( [Dia], 2 ) <= 5 ),
-        "U", INT( [Dia] )
-    )
+VAR _rotDias = "dias com peso (útil " & FORMAT( _pesoUtil, "0.##", _loc ) & " · sáb " & FORMAT( _pesoSab, "0.##", _loc ) & " · dom " & FORMAT( _pesoDom, "0.##", _loc ) & ")"
+// Peso do dia anterior (para saber quem perdeu o prazo so hoje)
+VAR _wdOntem = WEEKDAY( _hojeN - 1, 2 )
+VAR _wOntem = IF( _wdOntem <= 5, _pesoUtil, IF( _wdOntem = 6, _pesoSab, _pesoDom ) )
+VAR _wdAmanha = WEEKDAY( _hojeN + 1, 2 )
+VAR _wAmanha = IF( _wdAmanha <= 5, _pesoUtil, IF( _wdAmanha = 6, _pesoSab, _pesoDom ) )
 
 VAR _qCarga = COUNTROWS( _pendModelo ) + 0
 VAR _qComAbertura = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ) ) + 0
@@ -827,31 +824,34 @@ VAR _temAgenda = _qAgDiferente > 0 || ( _qAgVazia > 0 && _qAgCheia > 0 )
 VAR _pend2 =
     ADDCOLUMNS(
         _pend1,
+        // Idade = prazo ja consumido ate o fim de hoje; Prev = ate o fim de ontem.
+        // Cada dia depois da criacao pesa 1 (util), 0,75 (sabado) ou 0,25 (domingo).
         "Idade",
             VAR _ab1 = [AbN]
             RETURN
                 IF(
                     ISBLANK( _ab1 ),
                     BLANK(),
-                    IF(
-                        _prazoEmDiasUteis,
-                        COUNTROWS( FILTER( _uteis, [U] > _ab1 && [U] <= _hojeN ) ) + 0,
-                        _hojeN - _ab1
-                    )
+                    SUMX(
+                        GENERATESERIES( MAX( _ab1 + 1, _hojeN - 30 ), _hojeN ),
+                        VAR _w1 = WEEKDAY( [Value], 2 )
+                        RETURN IF( _w1 <= 5, _pesoUtil, IF( _w1 = 6, _pesoSab, _pesoDom ) )
+                    ) + 0
                 ),
-        // ultimo dia do prazo (so para saber se a agenda cai depois dele)
-        "Vence",
+        "Prev",
             VAR _ab2 = [AbN]
             RETURN
                 IF(
                     ISBLANK( _ab2 ),
                     BLANK(),
-                    IF(
-                        _prazoEmDiasUteis,
-                        COALESCE( MAXX( TOPN( _prazoDias, FILTER( _uteis, [U] > _ab2 ), [U], ASC ), [U] ), _ab2 + _prazoDias ),
-                        _ab2 + _prazoDias
-                    )
+                    SUMX(
+                        GENERATESERIES( MAX( _ab2 + 1, _hojeN - 30 ), _hojeN - 1 ),
+                        VAR _w2 = WEEKDAY( [Value], 2 )
+                        RETURN IF( _w2 <= 5, _pesoUtil, IF( _w2 = 6, _pesoSab, _pesoDom ) )
+                    ) + 0
                 ),
+        // a data de criacao e a propria data agendada: nao ha agenda separada para comparar
+        "Vence", BLANK(),
         "ClsC",
             VAR _c8 = [CorN]
             RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c8 ), [ClsCor] ), "c-outra" )
@@ -866,9 +866,9 @@ VAR _pend =
                 TRUE(),
                 [Fora] = 1, "P",
                 ISBLANK( [Idade] ), "N",
-                NOT _temInd && [Idade] > _prazoDias, "P",
-                [Idade] = _prazoDias, "H",
-                [Idade] = _prazoDias - 1, "A",
+                NOT _temInd && [Prev] >= _prazoDias, "P",
+                [Idade] >= _prazoDias, "H",
+                [Idade] + _wAmanha >= _prazoDias, "A",
                 "N"
             ),
         "Risco", IF( _temAgenda && [Fora] = 0 && NOT ISBLANK( [Idade] ) && [Idade] <= _prazoDias && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
@@ -880,7 +880,7 @@ VAR _qP = SUMX( FILTER( _pendAgg, [Sit] = "P" ), [Q] ) + 0
 VAR _qH = SUMX( FILTER( _pendAgg, [Sit] = "H" ), [Q] ) + 0
 VAR _qA = SUMX( FILTER( _pendAgg, [Sit] = "A" ), [Q] ) + 0
 VAR _qN = SUMX( FILTER( _pendAgg, [Sit] = "N" ), [Q] ) + 0
-VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Fora] = 1 && [Idade] = _prazoDias + 1 ) ) + 0
+VAR _qViraramHoje = COUNTROWS( FILTER( _pend, [Fora] = 1 && NOT ISBLANK( [Prev] ) && [Prev] - _wOntem < _prazoDias ) ) + 0
 VAR _qRiscoH = COUNTROWS( FILTER( _pend, [Sit] = "H" && [Risco] = 1 ) ) + 0
 VAR _qRiscoA = COUNTROWS( FILTER( _pend, [Sit] = "A" && [Risco] = 1 ) ) + 0
 
@@ -924,11 +924,11 @@ VAR _heroHoje =
                     "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
                 "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qN, "#,0", _loc ) & " no prazo</em></div>" &
                 "<div class='st tR' title='Pendentes que já passaram do prazo de " & _prazoDias & " " & _rotDias & ": contam contra o indicador quando forem instaladas.'><small><i></i>Já perdidas</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" &
-                    IF( _qViraramHoje > 0, "+" & _qViraramHoje & " desde ontem", "D+" & ( _prazoDias + 1 ) & " ou mais" ) & "</em></div>" &
+                    IF( _qViraramHoje > 0, "+" & _qViraramHoje & " desde ontem", "acima de " & _prazoDias & " dias" ) & "</em></div>" &
                 "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
-                    IF( _qRiscoH > 0, _qRiscoH & " em risco", "D+" & _prazoDias & " · último dia" ) & "</em></div>" &
+                    IF( _qRiscoH > 0, _qRiscoH & " em risco", "último dia do prazo" ) & "</em></div>" &
                 "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
-                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "D+" & ( _prazoDias - 1 ) ) & "</em></div>"
+                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "vencem amanhã" ) & "</em></div>"
                 )
             ) &
         "</div>" &
@@ -1076,7 +1076,7 @@ VAR _listas =
                         "<b class='on'>" & [Ordem] & "</b>" &
                         "<span class='oa " & [ClsC] & "'><i class='cd'></i>" & [AT] & "</span>" &
                         "<span class='od'>" & IF( ISBLANK( [Abertura] ), "—", FORMAT( [Abertura], "dd/MM", _loc ) ) & "</span>" &
-                        IF( ISBLANK( [Idade] ), "<span class='oi'>—</span>", "<span class='oi'>D+" & [Idade] & "</span>" ) &
+                        IF( ISBLANK( [Idade] ), "<span class='oi'>—</span>", "<span class='oi'>D+" & FORMAT( [Idade], "0.0#", _loc ) & "</span>" ) &
                         IF( _temAgenda, "<span class='og'>" & _agTxt & "</span>", "" ) &
                     "</div>",
                 "",
@@ -1177,7 +1177,7 @@ VAR _ajuda =
             "<b>Como ler</b>" &
             "<p><i class='k'>Indicador</i>instalações no prazo de " & _prazoDias & " dias ÷ total de instalações. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
             "<p><i class='k'>Lado esquerdo</i>segue o filtro de mês. Os botões Mês, Semana e Dia trocam a curva e as colunas da tabela. Cada linha é uma cor ou uma AT; passe o mouse em uma célula para ver os volumes.</p>" &
-            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: ordens pendentes na carga do dia (ETA DIRECT D-0). O prazo é de " & _prazoDias & " " & _rotDias & " a partir da abertura. Perdida = já passou do prazo; vence hoje = último dia.</p>" &
+            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: ordens pendentes na carga do dia (ETA DIRECT D-0). A equipe tem " & _prazoDias & " dias a partir do dia seguinte à criação da ordem: " & _rotDias & ". Perdida = já passou do prazo; vence hoje = último dia.</p>" &
             "<p class='help-esc'><i class='e tG'>na meta</i><i class='e tY'>até −10%</i><i class='e tO'>até −20%</i><i class='e tR'>abaixo</i></p>" &
         "</div>" &
     "</div>"
@@ -1508,7 +1508,7 @@ VAR _painelHoje =
                 _linhasATs &
             "</div>" &
             "<div class='lh'><h2>Ordens</h2>" & _botoesLista & "</div>" &
-            "<div class='oh'><span>Ordem</span><span>AT</span><span>Aberta</span><span title='Dias passados desde a abertura, em " & _rotDias & "'>" & IF( _prazoEmDiasUteis, "Dias úteis", "Idade" ) & "</span>" & IF( _temAgenda, "<span>Agenda</span>", "" ) & "</div>" &
+            "<div class='oh'><span>Ordem</span><span>AT</span><span>Aberta</span><span title='Prazo consumido: " & _rotDias & "'>Idade</span>" & IF( _temAgenda, "<span>Agenda</span>", "" ) & "</div>" &
             _listas
         ) &
     "</article>"
