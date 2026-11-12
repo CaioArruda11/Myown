@@ -1,0 +1,87 @@
+Barra Filtros Instalacao HTML =
+// ============================================================================
+// BARRA DE FILTROS  (v1)  -  fica POR BAIXO das segmentacoes nativas
+// O visual HTML nao filtra nada: ele so desenha a faixa escura, o titulo da
+// pagina e uma "caixa" com rotulo para cada filtro. As segmentacoes nativas
+// (lista suspensa) ficam por cima das caixas, com fundo transparente.
+//
+// COMO MONTAR
+//   1. Visual HTML com esta medida: altura 62 px, largura = a do painel.
+//   2. Uma segmentacao nativa (estilo Lista suspensa) em cima de cada caixa:
+//        tamanho 160 x 26 px. As caixas ficam encostadas a direita: a
+//        segmentacao da ultima comeca a 180 px da borda direita da barra, a
+//        do meio a 358 px e a primeira a 536 px; todas a 24 px do topo.
+//   3. Formato de cada segmentacao: Cabecalho da segmentacao DESLIGADO;
+//        Valores com fonte Segoe UI 10, cor BRANCA, Tela de fundo desligada;
+//        em Geral > Efeitos: Tela de fundo, Borda e Sombra DESLIGADAS.
+//   4. Traga as segmentacoes para a frente (Formato > Trazer para a frente).
+//
+// Para mudar os rotulos ou a quantidade de caixas, edite a tabela _filtros
+// (cada caixa ocupa 178 px, contando o intervalo).
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
+// O bloco de CSS fica dentro da div principal e nao tem o sinal de menor.
+// ============================================================================
+VAR _tema = "GRAFITE"
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--a1:#F472B6;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30)",
+        "OCEANO",
+            "--d0:#050E26;--d1:#0A1A42;--a1:#22D3EE;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30)",
+        "--d0:#0C1016;--d1:#161C26;--a1:#7DD3FC;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20)"
+    )
+
+VAR _titulo = "Instalação em até 3 dias"
+VAR _subtitulo = "Perus / Butantã"
+
+// Um rotulo por segmentacao, da esquerda para a direita.
+VAR _filtros =
+    DATATABLE(
+        "Rotulo", STRING,
+        "Ordem", INTEGER,
+        {
+            { "Mês", 1 },
+            { "Cor", 2 },
+            { "AT", 3 }
+        }
+    )
+VAR _caixas =
+    CONCATENATEX(
+        _filtros,
+        "<div class='fx'><small>" & [Rotulo] & "</small><i></i></div>",
+        "",
+        [Ordem], ASC
+    )
+
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.bf,.bf *{box-sizing:border-box}
+.bf i{font-style:normal}
+.bf{" & _tokens & ";position:relative;width:100%;height:100vh;padding:0 4px}
+.bx{position:relative;width:100%;height:100%;display:flex;align-items:center;gap:10px;padding:0 12px 0 18px;overflow:hidden;border-radius:16px;color:#FFFFFF;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;text-align:left;-webkit-font-smoothing:antialiased;
+background:radial-gradient(60% 200% at 0% 0%,var(--g2),transparent 62%),radial-gradient(40% 200% at 100% 100%,var(--g1),transparent 60%),linear-gradient(115deg,var(--d1),var(--d0));
+box-shadow:0 8px 20px rgba(5,14,38,.20),inset 0 0 0 1px rgba(255,255,255,.08)}
+.tt{flex:1 1 auto;min-width:0}
+.tt b{display:block;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:20px;white-space:nowrap}
+.tt small{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;font-weight:700;letter-spacing:.14em;line-height:11px;text-transform:uppercase;color:var(--a1);white-space:nowrap}
+/* GEOMETRIA: caixa de 168 px, intervalo de 10 px; rotulo com 15 px e area da segmentacao com 28 px */
+.fx{flex:none;width:168px;height:46px}
+.fx small{display:block;height:15px;padding-left:2px;font-size:8px;font-weight:700;letter-spacing:.12em;line-height:13px;text-transform:uppercase;color:rgba(255,255,255,.62)}
+.fx i{display:block;height:28px;border-radius:9px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+@media (max-width:760px){.tt{display:none}.bx{justify-content:flex-end}}
+</style>"
+
+VAR _html =
+"<div class='bf'>" &
+    _css &
+    "<div class='bx'>" &
+        "<div class='tt'><b>" & _titulo & "</b><small>" & _subtitulo & "</small></div>" &
+        _caixas &
+    "</div>" &
+"</div>"
+
+RETURN
+    _html

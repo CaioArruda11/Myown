@@ -152,7 +152,7 @@ function cenario(o) {
     _pendModelo: opt.semPend ? [] : PENDENTES.map((p) => ({
       // [Data Agendada para Execução]: em uma carga D-0 pura todas as ordens estao agendadas para hoje;
       // comAgenda = carga com agendas variadas (e algumas sem agenda)
-      Ordem: p.Ordem, AT: p.AT,
+      Ordem: 'SA-' + p.Ordem.slice(2), PON: 'PON' + String(700000 + (Number(p.Ordem) % 99991)), AT: p.AT,
       // coluna calculada [Indicador Instalação 3D]: ordem com mais de 3 dias corridos ja saiu do indicador
       Ind: opt.semInd ? null : (prazoGasto(p.Abertura, HOJE) > 3 ? 'FORA DO INDICADOR' : 'DENTRO DO INDICADOR'),
       Abertura: opt.semAbertura ? null : Math.floor(p.Abertura), Agenda: null,

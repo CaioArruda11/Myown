@@ -107,16 +107,17 @@ function composeInstalacaoMenu(menu, html, opts) {
   const L = { menu: { x: 20, y: 6, w: 200, h: 700 }, vis: { x: 236, y: 80, w: 1032, h: 630 } };
   const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
   const frame = (r, h, id) => '<iframe name="' + id + '" title="' + id + '" style="' + box(r) + '" srcdoc="' + esc(wrap(h)) + '"></iframe>';
-  const filtros = [['Selecione o Mês', o.mes || 'Novembro/2026', 170], ['Selecione a cor', o.cor || 'Todos', 170], ['Selecione a AT', o.at || 'Todos', 150]];
-  let x = 236;
-  const sl = filtros.map((f) => { const r = '<div class="sl" style="left:' + x + 'px;top:6px;width:' + f[2] + 'px"><b>' + f[0] + '</b><div class="dd">' + f[1] + '</div></div>'; x += f[2] + 9; return r; }).join('');
+  // barra de filtros HTML por baixo + segmentacoes nativas (simuladas) por cima das caixas
+  const barra = { x: 236, y: 6, w: 1032, h: 62 };
+  const vals = [o.mes || 'Novembro/2026', o.cor || 'Todos', o.at || 'Todos'];
+  const sl = (o.barra ? frame(barra, o.barra, 'barra') : '') +
+    vals.map((v, k) => '<div class="sl" style="left:' + (barra.x + barra.w - [536, 358, 180][k]) + 'px;top:' + (barra.y + 24) + 'px">' + v + '</div>').join('');
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
     'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +
     '.pg{position:relative;width:1280px;height:720px;margin:0 auto;background:linear-gradient(180deg,#EEF3FA,#E3EBF6);overflow:hidden}' +
     'iframe{position:absolute;border:0;background:transparent}' +
-    '.sl{position:absolute;height:62px;box-sizing:border-box;padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.72);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:11px;color:#1F2937}' +
-    '.sl b{display:block;font-weight:500;margin-bottom:8px;white-space:nowrap}' +
-    '.sl .dd{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:10.5px;color:#344054}.sl .dd:after{content:"⌄";font-size:13px;margin-top:-5px;color:#667085}' +
+    '.sl{position:absolute;z-index:2;width:160px;height:26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:11px;color:#fff}' +
+    '.sl:after{content:"⌄";font-size:13px;margin-top:-5px;color:rgba(255,255,255,.75)}' +
     '</style></head><body><div class="pg">' + frame(L.menu, menu, 'menu') + sl + frame(L.vis, html, 'i3') + '</div></body></html>';
 }
 

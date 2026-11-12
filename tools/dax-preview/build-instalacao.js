@@ -28,6 +28,7 @@ fs.mkdirSync(out, { recursive: true });
 const PRINCIPAL = path.join(src, 'painel_instalacao_3d_html_v1.txt');
 const APOIO = path.join(src, 'medidas_de_apoio_v1.txt');
 const MENU = path.join(src, 'menu_lateral_instalacao_html_v1.txt');
+const BARRA = path.join(src, 'barra_filtros_instalacao_html_v1.txt');
 
 // ------------------------------------------------------------ 1. medidas de apoio
 // O arquivo tem varias medidas: cada uma comeca em uma linha "Nome =".
@@ -57,6 +58,13 @@ const mnu = dax.evaluate(MENU, require('./mocks.js').menu.geral, { utcNow: M.UTC
   const c = compat(mnu.html, { estrito: true });
   if (mnu.unusedMocks.length || c.problems.length) throw new Error('menu: ' + mnu.unusedMocks.concat(c.problems).join('; '));
   console.log('menu   : sintaxe ok | medida ' + fs.readFileSync(MENU, 'utf8').length + ' caracteres -> HTML ' + mnu.html.length);
+}
+
+const bar = dax.evaluate(BARRA, {}, { utcNow: M.UTC_NOW });
+{
+  const c = compat(bar.html, { estrito: true });
+  if (c.problems.length) throw new Error('barra: ' + c.problems.join('; '));
+  console.log('barra  : sintaxe ok | HTML ' + bar.html.length);
 }
 
 // ------------------------------------------------------------ 2 e 3. medida principal
@@ -112,7 +120,7 @@ print('6-mes-fechado-o-lado-direito-nao-muda', OUT, async (f) => { await f.click
 jobs.push({ file: arq('estreito', R.wrap(GERAL.html)), out: path.join(out, '7-visual-estreito-1032x630.png'), w: 1032, h: 630, scale: 2 });
 print('8-so-a-coluna-do-indicador', HOJE);
 print('9-nada-ligado-no-lado-direito', NADA);
-jobs.push({ file: arq('com-menu', R.composeInstalacaoMenu(mnu.html, GERAL.html, { title: 'Instalação 3D · com menu' })), out: path.join(out, '10-com-o-menu-lateral.png'), w: 1280, h: 720, scale: 2 });
+jobs.push({ file: arq('com-menu', R.composeInstalacaoMenu(mnu.html, GERAL.html, { title: 'Instalação 3D · com menu', barra: bar.html })), out: path.join(out, '10-com-o-menu-lateral.png'), w: 1280, h: 720, scale: 2 });
 
 // tamanho de referencia: tudo cabe, nada cortado, botoes levam para a visao certa
 jobs.push({
@@ -304,7 +312,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <p>Prévia do painel e todo o código DAX na mesma página, já com os nomes das suas tabelas. Lado esquerdo: a curva do indicador por mês, semana ou dia, aberta por cor e por AT. Lado direito: fixo no dia de hoje (D-0), com as ordens que já perdemos e as que estão para vencer.</p>
   <div class="tags"><span>1 medida principal</span><span>2 medidas de apoio + 1 opcional</span><span>ligado às suas tabelas</span><span>${linhasPrincipal} linhas de DAX</span><span>prévia com dados fictícios</span></div>
 </div></header>
-<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#falta">O que falta</a><a href="#montar">Como montar</a><a href="#menu">Menu</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
+<nav><div class="wrap"><a href="#previa">Prévia</a><a href="#falta">O que falta</a><a href="#montar">Como montar</a><a href="#menu">Menu</a><a href="#filtros">Filtros</a><a href="#codigo">Código</a><a href="#modelo">Mapa do modelo</a><a href="#regras">Regras de cálculo</a></div></nav>
 
 <div class="wrap">
 <section id="previa">
@@ -329,7 +337,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
 
 <section id="falta">
   <h2>Regra do lado direito <small>igual ao seu Power Query</small></h2>
-  <p class="lead">A medida repete, com a data de hoje, a regra da sua coluna <code class="i">[Indicador Instalação 3D]</code>. A data de criação da ordem é a <code class="i">[Data Agendada para Execução]</code>.</p>
+  <p class="lead">A medida repete, com a data de hoje, a regra da sua coluna <code class="i">[Indicador Instalação 3D]</code>. A data de início do prazo é a <code class="i">[Data de Venda]</code>, a mesma do seu Power Query.</p>
   <div class="two">
     <div class="card"><h3>Prazo com pesos</h3>
       <p>O dia da criação não conta. Cada dia seguinte, até hoje, consome: dia útil <b>1</b>, sábado <b>0,75</b>, domingo <b>0,25</b>, feriado da <code class="i">dFeriados</code> <b>0,5</b> (o feriado vale mesmo se cair no fim de semana, como no seu código). Prazo consumido <b>acima de 3</b> = <b>fora do indicador</b>; 3 ou menos = dentro.</p></div>
@@ -360,6 +368,7 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <h2>Código <small>DAX</small></h2>
   <p class="lead">Os mesmos textos estão na pasta em <code class="i">medidas_de_apoio_v1.txt</code> e <code class="i">painel_instalacao_3d_html_v1.txt</code>.</p>
   ${apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · numerador da sua medida' : i === 1 ? 'medida de apoio · denominador da sua medida' : 'opcional · a sua medida reescrita com DIVIDE', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)).join('\n  ')}
+  ${bloco('bf', '6 · Barra Filtros Instalacao HTML', 'terceiro visual HTML, por baixo das segmentações nativas · 62 px de altura', fs.readFileSync(BARRA, 'utf8').replace(/\s+$/, '') + '\n', false)}
   ${bloco('mn', '5 · Menu Lateral Instalacao HTML', 'segundo visual HTML, ao lado do painel · 4 páginas · cole em cada página e troque só _paginaAtual', fs.readFileSync(MENU, 'utf8').replace(/\s+$/, '') + '\n', false)}
   ${bloco('mp', '4 · Painel Instalacao 3D HTML', 'medida principal · ' + linhasPrincipal + ' linhas · vai no visual HTML Content', principalTxt, false)}
 </section>
@@ -368,6 +377,17 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
   <h2>Menu lateral <small>4 páginas</small></h2>
   <p class="lead">Mesmo modelo do menu do BSC: INSTALAÇÃO 3D, CHEGADA NO SLOT, ROTEIRIZAÇÃO e TMR. Em cada página, coloque o visual do menu com 200 px de largura e troque só a VAR <code class="i">_paginaAtual</code>. Os botões nativos transparentes (um por item, 36 px de altura, 7 px de intervalo, começando a 109 px do topo) fazem a navegação. A cor e a AT vêm da <code class="i">dAT</code>, sem usar a tabela <code class="i">'Seletor Cor'</code>.</p>
   <div class="card pv"><img src="10-com-o-menu-lateral.png" alt="Painel ao lado do menu lateral" style="width:100%;border-radius:12px;display:block"></div>
+</section>
+
+<section id="filtros">
+  <h2>Barra de filtros <small>para os filtros não destoarem</small></h2>
+  <p class="lead">Um terceiro visual HTML, com 62 px de altura, desenha a faixa escura, o título e uma caixa com rótulo para cada filtro. As segmentações nativas ficam por cima das caixas, com fundo transparente e texto branco (é a mesma ideia dos botões nativos sobre o menu). Apague a forma com borda preta que está por trás do filtro hoje.</p>
+  <div class="card"><ol class="steps">
+    <li><b>Visual HTML</b> com a medida do bloco 6: 62 px de altura e a mesma largura do painel, logo acima dele.</li>
+    <li><b>Uma segmentação por caixa</b> (estilo Lista suspensa), com 160 × 26 px. A partir da borda direita da barra, elas começam a 536, 358 e 180 px; todas a 24 px do topo da barra.</li>
+    <li><b>Formato de cada segmentação:</b> cabeçalho desligado; valores em Segoe UI 10, cor branca, sem tela de fundo; em Geral → Efeitos, tela de fundo, borda e sombra desligadas.</li>
+    <li><b>Traga as segmentações para a frente</b> (Formato → Trazer para a frente).</li>
+  </ol></div>
 </section>
 
 <section id="modelo">
@@ -381,9 +401,9 @@ footer{padding:26px 0 40px;color:var(--mut);font-size:12.5px}
     <tr><td>AT e cor da área</td><td><code class="i">dAT[AREA ]</code> <code class="i">dAT[COR_AREA ]</code></td><td><code class="i">_gradeModelo</code> <code class="i">_atsCtx</code></td><td><b class="okc">Funcionou no seu teste</b> (17 ATs e as 4 cores apareceram). Cores esperadas: OURO, PRATA 1, PRATA 2, BRONZE (tabela <code class="i">_coresCfg</code>).</td></tr>
     <tr><td>Carga do dia</td><td><code class="i">'ETA DIRECT D-0'</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Funcionou no seu teste</b> (1.315 atividades lidas). Não precisa de relacionamento com a <code class="i">dAT</code>: o filtro de cor e AT é aplicado pela coluna AT.</td></tr>
     <tr><td>AT da ordem</td><td><code class="i">'ETA DIRECT D-0'[AT]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Confirmado no print.</b> Os valores têm que ser os mesmos da <code class="i">dAT[AREA ]</code>.</td></tr>
-    <tr><td>Número da ordem</td><td><code class="i">'ETA DIRECT D-0'[Atividade]</code></td><td><code class="i">_pendModelo</code></td><td><b class="pend">Provisório.</b> Foi a coluna numérica que apareceu no print. Se houver uma coluna com o número da ordem, troque.</td></tr>
+    <tr><td>Número da ordem e PON</td><td><code class="i">[Número da Ordem de Serviço]</code> <code class="i">[PON]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligadas</b> (nomes do seu Power Query). Na lista, um clique no PON seleciona o valor inteiro para copiar com Ctrl+C.</td></tr>
     <tr><td>Situação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Indicador Instalação 3D]</code></td><td><code class="i">_pendModelo</code> <code class="i">_valorFora</code></td><td><b class="okc">Ligada.</b> Só é usada quando a ordem não tem data; senão a medida recalcula a regra.</td></tr><tr><td>Feriados</td><td><code class="i">dFeriados[Data]</code></td><td><code class="i">_feriados</code></td><td><b class="okc">Ligada</b> (aparece no seu modelo). Cada feriado pesa 0,5.</td></tr>
-    <tr><td>Data de criação da ordem</td><td><code class="i">'ETA DIRECT D-0'[Data Agendada para Execução]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada.</b> Separa quem vence hoje e quem vence amanhã.</td></tr>
+    <tr><td>Data de início do prazo</td><td><code class="i">'ETA DIRECT D-0'[Data de Venda]</code></td><td><code class="i">_pendModelo</code></td><td><b class="okc">Ligada.</b> Separa quem vence hoje e quem vence amanhã.</td></tr>
     
     <tr><td>Data da carga <em>(opcional)</em></td><td><code class="i">BLANK()</code></td><td><code class="i">_dataCarga</code></td><td>Com ela o painel avisa quando a carga de hoje ainda não entrou.</td></tr>
   </table></div>
