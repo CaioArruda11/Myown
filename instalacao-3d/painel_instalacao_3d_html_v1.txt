@@ -884,6 +884,7 @@ VAR _qP = SUMX( FILTER( _pendAgg, [Sit] = "P" ), [Q] ) + 0
 VAR _qH = SUMX( FILTER( _pendAgg, [Sit] = "H" ), [Q] ) + 0
 VAR _qA = SUMX( FILTER( _pendAgg, [Sit] = "A" ), [Q] ) + 0
 VAR _qN = SUMX( FILTER( _pendAgg, [Sit] = "N" ), [Q] ) + 0
+VAR _qSemData = COUNTROWS( FILTER( _pend, ISBLANK( [Idade] ) && [Sit] = "N" ) ) + 0
 VAR _qDentro = _qPend - _qP
 VAR _pctDentro = DIVIDE( _qDentro, _qPend )
 VAR _pctFora = DIVIDE( _qP, _qPend )
@@ -923,20 +924,24 @@ VAR _heroHoje =
                 _semAbertura,
                 "<div class='st'><small>Na carga</small><b>" & FORMAT( _qCarga, "#,0", _loc ) & "</b><em>atividades</em></div>" &
                 "<div class='st tR'><small><i></i>Fora</small><b>—</b><em>falta a abertura</em></div>" &
-                "<div class='st tO'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
-                "<div class='st tY'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
+                "<div class='st tO'><small><i></i>Vence hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tY'><small><i></i>Amanhã</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tG'><small><i></i>No prazo</small><b>—</b><em>falta a abertura</em></div>",
                 IF(
                     _soInd,
-                    "<div class='st tG'><small><i></i>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
+                    "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
                     "<div class='st tR' title='Ordens que a coluna Indicador Instalação 3D marca como fora do indicador.'><small><i></i>Fora</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " do total</em></div>" &
-                    "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
-                    "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
-                "<div class='st tG' title='Pendentes marcados como DENTRO DO INDICADOR.'><small><i></i>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
+                    "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vence hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                    "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Amanhã</small><b>—</b><em>falta a abertura</em></div>" &
+                    "<div class='st tG'><small><i></i>No prazo</small><b>—</b><em>falta a abertura</em></div>",
+                "<div class='st' title='Todas as ordens da carga no filtro: fora + vence hoje + amanhã + no prazo.'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & _txtPctDentro & " dentro</em></div>" &
                 "<div class='st tR' title='Pendentes marcados como FORA DO INDICADOR: contam contra o indicador quando forem instaladas.'><small><i></i>Fora</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " do total" & "</em></div>" &
-                "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
+                "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vence hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
                     IF( _qRiscoH > 0, _qRiscoH & " em risco", "último dia" ) & "</em></div>" &
-                "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
-                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "último dia amanhã" ) & "</em></div>"
+                "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
+                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "vence amanhã" ) & "</em></div>" &
+                "<div class='st tG' title='Dentro do indicador e com mais de um dia de prazo pela frente. Inclui ordens sem data de venda e carga futura.'><small><i></i>No prazo</small><b>" & FORMAT( _qN, "#,0", _loc ) & "</b><em>" &
+                    IF( _qSemData > 0, _qSemData & " sem data", "2+ dias" ) & "</em></div>"
                 )
             ) &
         "</div>" &
@@ -963,12 +968,14 @@ VAR _linhasCoresHoje =
         VAR _pD = SUMX( FILTER( _aggD, [Sit] = "P" ), [Q] ) + 0
         VAR _hD = SUMX( FILTER( _aggD, [Sit] = "H" ), [Q] ) + 0
         VAR _aD = SUMX( FILTER( _aggD, [Sit] = "A" ), [Q] ) + 0
+        VAR _nD = SUMX( FILTER( _aggD, [Sit] = "N" ), [Q] ) + 0
         RETURN
             "<div class='dr " & [Cls] & "'>" &
                 "<span class='dn'><i class='cd'></i><b>" & _corD & "</b><em>" & FORMAT( _tD, "#,0", _loc ) & "</em></span>" &
                 "<span><b>" & FORMAT( _pD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _pD, _tD ), "0%", _loc ) ) & "</small></span>" &
                 "<span><b>" & FORMAT( _hD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _hD, _tD ), "0%", _loc ) ) & "</small></span>" &
                 "<span><b>" & FORMAT( _aD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _aD, _tD ), "0%", _loc ) ) & "</small></span>" &
+                "<span><b>" & FORMAT( _nD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _nD, _tD ), "0%", _loc ) ) & "</small></span>" &
             "</div>",
         "",
         [OrdC], ASC,
@@ -1006,9 +1013,10 @@ VAR _sits =
         "RotS", STRING,
         "TierS", STRING,
         {
-            { "P", 0, "Perdidas", "tR" },
+            { "P", 0, "Fora", "tR" },
             { "H", 1, "Hoje", "tO" },
-            { "A", 2, "Amanhã", "tY" }
+            { "A", 2, "Amanhã", "tY" },
+            { "N", 3, "No prazo", "tG" }
         }
     )
 VAR _linhasATs =
@@ -1288,7 +1296,7 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .cg i{width:6px;height:6px;border-radius:50%;background:#34D399}
 .cg.late{background:#FBBF24;color:#3A2A00}
 .cg.late i{background:#3A2A00}
-.ds{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.ds{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.2fr) repeat(4,minmax(0,1fr))}
 .st{min-width:0;padding-left:10px;border-left:1px solid rgba(255,255,255,.11)}
 .st:first-child{padding-left:0;border-left:none}
 .st small{display:flex;align-items:center;gap:4px;overflow:hidden;font-size:7.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.66);white-space:nowrap}
@@ -1419,7 +1427,7 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
    ===================================================================== */
 .d0{padding:0}
 .crs{flex:none;padding:7px 14px 6px;border-bottom:1px solid var(--ln2)}
-.dr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;height:18px;font-size:10.5px;white-space:nowrap}
+.dr{display:grid;grid-template-columns:minmax(0,1.2fr) repeat(4,minmax(0,1fr));align-items:center;height:18px;font-size:10.5px;white-space:nowrap}
 .dr>span{min-width:0;display:flex;align-items:baseline;gap:5px;padding-left:10px}
 .dr .dn{align-items:center;padding:0 10px 0 0}
 .dr b{font-weight:700;color:var(--ink)}
