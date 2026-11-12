@@ -890,6 +890,8 @@ VAR _pctDentro = DIVIDE( _qDentro, _qPend )
 VAR _pctFora = DIVIDE( _qP, _qPend )
 VAR _txtPctDentro = IF( ISBLANK( _pctDentro ), "", FORMAT( _pctDentro, "0.0%", _loc ) )
 VAR _txtPctFora = IF( ISBLANK( _pctFora ), "", FORMAT( _pctFora, "0.0%", _loc ) )
+VAR _tierProj =
+    SWITCH( TRUE(), ISBLANK( _pctDentro ), "tN", _pctDentro >= _meta, "tG", _pctDentro >= _lim90, "tY", _pctDentro >= _lim80, "tO", "tR" )
 VAR _qViraramHoje = COUNTROWS( FILTER( _pend, NOT ISBLANK( [Idade] ) && [Idade] > _prazoDias && [Idade] - _wHoje <= _prazoDias ) ) + 0
 VAR _qRiscoH = COUNTROWS( FILTER( _pend, [Sit] = "H" && [Risco] = 1 ) ) + 0
 VAR _qRiscoA = COUNTROWS( FILTER( _pend, [Sit] = "A" && [Risco] = 1 ) ) + 0
@@ -934,14 +936,11 @@ VAR _heroHoje =
                     "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vence hoje</small><b>—</b><em>falta a abertura</em></div>" &
                     "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Amanhã</small><b>—</b><em>falta a abertura</em></div>" &
                     "<div class='st tG'><small><i></i>No prazo</small><b>—</b><em>falta a abertura</em></div>",
-                "<div class='st' title='Todas as ordens da carga no filtro: fora + vence hoje + amanhã + no prazo.'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & _txtPctDentro & " dentro</em></div>" &
-                "<div class='st tR' title='Pendentes marcados como FORA DO INDICADOR: contam contra o indicador quando forem instaladas.'><small><i></i>Fora</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " do total" & "</em></div>" &
-                "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vence hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
-                    IF( _qRiscoH > 0, _qRiscoH & " em risco", "último dia" ) & "</em></div>" &
-                "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
-                    IF( _qRiscoA > 0, _qRiscoA & " em risco", "vence amanhã" ) & "</em></div>" &
-                "<div class='st tG' title='Dentro do indicador e com mais de um dia de prazo pela frente. Inclui ordens sem data de venda e carga futura.'><small><i></i>No prazo</small><b>" & FORMAT( _qN, "#,0", _loc ) & "</b><em>" &
-                    IF( _qSemData > 0, _qSemData & " sem data", "2+ dias" ) & "</em></div>"
+                "<div class='st' title='Todas as ordens da carga de hoje no filtro.'><small>Volume</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>ordens em campo</em></div>" &
+                "<div class='st tG' title='Ainda dentro do prazo: se concluir hoje, conta a favor do indicador.'><small><i></i>Até " & _prazoDias & " dias</small><b>" & FORMAT( _qDentro, "#,0", _loc ) & "</b><em>dá para salvar</em></div>" &
+                "<div class='st tR' title='Já passaram do prazo: contam contra o indicador quando forem concluídas.'><small><i></i>+ de " & _prazoDias & " dias</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>já fora</em></div>" &
+                "<div class='st " & _tierProj & "' title='Quanto fica o indicador desta carga se todas as ordens forem concluídas hoje: até " & _prazoDias & " dias ÷ volume.'><small><i></i>Prazo " & _prazoDias & " dias</small><b>" & IF( ISBLANK( _pctDentro ), "—", FORMAT( _pctDentro, "0.0%", _loc ) ) & "</b><em>projeção</em></div>" &
+                "<div class='st tO' title='Dentro do prazo, mas hoje é o último dia. Amanhã = último dia amanhã.'><small><i></i>Vence hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>amanhã: " & FORMAT( _qA, "#,0", _loc ) & "</em></div>"
                 )
             ) &
         "</div>" &
@@ -1296,7 +1295,7 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .cg i{width:6px;height:6px;border-radius:50%;background:#34D399}
 .cg.late{background:#FBBF24;color:#3A2A00}
 .cg.late i{background:#3A2A00}
-.ds{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.55fr) repeat(4,minmax(0,1fr))}
+.ds{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .st{min-width:0;padding-left:10px;border-left:1px solid rgba(255,255,255,.11)}
 .st:first-child{padding-left:0;border-left:none}
 .st small{display:flex;align-items:center;gap:4px;overflow:hidden;font-size:7.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.66);white-space:nowrap}
@@ -1426,6 +1425,26 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
    HOJE: POR COR, POR AT E LISTA DE ORDENS
    ===================================================================== */
 .d0{padding:0}
+/* ---- quadro Prazo 3 dias por cor e AT ---- */
+.qh0,.qr{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,1fr)) minmax(0,1.15fr) repeat(2,minmax(0,.9fr));align-items:center;column-gap:4px;padding:0 12px 0 14px;text-align:center;white-space:nowrap}
+.qh0{flex:none;height:24px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.qh0 span{overflow:hidden;text-overflow:ellipsis}
+.qh0 span:first-child,.qn{text-align:left}
+.qt{flex:0 1 auto;min-height:60px;padding:2px 0 4px;overflow-y:auto;overflow-x:hidden;border-bottom:1px solid var(--ln2);scrollbar-width:thin;scrollbar-color:#C5CCDA transparent}
+.qt::-webkit-scrollbar{width:6px}
+.qt::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
+.qr{height:15px;font-size:9.5px;color:var(--ink2)}
+.qr>*{min-width:0}
+.qr b{font-weight:700;color:var(--ink)}
+.qn{display:flex;align-items:center;gap:5px;padding-left:12px;overflow:hidden}
+.qn b{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.qc{margin-top:3px;height:17px;background:var(--sf2);font-size:10px}
+.qc .qn{padding-left:0}
+.qc .qn b,.qc span{font-weight:700;color:var(--ink)}
+.qd{color:#04704B}
+.qf.x{color:#A3161A;font-weight:700}
+.qp{height:13px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:var(--sb);color:var(--st)!important;font-size:9.5px}
+.qh,.qa{color:var(--ink2)}
 .crs{flex:none;padding:7px 14px 6px;border-bottom:1px solid var(--ln2)}
 .dr{display:grid;grid-template-columns:minmax(0,1.55fr) repeat(4,minmax(0,1fr));align-items:center;height:18px;font-size:10.5px;white-space:nowrap}
 .dr>span{min-width:0;display:flex;align-items:baseline;gap:5px;padding-left:10px}
@@ -1455,7 +1474,7 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 .lh h2{flex:none;margin:0;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .oh,.or{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) 48px 44px 50px;align-items:center;column-gap:8px;padding:0 12px 0 14px}
 .oh{flex:none;height:22px;background:var(--sf2);border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
-.lv{flex:1 1 auto;min-height:0;flex-direction:column;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA var(--sf2)}
+.lv{flex:1 1 120px;min-height:96px;flex-direction:column;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA var(--sf2)}
 .lv::-webkit-scrollbar{width:7px}
 .lv::-webkit-scrollbar-track{background:var(--sf2)}
 .lv::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
@@ -1515,16 +1534,56 @@ VAR _avisoHoje =
         "<b>Nenhuma ordem pendente nas ATs do filtro</b>Se a carga tem ordens dessas ATs, confira se a coluna AT da ETA DIRECT D-0 usa os mesmos nomes da dAT."
     )
 
+// ---- projecao da carga por cor e AT (o quadro "Prazo 3 dias") ----
+// Volume | Ate 3 dias (da para salvar) | Mais de 3 dias (ja fora) | Prazo 3 dias
+// = ate 3 dias / volume: quanto fica o indicador da area se concluir tudo hoje.
+// As duas ultimas colunas mostram quem vence hoje e quem vence amanha.
+VAR _tabAT =
+    ADDCOLUMNS(
+        _atsHoje,
+        "Vol", VAR _t1 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t1 ), [Q] ) + 0,
+        "ForaQ", VAR _t2 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t2 && [Sit] = "P" ), [Q] ) + 0,
+        "HojeQ", VAR _t3 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t3 && [Sit] = "H" ), [Q] ) + 0,
+        "AmaQ", VAR _t4 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t4 && [Sit] = "A" ), [Q] ) + 0
+    )
+VAR _tabLinhas =
+    UNION(
+        SELECTCOLUMNS( _tabAT, "Nome", [AT], "TipoT", 1, "OrdT", [OrdC], "ClsT", [Cls], "Vol", [Vol], "ForaQ", [ForaQ], "HojeQ", [HojeQ], "AmaQ", [AmaQ] ),
+        SELECTCOLUMNS(
+            GROUPBY( _tabAT, [Cor], [OrdC], [Cls], "gV", SUMX( CURRENTGROUP(), [Vol] ), "gF", SUMX( CURRENTGROUP(), [ForaQ] ), "gH", SUMX( CURRENTGROUP(), [HojeQ] ), "gA", SUMX( CURRENTGROUP(), [AmaQ] ) ),
+            "Nome", [Cor], "TipoT", 0, "OrdT", [OrdC], "ClsT", [Cls], "Vol", [gV], "ForaQ", [gF], "HojeQ", [gH], "AmaQ", [gA]
+        )
+    )
+VAR _tabHoje =
+    CONCATENATEX(
+        _tabLinhas,
+        VAR _vT = [Vol]
+        VAR _dT = [Vol] - [ForaQ]
+        VAR _pT = DIVIDE( _dT, _vT )
+        VAR _tierT = SWITCH( TRUE(), ISBLANK( _pT ), "tN", _pT >= _meta, "tG", _pT >= _lim90, "tY", _pT >= _lim80, "tO", "tR" )
+        RETURN
+            "<div class='qr " & IF( [TipoT] = 0, "qc ", "" ) & [ClsT] & "'>" &
+                "<span class='qn'><i class='cd'></i><b>" & [Nome] & "</b></span>" &
+                "<b>" & IF( _vT = 0, "·", FORMAT( _vT, "#,0", _loc ) ) & "</b>" &
+                "<span class='qd'>" & IF( _vT = 0, "·", FORMAT( _dT, "#,0", _loc ) ) & "</span>" &
+                "<span class='qf" & IF( [ForaQ] > 0, " x", "" ) & "'>" & IF( _vT = 0, "·", FORMAT( [ForaQ], "#,0", _loc ) ) & "</span>" &
+                "<b class='qp " & _tierT & "'>" & IF( ISBLANK( _pT ), "—", FORMAT( _pT, "0.0%", _loc ) ) & "</b>" &
+                "<span class='qh'>" & IF( [HojeQ] = 0, "·", FORMAT( [HojeQ], "#,0", _loc ) ) & "</span>" &
+                "<span class='qa'>" & IF( [AmaQ] = 0, "·", FORMAT( [AmaQ], "#,0", _loc ) ) & "</span>" &
+            "</div>",
+        "",
+        [OrdT], ASC,
+        [TipoT], ASC,
+        [Nome], ASC
+    )
+
 VAR _painelHoje =
     "<article class='panel d0" & IF( _temAgenda, "", " na" ) & "'>" &
         IF(
             _qPend = 0,
             "<div class='empty'>" & _avisoHoje & "</div>",
-            "<div class='crs'>" & _linhasCoresHoje & "</div>" &
-            "<div class='ag' title='Ordens pendentes por AT. Quanto mais forte a cor, maior a quantidade naquela linha.'>" &
-                "<div class='ar ah'><span class='al'>Por AT</span><div class='as'>" & _cabATs & "</div></div>" &
-                _linhasATs &
-            "</div>" &
+            "<div class='qh0'><span>Cor / AT</span><span>Volume</span><span>Até " & _prazoDias & " dias</span><span>+ de " & _prazoDias & " dias</span><span title='Até " & _prazoDias & " dias ÷ volume: o indicador da área se concluir tudo hoje'>Prazo " & _prazoDias & " dias</span><span title='Dentro do prazo, último dia hoje'>Hoje</span><span title='Último dia amanhã'>Amanhã</span></div>" &
+            "<div class='qt'>" & _tabHoje & "</div>" &
             "<div class='lh'><h2>Ordens</h2>" & _botoesLista & "</div>" &
             "<div class='oh'><span>Ordem</span><span title='Clique no PON para selecionar e copie com Ctrl+C'>PON (clique e copie)</span><span>AT</span><span>Venda</span><span title='Prazo consumido: " & _rotDias & "'>Idade</span></div>" &
             _listas
