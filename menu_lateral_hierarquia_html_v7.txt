@@ -1,0 +1,300 @@
+Menu Lateral Animado Hierarquia = 
+// ============================================================================
+// MENU LATERAL DA PAGINA "ABERTURA HIERARQUIA"  (v7 - v6 + modulo externo "Detalhamento BSC")
+// Mesmo modelo do menu do BSC; so mudam as 3 definicoes marcadas abaixo com
+// "PAGINA HIERARQUIA".
+// Fica "por baixo" dos botoes nativos transparentes do Power BI, que continuam
+// fazendo a navegacao (o HTML Content nao navega entre paginas).
+//
+// EM CADA PAGINA altere somente _paginaAtual para um destes valores:
+// "BSC", "IFI", "IRR", "TDNA Instalação", "TDNA Reparos" ou "Abertura Hierarquia".
+// Para incluir, renomear ou reordenar paginas, edite a tabela _paginas.
+//
+// v7: 7o item "Detalhamento BSC", marcado como "ext" (seta para fora): leva a
+// OUTRO relatorio. O botao nativo dele fica 43px abaixo do botao da "Abertura
+// Hierarquia", com Acao > Tipo: URL da Web > endereco do outro relatorio.
+//
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
+// (use o mesmo tema do corpo e da atualizacao das bases).
+//
+// >>> BOTOES NATIVOS CONTINUAM ALINHADOS <<<
+// O 1o item comeca a 109px do topo do visual, cada item tem 36px de altura,
+// 7px de intervalo e 14px de margem lateral: exatamente como no menu atual.
+// Agora essas medidas sao fixas no CSS (antes dependiam da fonte).
+//
+// O QUE TEM DE NOVO
+//   - visual escuro novo, com a mesma paleta da faixa de destaque do corpo;
+//   - marca com monograma; icone por pagina; pagina atual com barra luminosa,
+//     icone aceso e um feixe de luz passando (a unica animacao continua);
+//   - bloco CORES: as 4 cores com a quantidade de ATs de cada uma; a cor
+//     filtrada fica acesa e as outras apagam;
+//   - bloco FILTRO ATUAL: cluster + etiquetas da cor e da AT selecionadas;
+//   - aviso sobre filtros em um cartao discreto, com icone de atencao.
+//
+// DICA: o botao nativo fica por cima, entao o HTML nao "sente" o mouse. Para
+// dar retorno ao passar o mouse, no botao nativo use Estilo > Estado
+// "Ao passar o mouse" > Preenchimento branco com ~90% de transparencia.
+// Nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+
+// PAGINA HIERARQUIA (1/3): pagina atual
+VAR _paginaAtual =
+    "Abertura Hierarquia"
+
+// ------------------------------------------------------------------- PALETA
+VAR _tema = "GRAFITE"
+
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--d2:#43208A;--a1:#F472B6;--a2:#A78BFA;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30)",
+        "GRAFITE",
+            "--d0:#0C1016;--d1:#161C26;--d2:#2B3442;--a1:#7DD3FC;--a2:#CBD5E1;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20)",
+        "--d0:#050E26;--d1:#0A1A42;--d2:#123A7C;--a1:#22D3EE;--a2:#60A5FA;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30)"
+    )
+
+// ------------------------------------------------------------- TEXTOS FIXOS
+VAR _marca = "Indicadores"
+VAR _sigla = "ARF"
+VAR _subtitulo = "BSC OPERACIONAL"
+VAR _cluster = "PERUS / BUTANTÃ"
+// Aviso no rodape: deixe _avisoTexto = "" para nao mostrar o bloco.
+VAR _avisoTitulo = "Aviso sobre filtros"
+// PAGINA HIERARQUIA (3/3): o menu antigo desta pagina nao tinha aviso
+VAR _avisoTexto = ""
+
+// --------------------------------------------------------- CONTEXTO (FILTROS)
+VAR _corSelecionada =
+    SELECTEDVALUE(
+        'Seletor Cor'[COR_AREA],
+        "GERAL"
+    )
+
+VAR _areaSelecionada =
+    SELECTEDVALUE(
+        dAT[AREA ]
+    )
+
+VAR _temAreaSelecionada =
+    HASONEVALUE(
+        dAT[AREA ]
+    )
+
+// Quantidade de ATs por cor: mesmo calculo usado no corpo do BSC
+VAR _qtdATGeral =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] )
+    )
+VAR _qtdATOuro =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "OURO" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATBronze =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "BRONZE" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATPrata1 =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 1" }, dAT[COR_AREA ] )
+    )
+VAR _qtdATPrata2 =
+    CALCULATE(
+        DISTINCTCOUNT( dAT[AREA ] ),
+        REMOVEFILTERS( 'Seletor Cor' ),
+        REMOVEFILTERS( dAT[AREA ] ),
+        REMOVEFILTERS( dAT[COR_AREA ] ),
+        TREATAS( { "PRATA 2" }, dAT[COR_AREA ] )
+    )
+VAR _cores =
+    UNION(
+        ROW( "Cor", "OURO", "Ordem", 1, "Classe", "c-ouro", "Qtd", _qtdATOuro ),
+        ROW( "Cor", "PRATA 1", "Ordem", 2, "Classe", "c-prata1", "Qtd", _qtdATPrata1 ),
+        ROW( "Cor", "PRATA 2", "Ordem", 3, "Classe", "c-prata2", "Qtd", _qtdATPrata2 ),
+        ROW( "Cor", "BRONZE", "Ordem", 4, "Classe", "c-bronze", "Qtd", _qtdATBronze )
+    )
+VAR _corEhFaixa =
+    _corSelecionada = "OURO" || _corSelecionada = "BRONZE"
+        || _corSelecionada = "PRATA 1" || _corSelecionada = "PRATA 2"
+VAR _classeCorSel =
+    SWITCH( _corSelecionada, "OURO", "c-ouro", "BRONZE", "c-bronze", "PRATA 1", "c-prata1", "PRATA 2", "c-prata2", "c-geral" )
+VAR _chipsCores =
+    CONCATENATEX(
+        _cores,
+        "<div class='fx " & [Classe] & IF( [Cor] = _corSelecionada, " on", "" ) & "'>" &
+            "<i class='sw'></i><b>" & [Cor] & "</b><small>" & FORMAT( [Qtd], "0" ) & "</small></div>",
+        "",
+        [Ordem], ASC
+    )
+
+// --------------------------------------------------------------------- PAGINAS
+// Pagina = texto exibido (e o valor comparado com _paginaAtual).
+// Marca  = "hq" no item que usa o ajuste _descerHierarquia; "" nos demais.
+// Icone  = miolo de um SVG 24x24 desenhado so com traco.
+// _descerHierarquia: quantos px o item "Abertura Hierarquia" fica abaixo da
+// posicao normal. No menu antigo da pagina Hierarquia ele descia 2px; nas
+// outras paginas, 0. Mantenha o valor que ja estava na pagina para o botao
+// nativo continuar alinhado.
+// PAGINA HIERARQUIA (2/3): no menu antigo desta pagina o item descia 2px
+VAR _descerHierarquia = 2
+VAR _paginas =
+    DATATABLE(
+        "Pagina", STRING,
+        "Ordem", INTEGER,
+        "Marca", STRING,
+        "Icone", STRING,
+        {
+            { "BSC", 1, "", "<rect x='3' y='3' width='7' height='9' rx='1.5'></rect><rect x='14' y='3' width='7' height='5' rx='1.5'></rect><rect x='14' y='12' width='7' height='9' rx='1.5'></rect><rect x='3' y='16' width='7' height='5' rx='1.5'></rect>" },
+            { "IFI", 2, "", "<path d='M3 12h4l3-8 4 16 3-8h4'></path>" },
+            { "IRR", 3, "", "<path d='M17 2l4 4-4 4'></path><path d='M3 11V9a3 3 0 0 1 3-3h15'></path><path d='M7 22l-4-4 4-4'></path><path d='M21 13v2a3 3 0 0 1-3 3H3'></path>" },
+            { "TDNA Instalação", 4, "", "<path d='M3 10.5 12 3l9 7.5'></path><path d='M5 9.5V20h14V9.5'></path><path d='M10 20v-6h4v6'></path>" },
+            { "TDNA Reparos", 5, "", "<path d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'></path>" },
+            { "Abertura Hierarquia", 6, "hq", "<rect x='9' y='2' width='6' height='5' rx='1'></rect><rect x='2' y='17' width='6' height='5' rx='1'></rect><rect x='16' y='17' width='6' height='5' rx='1'></rect><path d='M12 7v5M5 17v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3'></path>" },
+            { "Detalhamento BSC", 7, "ext", "<path d='M14 4h6v6'></path><path d='M20 4 10 14'></path><path d='M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'></path>" }
+        }
+    )
+
+VAR _itens =
+    CONCATENATEX(
+        _paginas,
+        VAR _ativa = ( [Pagina] = _paginaAtual )
+        RETURN
+            "<div class='it" & IF( [Marca] = "", "", " " & [Marca] ) & IF( _ativa, " on", "" ) & "'>" &
+                IF( _ativa, "<span class='scan'></span>", "" ) &
+                "<span class='ic-w'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'>" & [Icone] & "</svg></span>" &
+                "<span class='lb'>" & [Pagina] & "</span>" &
+                IF( _ativa, "<i class='live'></i>", "" ) &
+            "</div>",
+        "",
+        [Ordem], ASC
+    )
+
+// ============================================================================
+// CSS
+// - 100vh de proposito (o wrapper do HTML Content nao tem altura definida).
+// - Os blocos marcados GEOMETRIA definem onde os botoes nativos encostam:
+//   nao alterar as medidas deles.
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.mn,.mn *{box-sizing:border-box}
+.mn i{font-style:normal}
+.mn{" & _tokens & ";--c:var(--a1);width:100%;height:100vh;font-family:'Segoe UI',system-ui,Arial,sans-serif;text-align:left;-webkit-font-smoothing:antialiased}
+.c-geral{--c:var(--a1)}.c-ouro{--c:#E2B33C}.c-bronze{--c:#C9804F}.c-prata1{--c:#7F95B8}.c-prata2{--c:#B4C0D4}
+
+/* ---------- CAIXA (GEOMETRIA: padding 18px 14px) ---------- */
+.sb{position:relative;width:100%;height:100%;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden;color:#FFFFFF;border-radius:22px;
+background:radial-gradient(120% 34% at 100% 0%,var(--g2),transparent 70%),radial-gradient(110% 30% at 0% 100%,var(--g1),transparent 72%),linear-gradient(180deg,var(--d1) 0%,var(--d0) 100%);
+box-shadow:0 14px 30px rgba(5,14,38,.30),inset 0 0 0 1px rgba(255,255,255,.08)}
+.sb::before{content:'';position:absolute;left:0;top:0;right:0;height:150px;background-image:radial-gradient(rgba(255,255,255,.11) 1px,transparent 1.3px);background-size:16px 16px;opacity:.5;pointer-events:none}
+
+/* ---------- MARCA (GEOMETRIA: bloco com 71px de altura) ---------- */
+.brand{position:relative;flex:none;height:71px;display:flex;align-items:center;gap:11px;padding:0 4px 13px;border-bottom:1px solid rgba(255,255,255,.12)}
+.lg{flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:var(--d0);font-size:11.5px;font-weight:800;letter-spacing:.04em;box-shadow:0 6px 16px var(--g2),inset 0 1px 0 rgba(255,255,255,.45)}
+.bt{min-width:0}
+.bt b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:20px;white-space:nowrap}
+.bt small{display:block;margin-top:3px;font-size:8.5px;font-weight:700;letter-spacing:.18em;line-height:11px;color:var(--a1);white-space:nowrap}
+
+/* ---------- ITENS (GEOMETRIA: margem 20px, altura 36px, intervalo 7px) ---------- */
+.nav{position:relative;z-index:1;flex:none;display:grid;gap:7px;margin-top:20px}
+.it{position:relative;height:36px;display:flex;align-items:center;gap:10px;padding:0 10px 0 5px;overflow:hidden;border-radius:11px;color:rgba(255,255,255,.74)}
+.ic-w{position:relative;flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(255,255,255,.07)}
+.ic{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.it.hq{margin-top:" & _descerHierarquia & "px}
+/* modulo externo: abre outro relatorio */
+.it.ext{box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
+.it.ext::after{content:'↗';flex:none;font-size:12px;font-weight:700;line-height:1;color:var(--a1)}
+.lb{position:relative;flex:1 1 auto;min-width:0;font-size:12.5px;font-weight:600;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- PAGINA ATUAL ---------- */
+.it.on{color:#FFFFFF;background:linear-gradient(90deg,rgba(255,255,255,.17),rgba(255,255,255,.06));box-shadow:inset 0 0 0 1px rgba(255,255,255,.17),0 8px 18px rgba(0,0,0,.22)}
+.it.on::before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--a1);box-shadow:0 0 10px var(--a1);animation:glow 2.6s ease-in-out infinite}
+.it.on .ic-w{margin-left:4px;background:linear-gradient(135deg,var(--a1),var(--a2));color:var(--d0);box-shadow:0 4px 12px var(--g2)}
+.it.on .lb{font-weight:700}
+.scan{position:absolute;top:0;bottom:0;left:-40%;width:34%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.20),transparent);animation:scan 4.6s ease-in-out infinite}
+.live{position:relative;flex:none;width:7px;height:7px;border-radius:50%;background:var(--a1);box-shadow:0 0 8px var(--a1);animation:live 2s ease-in-out infinite}
+
+/* ---------- CORES ---------- */
+.sec{position:relative;z-index:1;display:flex;align-items:baseline;justify-content:space-between;margin:10px 4px 6px;font-size:8.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.sec small{font-size:9.5px;font-weight:500;letter-spacing:0;text-transform:none;color:rgba(255,255,255,.55)}
+.fxs{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:7px}
+.fx{min-width:0;height:25px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:9px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:opacity .2s ease}
+.sw{flex:none;width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 7px var(--c)}
+.fx b{flex:1 1 auto;min-width:0;font-size:10px;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx small{flex:none;font-size:10px;font-weight:600;color:rgba(255,255,255,.62)}
+.fxs.sel .fx:not(.on){opacity:.42}
+.fx.on{background:rgba(255,255,255,.13);box-shadow:inset 0 0 0 1.5px var(--c)}
+.fx.on small{color:#FFFFFF}
+
+/* ---------- FILTRO ATUAL ---------- */
+.ctx{position:relative;z-index:1;margin-top:auto;padding:8px 12px 9px;border-radius:14px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.11)}
+.ctx-h{display:block;font-size:8.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.ctx b{display:block;margin-top:2px;padding-top:3px;font-size:13.5px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:5px;margin-top:6px}
+.tg{min-width:0;height:21px;display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-radius:99px;background:rgba(255,255,255,.10);font-size:10.5px;font-weight:700;white-space:nowrap}
+.tg.off{background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);color:rgba(255,255,255,.66);font-weight:500}
+
+/* ---------- AVISO ---------- */
+.note{position:relative;z-index:1;margin-top:8px;padding:8px 12px 8px;border-radius:14px;background:rgba(0,0,0,.22);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.note-h{display:flex;align-items:center;gap:7px;color:#FCD34D;font-size:8.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.note-h .ic{flex:none;width:13px;height:13px;stroke-width:2.2}
+.note p{margin:4px 0 0;color:rgba(255,255,255,.80);font-size:9.5px;font-weight:500;line-height:1.42}
+
+@keyframes scan{0%{left:-40%;opacity:0}15%{opacity:1}60%{left:120%;opacity:1}100%{left:120%;opacity:0}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.55}}
+@keyframes live{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.6}}
+/* visual estreito (menos de 216px): aperta os espacos para os nomes caberem inteiros */
+@media (max-width:215px){.it{gap:8px;padding:0 6px 0 4px}.ic-w{width:24px;height:24px}.it.on .ic-w{margin-left:3px}.live{display:none}.lb{font-size:12px}.bt b{font-size:16px}.lg{width:36px;height:36px}.brand{gap:9px}.fx{gap:5px;padding:0 6px}.fx b{font-size:9.5px;letter-spacing:0}.fx small{font-size:9.5px}.ctx b{font-size:12.5px}.tg{padding:0 8px;font-size:10px}}
+@media (max-height:660px){.note{display:none}}
+@media (max-height:545px){.sec,.fxs{display:none}}
+@media (prefers-reduced-motion:reduce){.mn *,.mn *::before,.mn *::after{animation:none!important;transition:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _html =
+"<div class='mn'>" &
+    "<aside class='sb'>" &
+        "<div class='brand'><i class='lg'>" & _sigla & "</i><div class='bt'><b>" & _marca & "</b><small>" & _subtitulo & "</small></div></div>" &
+        "<div class='nav'>" & _itens & "</div>" &
+        "<div class='sec'><span>Cores</span><small>" & FORMAT( _qtdATGeral, "0" ) & IF( _qtdATGeral = 1, " AT", " ATs" ) & "</small></div>" &
+        "<div class='fxs" & IF( _corEhFaixa, " sel", "" ) & "'>" & _chipsCores & "</div>" &
+        "<div class='ctx'>" &
+            "<span class='ctx-h'>Filtro atual</span>" &
+            "<b>" & _cluster & "</b>" &
+            "<div class='tags'>" &
+                "<span class='tg " & _classeCorSel & "'><i class='sw'></i>" & _corSelecionada & "</span>" &
+                IF( _temAreaSelecionada, "<span class='tg'>AT " & _areaSelecionada & "</span>", "<span class='tg off'>todas as ATs</span>" ) &
+            "</div>" &
+        "</div>" &
+        IF(
+            _avisoTexto = "",
+            "",
+            "<div class='note'>" &
+                "<div class='note-h'><svg class='ic' viewBox='0 0 24 24' aria-hidden='true'><path d='M12 3 2.5 20h19L12 3z'></path><path d='M12 10v4.5M12 17.2v.3'></path></svg>" &
+                    "<span>" & _avisoTitulo & "</span></div>" &
+                "<p>" & _avisoTexto & "</p>" &
+            "</div>"
+        ) &
+    "</aside>" &
+"</div>"
+
+RETURN
+    _css & _html
