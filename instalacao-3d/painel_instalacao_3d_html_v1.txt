@@ -927,12 +927,11 @@ VAR _heroHoje =
                 IF(
                     _soInd,
                     "<div class='st tG'><small><i></i>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
-                    "<div class='st tR' title='Ordens que a coluna Indicador Instalação 3D marca como fora do indicador.'><small><i></i>Fora do indicador</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " das pendentes</em></div>" &
+                    "<div class='st tR' title='Ordens que a coluna Indicador Instalação 3D marca como fora do indicador.'><small><i></i>Fora do indicador</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " do total</em></div>" &
                     "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vencem hoje</small><b>—</b><em>falta a abertura</em></div>" &
                     "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Vencem amanhã</small><b>—</b><em>falta a abertura</em></div>",
                 "<div class='st tG' title='Pendentes marcados como DENTRO DO INDICADOR.'><small><i></i>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
-                "<div class='st tR' title='Pendentes marcados como FORA DO INDICADOR: contam contra o indicador quando forem instaladas.'><small><i></i>Fora do indicador</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " das pendentes" &
-                    IF( _qViraramHoje > 0, " · +" & _qViraramHoje & " hoje", "" ) & "</em></div>" &
+                "<div class='st tR' title='Pendentes marcados como FORA DO INDICADOR: contam contra o indicador quando forem instaladas.'><small><i></i>Fora do indicador</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & IF( _qViraramHoje > 0, " · +" & _qViraramHoje & " hoje", " do total" ) & "</em></div>" &
                 "<div class='st tO' title='Último dia do prazo de " & _prazoDias & " " & _rotDias & ". Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>" &
                     IF( _qRiscoH > 0, _qRiscoH & " em risco", "último dia no indicador" ) & "</em></div>" &
                 "<div class='st tY' title='Vencem no próximo dia do prazo. Em risco = sem agenda ou com agenda para depois do vencimento.'><small><i></i>Vencem amanhã</small><b>" & FORMAT( _qA, "#,0", _loc ) & "</b><em>" &
