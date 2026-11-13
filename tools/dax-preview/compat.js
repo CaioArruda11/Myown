@@ -3,10 +3,21 @@
 const TAGS = ['style', 'details', 'summary', 'em', 'div', 'section', 'article', 'aside', 'span', 'i', 'b', 'u', 'small', 'h2', 'p', 'svg', 'circle', 'rect', 'path'];
 const ATTRS = ['class', 'style', 'title', 'tabindex', 'role', 'viewbox', 'cx', 'cy', 'r', 'x', 'y', 'width', 'height', 'rx', 'd'];
 
-function compat(html) {
+/**
+ * @param {string} html
+ * @param {{estrito?: boolean}} [opts] estrito = regras a mais para visuais que passam o HTML por um
+ *   filtro do tipo DOMPurify: um <style> na frente de tudo e descartado, e um bloco de CSS que
+ *   contenha "<" seguido de letra (mesmo em comentario) e removido inteiro.
+ */
+function compat(html, opts) {
   const problems = [];
   if (html.includes('"')) problems.push('aspas duplas no HTML gerado');
   const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+  if (opts && opts.estrito) {
+    if (/^\s*<style/i.test(html)) problems.push('o HTML comeca com <style>: o bloco de CSS precisa ficar dentro do elemento principal');
+    if (css.includes('<')) problems.push('o CSS contem o sinal "<" (' + css.slice(Math.max(0, css.indexOf('<') - 30), css.indexOf('<') + 20).replace(/\s+/g, ' ') + ')');
+    if ((html.match(/<style/g) || []).length !== 1) problems.push('esperava exatamente um bloco <style>');
+  }
   for (const bad of ['@import', '@font-face', 'url(', 'expression(', 'javascript:', '@container', '@property', '@layer', 'color-mix(']) if (css.includes(bad)) problems.push('CSS usa ' + bad);
   const body = html.replace(/<style>[\s\S]*?<\/style>/, '');
   const tags = new Set();

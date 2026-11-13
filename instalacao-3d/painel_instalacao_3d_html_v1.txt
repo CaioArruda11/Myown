@@ -1,0 +1,1606 @@
+Painel Instalacao 3D HTML =
+
+// ============================================================================
+// PAINEL "INSTALACAO EM ATE 3 DIAS"  (v1.2 - ligado ao modelo real)
+// Um unico visual HTML Content ocupando o corpo da pagina. Fundo TRANSPARENTE.
+// Mesma linguagem visual do BSC v5 e do Ranking v2.
+//
+// v1.2: CSS a prova de filtro (ver COMPATIBILIDADE) e coluna de agenda ligada.
+// v1.1: usa as tabelas do arquivo novo
+//   - indicador: 'fINSTALACAO + ME_3D' (no prazo) e 'fINSTALACAO + ME_3D_TOTAL'
+//     (total), pelas medidas [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL];
+//   - o eixo diario mostra os dias que existem na dCalendario; o prazo do
+//     lado D-0 pode ser contado em dias corridos (padrao) ou uteis;
+//   - lado D-0 le a 'ETA DIRECT D-0'. FALTA informar a coluna com a data de
+//     abertura da ordem (ver _pendModelo); ate la o lado direito avisa o que
+//     falta em vez de mostrar numeros.
+//
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
+//
+// O PAINEL TEM DUAS METADES
+//   ESQUERDA - muda com o filtro de MES e com os botoes Mes | Semana | Dia:
+//     1. faixa escura com o resultado do mes do filtro (meta, distancia da
+//        meta, volumes, variacao contra o mes anterior) e as 4 CORES;
+//     2. CURVA do indicador: 12 meses, 12 semanas ou os dias do mes. Os tres
+//        graficos ja saem prontos e o clique so troca o que aparece;
+//     3. ABERTURA por COR e por AT alinhada com a curva: cada linha e uma cor
+//        ou uma AT e cada coluna e o mesmo periodo do grafico (mapa de calor).
+//   DIREITA - FIXA NO DIA DE HOJE (D-0), ignora o filtro de mes:
+//     4. carteira pendente na carga de hoje: ja perdidas (passaram do prazo),
+//        vencem hoje, vencem amanha e no prazo;
+//     5. a mesma conta por COR e por AT;
+//     6. lista das ORDENS, com abas Perdidas | Vencem hoje | Amanha.
+//   As duas metades respeitam os filtros de COR e de AT.
+//
+// O QUE AJUSTAR
+//   - bloco 1 (CONFIGURACAO): meta, prazo (dias corridos ou uteis), fuso,
+//     quantos meses/semanas;
+//   - VARs marcadas com "<<< MODELO": sao as UNICAS que leem tabelas, colunas
+//     e medidas. Todo o resto usa so o que essas VARs devolvem.
+//   - medidas usadas: [INSTALACAO_3D NO PRAZO] e [INSTALACAO_3D TOTAL]
+//     (arquivo medidas_de_apoio_v1.txt).
+//
+// COMPATIBILIDADE COM O VISUAL HTML (nao executa JavaScript)
+//   - so HTML + CSS; botoes com <details> + :has(), como nas paginas IFI/IRR;
+//   - o bloco <style> fica dentro da div principal e o CSS nao tem o sinal de
+//     menor (v1.2): sem isso, visuais que filtram o HTML descartam o CSS todo;
+//   - atributo style so carrega variaveis CSS e fica em um <div class='v'>
+//     neutro; nenhum nome entra em atributo (title), so em texto;
+//   - 100vh de proposito: o visual envolve o conteudo em um wrapper sem altura;
+//   - nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+
+// ------------------------------------------------------------------- PALETA
+VAR _tema = "GRAFITE"
+
+// d0/d1/d2 = fundos escuros | a1/a2 = cores de destaque | g1/g2 = brilhos
+// pri/pri-b = destaque sobre fundo claro
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--d2:#43208A;--a1:#F472B6;--a2:#A78BFA;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30);--pri:#7C3AED;--pri-b:#F3EDFF",
+        "OCEANO",
+            "--d0:#050E26;--d1:#0A1A42;--d2:#123A7C;--a1:#22D3EE;--a2:#60A5FA;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30);--pri:#2563EB;--pri-b:#E9F0FF",
+        "--d0:#0C1016;--d1:#161C26;--d2:#2B3442;--a1:#7DD3FC;--a2:#CBD5E1;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20);--pri:#334155;--pri-b:#EEF2F6"
+    )
+
+// ============================================================================
+// 1. CONFIGURACAO  (AJUSTE AQUI)
+// ============================================================================
+VAR _loc = "pt-BR"
+VAR _meta = 0.81              // meta do indicador (81%)
+VAR _prazoDias = 3            // prazo, em dias de peso (ver abaixo), contado do dia seguinte a criacao da ordem
+// Quanto cada dia consome do prazo (o dia da criacao da ordem nao conta):
+// dia util = 1, sabado = 0,75, domingo = 0,25, feriado (dFeriados) = 0,5.
+// A equipe tem _prazoDias desses; passou de _prazoDias = fora do indicador.
+// Mesma regra da coluna [Indicador Instalação 3D] do Power Query.
+VAR _pesoUtil = 1
+VAR _pesoSab = 0.75
+VAR _pesoDom = 0.25
+VAR _pesoFeriado = 0.5
+VAR _fuso = -3                // fuso de Brasilia (UTC-3)
+VAR _qtdMeses = 12            // meses na curva mensal
+VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
+VAR _visaoInicial = "Mês"     // curva que abre primeiro: "Mês" | "Semana" | "Dia"
+VAR _maxLinhas = 60           // ordens listadas em cada aba (as mais urgentes)
+// Valor da coluna 'ETA DIRECT D-0'[Indicador Instalação 3D] que significa que a
+// ordem ja saiu do indicador. A medida recalcula a mesma regra na hora, com a
+// data de hoje, e usa a coluna so quando a ordem nao tem data.
+VAR _valorFora = "FORA DO INDICADOR"
+
+// Cores das areas: nome (como esta na coluna de cor), ordem na tela e classe.
+VAR _coresCfg =
+    DATATABLE(
+        "CorCfg", STRING,
+        "OrdCor", INTEGER,
+        "ClsCor", STRING,
+        {
+            { "OURO", 1, "c-ouro" },
+            { "PRATA 1", 2, "c-prata1" },
+            { "PRATA 2", 3, "c-prata2" },
+            { "BRONZE", 4, "c-bronze" }
+        }
+    )
+
+// ============================================================================
+// 2. DATAS DE REFERENCIA
+// ============================================================================
+// "Hoje" no fuso informado (UTCNOW e igual no Desktop e no Service).
+VAR _agora = UTCNOW() + _fuso / 24
+VAR _hoje = DATE( YEAR( _agora ), MONTH( _agora ), DAY( _agora ) )
+VAR _hojeN = INT( _hoje )
+
+// <<< MODELO: ultima data do filtro de periodo da pagina (segmentacao de Mes).
+VAR _fimSel = MAX( dCalendario[Data] )
+
+// Mes de referencia = mes do filtro. Sem filtro, ou com mes futuro: mes atual.
+VAR _ref = IF( ISBLANK( _fimSel ) || _fimSel > _hoje, _hoje, _fimSel )
+VAR _mesIni = DATE( YEAR( _ref ), MONTH( _ref ), 1 )
+VAR _mesFim = EOMONTH( _ref, 0 )
+VAR _mesAntIni = EDATE( _mesIni, -1 )
+VAR _mesIni0 = EDATE( _mesIni, 1 - _qtdMeses )               // 1o mes da curva mensal
+VAR _semRef = _ref - WEEKDAY( _ref, 2 ) + 1                   // segunda-feira da semana de referencia
+VAR _semIni0 = _semRef - 7 * ( _qtdSemanas - 1 )              // 1a semana da curva semanal
+VAR _janIni = MIN( _mesIni0, _semIni0 )
+VAR _janFim = MAX( _mesFim, _semRef + 6 )
+// dias do calendario: a janela da curva + os ultimos 90 dias (prazo do lado D-0)
+VAR _calIni = MIN( _janIni, _hoje - 90 )
+VAR _calFim = MAX( _janFim, _hoje + 30 )
+
+// ============================================================================
+// 3. MODELO  (unicas VARs, junto com _fimSel, que leem o modelo)
+// ============================================================================
+// <<< MODELO: uma linha por AT x dia com as duas medidas de volume.
+//     - ignora o filtro de mes (a curva sempre mostra a janela inteira);
+//     - ignora o filtro de cor/AT (para comparar a selecao com o Geral e com
+//       as cores); o filtro e aplicado depois, em memoria, com _atsCtx.
+//     As duas tabelas fINSTALACAO precisam estar relacionadas com a
+//     dCalendario (data) e com a dAT (AT), como ja estao para a sua medida.
+VAR _gradeModelo =
+    CALCULATETABLE(
+        ADDCOLUMNS(
+            CROSSJOIN(
+                SUMMARIZE( dAT, dAT[AREA ], dAT[COR_AREA ] ),
+                VALUES( dCalendario[Data] )
+            ),
+            "@n", [INSTALACAO_3D NO PRAZO],
+            "@d", [INSTALACAO_3D TOTAL]
+        ),
+        REMOVEFILTERS( dAT ),
+        REMOVEFILTERS( dCalendario ),
+        dCalendario[Data] >= _janIni && dCalendario[Data] <= _janFim
+    )
+
+// <<< MODELO: ATs que estao no filtro da pagina (cor e/ou AT selecionadas).
+VAR _atsCtx = VALUES( dAT[AREA ] )
+
+// <<< MODELO: os dias que existem na dCalendario. Servem para montar o eixo
+//     diario e para contar o prazo quando ele e em dias uteis.
+VAR _calModelo =
+    CALCULATETABLE(
+        VALUES( dCalendario[Data] ),
+        REMOVEFILTERS( dCalendario ),
+        dCalendario[Data] >= _calIni && dCalendario[Data] <= _calFim
+    )
+
+// <<< MODELO: carga do dia = 'ETA DIRECT D-0'. IGNORA o filtro de mes.
+//     O filtro de cor/AT e aplicado mais abaixo pela coluna AT, entao nao
+//     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
+//     mesmos da dAT[AREA ]).
+//
+//         "Ind"      = coluna calculada [Indicador Instalação 3D]: marca com
+//                      FORA DO INDICADOR as ordens que perderam o prazo (_valorFora). A medida recalcula a
+//                      mesma regra com a data de hoje; a coluna so vale sem data.
+//         "Abertura" = [Data de Venda]: a mesma data que a coluna do Power Query usa
+//                      (o prazo conta a partir do dia seguinte). Com ela o painel
+//                      separa quem vence hoje e quem vence amanha.
+//         "Agenda"   = nao usada (BLANK): a data agendada ja e a de criacao.
+//     >>> Se a carga tiver reparos ou atividades ja concluidas, filtre aqui,
+//         trocando a linha  'ETA DIRECT D-0',  por algo como:
+//         FILTER( 'ETA DIRECT D-0', 'ETA DIRECT D-0'[coluna do tipo] = "Instalação"
+//                                   && 'ETA DIRECT D-0'[coluna do status] <> "Concluída" ),
+VAR _pendModelo =
+    CALCULATETABLE(
+        SELECTCOLUMNS(
+            'ETA DIRECT D-0',
+            "Ordem", "" & 'ETA DIRECT D-0'[Número da Ordem de Serviço],
+            "PON", "" & 'ETA DIRECT D-0'[PON],
+            "AT", TRIM( 'ETA DIRECT D-0'[AT] ),
+            "Ind", UPPER( TRIM( 'ETA DIRECT D-0'[Indicador Instalação 3D] ) ),
+            "Abertura", 'ETA DIRECT D-0'[Data de Venda],
+            "Agenda", BLANK()
+        ),
+        REMOVEFILTERS( dCalendario )
+    )
+
+// <<< MODELO: feriados (dFeriados[Data]); cada um pesa _pesoFeriado no prazo.
+VAR _feriados =
+    SELECTCOLUMNS(
+        CALCULATETABLE( VALUES( dFeriados[Data] ), REMOVEFILTERS( dFeriados ) ),
+        "F", INT( dFeriados[Data] )
+    )
+
+// <<< MODELO (opcional): data/hora da ultima carga da 'ETA DIRECT D-0', para
+//     avisar quando a carga de hoje ainda nao entrou. Exemplo:
+//     CALCULATE( MAX( 'ETA DIRECT D-0'[coluna da data da carga] ), REMOVEFILTERS() )
+VAR _dataCarga = BLANK()
+
+// ============================================================================
+// 4. GRADE AT x DIA  ->  AT / COR / GERAL / SELECAO  x  MES / SEMANA / DIA
+// Daqui para baixo nada mais consulta o modelo: e tudo soma em memoria, por
+// isso os numeros fecham entre si (dia soma na semana, AT soma na cor...).
+// ============================================================================
+VAR _grade =
+    SELECTCOLUMNS(
+        FILTER( _gradeModelo, [@d] > 0 ),
+        "AT", dAT[AREA ],
+        "Cor", UPPER( TRIM( dAT[COR_AREA ] ) ),
+        "Dia", dCalendario[Data],
+        "N", COALESCE( [@n], 0 ),
+        "D", [@d]
+    )
+VAR _gradeChaves =
+    ADDCOLUMNS(
+        _grade,
+        "kM", DATE( YEAR( [Dia] ), MONTH( [Dia] ), 1 ),
+        "kS", [Dia] - WEEKDAY( [Dia], 2 ) + 1
+    )
+
+// Uma linha por granularidade x AT x periodo. Gran: M = mes, S = semana, D = dia.
+VAR _longAT =
+    UNION(
+        SELECTCOLUMNS(
+            GROUPBY(
+                FILTER( _gradeChaves, [kM] >= _mesIni0 && [kM] <= _mesIni ),
+                [AT], [Cor], [kM],
+                "sN", SUMX( CURRENTGROUP(), [N] ),
+                "sD", SUMX( CURRENTGROUP(), [D] )
+            ),
+            "Gran", "M", "AT", [AT], "Cor", [Cor], "Ini", [kM], "N", [sN], "D", [sD]
+        ),
+        SELECTCOLUMNS(
+            GROUPBY(
+                FILTER( _gradeChaves, [kS] >= _semIni0 && [kS] <= _semRef ),
+                [AT], [Cor], [kS],
+                "sN", SUMX( CURRENTGROUP(), [N] ),
+                "sD", SUMX( CURRENTGROUP(), [D] )
+            ),
+            "Gran", "S", "AT", [AT], "Cor", [Cor], "Ini", [kS], "N", [sN], "D", [sD]
+        ),
+        SELECTCOLUMNS(
+            FILTER( _gradeChaves, [Dia] >= _mesIni && [Dia] <= _mesFim ),
+            "Gran", "D", "AT", [AT], "Cor", [Cor], "Ini", [Dia], "N", [N], "D", [D]
+        )
+    )
+
+// ---- ATs e cores: todas (com instalacao na janela) x as do filtro ----
+VAR _atsTodas = GROUPBY( _grade, [AT], [Cor] )
+VAR _atsVis = FILTER( _atsTodas, CONTAINSROW( _atsCtx, [AT] ) )
+VAR _qtdTodas = COUNTROWS( _atsTodas ) + 0
+VAR _qtdVis = COUNTROWS( _atsVis ) + 0
+VAR _coresVis = GROUPBY( _atsVis, [Cor] )
+VAR _qtdCoresVis = COUNTROWS( _coresVis ) + 0
+VAR _corUnica = IF( _qtdCoresVis = 1, MAXX( _coresVis, [Cor] ) )
+VAR _qtdDaCorUnica = COUNTROWS( FILTER( _atsTodas, [Cor] = _corUnica ) ) + 0
+
+// Contexto do filtro: G = geral | C = uma cor inteira | A = uma AT | S = selecao
+// de varias ATs | V = nada no filtro tem instalacao na janela.
+VAR _ctx =
+    SWITCH(
+        TRUE(),
+        _qtdVis = 0, "V",
+        _qtdVis = _qtdTodas, "G",
+        _qtdVis = 1, "A",
+        _qtdCoresVis = 1 && _qtdVis = _qtdDaCorUnica, "C",
+        "S"
+    )
+// Serie "principal" = a que vira a curva e o numero grande.
+VAR _entPrincipal =
+    SWITCH( _ctx, "G", "#G", "A", "A:" & MAXX( _atsVis, [AT] ), "C", "C:" & _corUnica, "#S" )
+VAR _nomeCtx =
+    SWITCH( _ctx, "G", "Geral", "A", "AT " & MAXX( _atsVis, [AT] ), "C", _corUnica, "V", "Sem dados", "Seleção" )
+VAR _subCtx =
+    SWITCH(
+        _ctx,
+        "A", _corUnica,
+        "V", "nenhuma instalação no filtro",
+        _qtdVis & IF( _qtdVis = 1, " AT", " ATs" )
+    )
+VAR _clsCtx = COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _corUnica ), [ClsCor] ), "c-geral" )
+
+// ---- series: Geral, selecao, cada cor (inteira) e cada AT do filtro ----
+VAR _longNoFiltro = FILTER( _longAT, CONTAINSROW( _atsCtx, [AT] ) )
+VAR _series =
+    UNION(
+        SELECTCOLUMNS(
+            GROUPBY( _longAT, [Gran], [Ini], "sN", SUMX( CURRENTGROUP(), [N] ), "sD", SUMX( CURRENTGROUP(), [D] ) ),
+            "Ent", "#G", "Gran", [Gran], "Ini", [Ini], "N", [sN], "D", [sD]
+        ),
+        SELECTCOLUMNS(
+            GROUPBY( _longNoFiltro, [Gran], [Ini], "sN", SUMX( CURRENTGROUP(), [N] ), "sD", SUMX( CURRENTGROUP(), [D] ) ),
+            "Ent", "#S", "Gran", [Gran], "Ini", [Ini], "N", [sN], "D", [sD]
+        ),
+        SELECTCOLUMNS(
+            GROUPBY( _longAT, [Gran], [Cor], [Ini], "sN", SUMX( CURRENTGROUP(), [N] ), "sD", SUMX( CURRENTGROUP(), [D] ) ),
+            "Ent", "C:" & [Cor], "Gran", [Gran], "Ini", [Ini], "N", [sN], "D", [sD]
+        ),
+        SELECTCOLUMNS(
+            _longNoFiltro,
+            "Ent", "A:" & [AT], "Gran", [Gran], "Ini", [Ini], "N", [N], "D", [D]
+        )
+    )
+
+// ---- periodos de cada curva ----
+// Rot = rotulo do eixo | RotM = rotulo medio (resumo) | RotL = rotulo longo (dica)
+// _diasCal = dias que existem na dCalendario | _primeiroDia = inicio dos dados
+VAR _diasCal = SELECTCOLUMNS( _calModelo, "Dia", dCalendario[Data] )
+VAR _primeiroDia = MINX( _grade, [Dia] )
+VAR _perM =
+    SELECTCOLUMNS(
+        ADDCOLUMNS( GENERATESERIES( 1, _qtdMeses ), "@i", EDATE( _mesIni, [Value] - _qtdMeses ) ),
+        "Gran", "M",
+        "Ord", [Value],
+        "Ini", [@i],
+        "Fim", EOMONTH( [@i], 0 ),
+        "Rot", FORMAT( [@i], "MMM/yy", _loc ),
+        "RotM", FORMAT( [@i], "MMM/yy", _loc ),
+        "RotL", FORMAT( [@i], "MMMM/yyyy", _loc ),
+        "Fds", 0
+    )
+VAR _perS =
+    SELECTCOLUMNS(
+        ADDCOLUMNS( GENERATESERIES( 1, _qtdSemanas ), "@i", _semIni0 + 7 * ( [Value] - 1 ) ),
+        "Gran", "S",
+        "Ord", [Value],
+        "Ini", [@i],
+        "Fim", [@i] + 6,
+        // S + numero da semana no ano: o mesmo numero da coluna Semana do Ano da dCalendario
+        "Rot", "S" & WEEKNUM( [@i], 2 ),
+        "RotM", "S" & WEEKNUM( [@i], 2 ),
+        "RotL", "Semana " & WEEKNUM( [@i], 2 ) & " · " & FORMAT( [@i], "dd/MM", _loc ) & " a " & FORMAT( [@i] + 6, "dd/MM", _loc ),
+        "Fds", 0
+    )
+// Dia: os dias do mes que existem na dCalendario.
+VAR _diasMes = FILTER( _diasCal, [Dia] >= _mesIni && [Dia] <= _mesFim )
+VAR _perD =
+    SELECTCOLUMNS(
+        _diasMes,
+        "Gran", "D",
+        "Ord",
+            VAR _d0 = [Dia]
+            RETURN COUNTROWS( FILTER( _diasMes, [Dia] <= _d0 ) ),
+        "Ini", [Dia],
+        "Fim", [Dia],
+        "Rot", FORMAT( [Dia], "dd", _loc ),
+        "RotM", FORMAT( [Dia], "dd/MM", _loc ),
+        "RotL", FORMAT( [Dia], "ddd, dd/MM", _loc ),
+        "Fds", IF( WEEKDAY( [Dia], 2 ) >= 6, 1, 0 )
+    )
+// A curva comeca onde os dados comecam: periodos anteriores a primeira
+// instalacao da base ficam de fora (base nova tem menos de 12 meses).
+VAR _per =
+    FILTER(
+        UNION( _perM, _perS, _perD ),
+        ISBLANK( _primeiroDia ) || [Fim] >= _primeiroDia
+    )
+
+// ---- serie principal em cada periodo ----
+VAR _seriePrincipal = FILTER( _series, [Ent] = _entPrincipal )
+VAR _serieP0 =
+    ADDCOLUMNS(
+        _per,
+        "pN",
+            VAR _gN = [Gran]
+            VAR _iN = [Ini]
+            RETURN SUMX( FILTER( _seriePrincipal, [Gran] = _gN && [Ini] = _iN ), [N] ),
+        "pD",
+            VAR _gD = [Gran]
+            VAR _iD = [Ini]
+            RETURN SUMX( FILTER( _seriePrincipal, [Gran] = _gD && [Ini] = _iD ), [D] )
+    )
+VAR _serieP = ADDCOLUMNS( _serieP0, "P", DIVIDE( [pN], [pD] ) )
+
+// ---- escala de status: resultado / meta ----
+// >= 100% da meta | 90-99% | 80-89% | < 80%   (mesma escala do BSC)
+VAR _lim90 = _meta * 0.90
+VAR _lim80 = _meta * 0.80
+
+// ============================================================================
+// 5. FAIXA DO PERIODO (mes do filtro)
+// ============================================================================
+VAR _regMes = FILTER( _seriePrincipal, [Gran] = "M" && [Ini] = _mesIni )
+VAR _mesN = SUMX( _regMes, [N] )
+VAR _mesD = SUMX( _regMes, [D] )
+VAR _mesP = DIVIDE( _mesN, _mesD )
+VAR _regAnt = FILTER( _seriePrincipal, [Gran] = "M" && [Ini] = _mesAntIni )
+VAR _antP = DIVIDE( SUMX( _regAnt, [N] ), SUMX( _regAnt, [D] ) )
+VAR _difAnt = IF( NOT ISBLANK( _mesP ) && NOT ISBLANK( _antP ), _mesP - _antP )
+VAR _ultDia = MAXX( FILTER( _grade, [Dia] >= _mesIni && [Dia] <= _mesFim ), [Dia] )
+VAR _mesEmAndamento = _mesFim >= _hoje
+VAR _mesRot = FORMAT( _mesIni, "MMMM/yyyy", _loc )
+VAR _tierMes =
+    SWITCH( TRUE(), ISBLANK( _mesP ), "tN", _mesP >= _meta, "tG", _mesP >= _lim90, "tY", _mesP >= _lim80, "tO", "tR" )
+VAR _chipMes =
+    SWITCH(
+        TRUE(),
+        ISBLANK( _mesP ), "sem dados",
+        _mesP >= _meta, "▲ " & FORMAT( ( _mesP - _meta ) * 100, "0.0", _loc ) & " p.p. acima da meta",
+        "▼ " & FORMAT( ( _meta - _mesP ) * 100, "0.0", _loc ) & " p.p. abaixo da meta"
+    )
+// Quantas instalacoes no prazo sobraram (+) ou faltaram (-) para a meta do mes.
+VAR _saldoMeta = IF( ISBLANK( _mesD ), BLANK(), _mesN - _meta * _mesD )
+
+VAR _heroResultado =
+    "<div class='hz hk " & _tierMes & "'>" &
+        "<span class='kk'>Instalação em até " & _prazoDias & " dias</span>" &
+        "<div class='kv'><b>" & IF( ISBLANK( _mesP ), "—", FORMAT( _mesP, "0.0%", _loc ) ) & "</b><span class='chip'>" & _chipMes & "</span></div>" &
+        "<span class='ks km'><b>" & _mesRot & "</b>" &
+            IF( _mesEmAndamento && NOT ISBLANK( _ultDia ), " · parcial até " & FORMAT( _ultDia, "dd/MM", _loc ), "" ) &
+            " · meta ≥ " & FORMAT( _meta, "0.0%", _loc ) & "</span>" &
+        "<span class='ks'>" &
+            SWITCH(
+                TRUE(),
+                ISBLANK( _saldoMeta ), "sem instalações concluídas no mês",
+                _saldoMeta >= 0, "folga de <b>" & FORMAT( ROUNDDOWN( _saldoMeta, 0 ), "#,0", _loc ) & "</b> instalações no prazo sobre a meta",
+                "faltam <b>" & FORMAT( ROUNDUP( - _saldoMeta, 0 ), "#,0", _loc ) & "</b> instalações no prazo para a meta"
+            ) & "</span>" &
+    "</div>"
+
+VAR _heroVolumes =
+    "<div class='hz hv'>" &
+        "<span class='kc " & _clsCtx & "'><i class='cd'></i>" & _nomeCtx & "<small>" & _subCtx & "</small></span>" &
+        "<div class='kp'>" &
+            "<div><small>Instaladas</small><b>" & IF( ISBLANK( _mesD ), "—", FORMAT( _mesD, "#,0", _loc ) ) & "</b></div>" &
+            "<div class='tG'><small><i></i>No prazo</small><b>" & IF( ISBLANK( _mesD ), "—", FORMAT( _mesN, "#,0", _loc ) ) & "</b></div>" &
+            "<div class='tR'><small><i></i>Fora do prazo</small><b>" & IF( ISBLANK( _mesD ), "—", FORMAT( _mesD - _mesN, "#,0", _loc ) ) & "</b></div>" &
+        "</div>" &
+        "<span class='kd'>" &
+            IF(
+                ISBLANK( _difAnt ),
+                "sem mês anterior para comparar",
+                "<b class='" & IF( _difAnt >= 0, "up", "dn" ) & "'>" & IF( _difAnt >= 0, "▲ ", "▼ " ) & FORMAT( ABS( _difAnt ) * 100, "0.0", _loc ) & " p.p.</b> vs. " &
+                    FORMAT( _mesAntIni, "MMM/yy", _loc ) & " (" & FORMAT( _antP, "0.0%", _loc ) & ")"
+            ) &
+        "</span>" &
+    "</div>"
+
+// ---- as 4 cores no mes do filtro (sempre as cores inteiras, para comparar) ----
+VAR _posMeta = FORMAT( _meta * 100, "0.0", "en-US" )
+VAR _coresMes =
+    ADDCOLUMNS(
+        GROUPBY( _atsTodas, [Cor], "QtdAT", SUMX( CURRENTGROUP(), 1 ) ),
+        "OrdC",
+            VAR _c1 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c1 ), [OrdCor] ), 99 ),
+        "Cls",
+            VAR _c2 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c2 ), [ClsCor] ), "c-outra" ),
+        "cN",
+            VAR _c3 = [Cor]
+            RETURN SUMX( FILTER( _series, [Ent] = "C:" & _c3 && [Gran] = "M" && [Ini] = _mesIni ), [N] ),
+        "cD",
+            VAR _c4 = [Cor]
+            RETURN SUMX( FILTER( _series, [Ent] = "C:" & _c4 && [Gran] = "M" && [Ini] = _mesIni ), [D] )
+    )
+VAR _linhasCores =
+    CONCATENATEX(
+        _coresMes,
+        VAR _corH = [Cor]
+        VAR _pH = DIVIDE( [cN], [cD] )
+        VAR _tierH =
+            SWITCH( TRUE(), ISBLANK( _pH ), "tN", _pH >= _meta, "tG", _pH >= _lim90, "tY", _pH >= _lim80, "tO", "tR" )
+        VAR _noFiltroH = _ctx <> "G" && COUNTROWS( FILTER( _coresVis, [Cor] = _corH ) ) + 0 > 0
+        RETURN
+            "<div class='v' style='--w:" & FORMAT( MIN( MAX( COALESCE( _pH, 0 ), 0 ), 1 ) * 100, "0.0", "en-US" ) & "%'>" &
+            "<div class='cr " & [Cls] & " " & _tierH & IF( _noFiltroH, " sel", "" ) & "'>" &
+                "<i class='cd'></i><b class='cn'>" & _corH & "</b><small>" & [QtdAT] & IF( [QtdAT] = 1, " AT", " ATs" ) & "</small>" &
+                "<span class='bul'><u></u></span>" &
+                "<b class='cv'>" & IF( ISBLANK( _pH ), "—", FORMAT( _pH, "0.0%", _loc ) ) & "</b>" &
+                "<em class='cl'>" & IF( ISBLANK( _pH ), "", FORMAT( ( _pH - _meta ) * 100, "+0.0;-0.0;0.0", _loc ) ) & "</em>" &
+            "</div></div>",
+        "",
+        [OrdC], ASC,
+        [Cor], ASC
+    )
+VAR _heroCores =
+    "<div class='hz hc'>" &
+        "<div class='crh'><b class='kk'>Cores no mês</b><span>real</span><span title='Distância da meta, em pontos percentuais'>vs. meta</span></div>" &
+        IF( _qtdTodas = 0, "<span class='ks'>sem instalações na janela</span>", _linhasCores ) &
+    "</div>"
+
+// ============================================================================
+// 6. LINHAS DA ABERTURA (Geral, selecao, cores e ATs)
+// ============================================================================
+VAR _linhas0 =
+    UNION(
+        ROW( "Ent", "#G", "Nome", "Geral", "Tipo", "G", "CorL", "", "Sub", _qtdTodas & IF( _qtdTodas = 1, " AT", " ATs" ) ),
+        FILTER(
+            ROW( "Ent", "#S", "Nome", "Seleção", "Tipo", "S", "CorL", "", "Sub", _qtdVis & " ATs" ),
+            _ctx = "S"
+        ),
+        SELECTCOLUMNS(
+            _coresVis,
+            "Ent", "C:" & [Cor],
+            "Nome", [Cor],
+            "Tipo", "C",
+            "CorL", [Cor],
+            "Sub",
+                VAR _c5 = [Cor]
+                VAR _q5 = COUNTROWS( FILTER( _atsTodas, [Cor] = _c5 ) ) + 0
+                RETURN _q5 & IF( _q5 = 1, " AT", " ATs" )
+        ),
+        SELECTCOLUMNS(
+            _atsVis,
+            "Ent", "A:" & [AT],
+            "Nome", [AT],
+            "Tipo", "A",
+            "CorL", [Cor],
+            "Sub", ""
+        )
+    )
+// ATs em ordem de resultado no mes do filtro (melhor primeiro), dentro da cor.
+VAR _linhas =
+    ADDCOLUMNS(
+        _linhas0,
+        "OrdGrp",
+            VAR _c6 = [CorL]
+            RETURN
+                SWITCH(
+                    [Tipo],
+                    "G", 0,
+                    "S", 1,
+                    10 + COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c6 ), [OrdCor] ), 99 )
+                ),
+        "OrdTipo", IF( [Tipo] = "A", 1, 0 ),
+        "ClsL",
+            VAR _c7 = [CorL]
+            RETURN IF( _c7 = "", "", COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c7 ), [ClsCor] ), "c-outra" ) ),
+        "PM",
+            VAR _e1 = [Ent]
+            VAR _r1 = FILTER( _series, [Ent] = _e1 && [Gran] = "M" && [Ini] = _mesIni )
+            RETURN DIVIDE( SUMX( _r1, [N] ), SUMX( _r1, [D] ) )
+    )
+
+// ============================================================================
+// 7. CURVA + ABERTURA  (as 3 granularidades ficam prontas no HTML)
+// ============================================================================
+VAR _grans =
+    DATATABLE(
+        "G", STRING,
+        "OrdG", INTEGER,
+        "SufV", STRING,
+        "Uni", STRING,
+        "RotAc", STRING,
+        "DicaAc", STRING,
+        {
+            { "M", 0, "mes", "meses", "acum.", "Acumulado dos meses exibidos" },
+            { "S", 1, "sem", "semanas", "acum.", "Acumulado das semanas exibidas" },
+            { "D", 2, "dia", "dias", "mês", "Resultado do mês" }
+        }
+    )
+
+// Posicao (0, 1 ou 2) da curva que abre primeiro, e as outras duas.
+VAR _gA = SWITCH( _visaoInicial, "Semana", 1, "Dia", 2, 0 )
+VAR _gB = IF( _gA = 0, 1, 0 )
+VAR _gC = IF( _gA = 2, 1, 2 )
+
+// Resumo de uma linha no cabecalho, um por granularidade.
+VAR _insViews =
+    CONCATENATEX(
+        _grans,
+        VAR _gI = [G]
+        VAR _cI = FILTER( _serieP, [Gran] = _gI && NOT ISBLANK( [P] ) )
+        VAR _qI = COUNTROWS( _cI ) + 0
+        VAR _qMetaI = COUNTROWS( FILTER( _cI, [P] >= _meta ) ) + 0
+        VAR _melI = TOPN( 1, _cI, [P], DESC, [Ord], DESC )
+        VAR _pioI = TOPN( 1, _cI, [P], ASC, [Ord], DESC )
+        RETURN
+            "<span class='ins i-" & [SufV] & IF( [OrdG] = _gA, " ini", "" ) & "'>" &
+                IF(
+                    _qI = 0,
+                    "sem instalações no período",
+                    "<b>" & _qMetaI & " de " & _qI & "</b> " & [Uni] & " na meta" &
+                        " · melhor <b>" & FORMAT( MAXX( _melI, [P] ), "0.0%", _loc ) & "</b> " & MAXX( _melI, [RotM] ) &
+                        " · pior <b>" & FORMAT( MAXX( _pioI, [P] ), "0.0%", _loc ) & "</b> " & MAXX( _pioI, [RotM] )
+                ) &
+            "</span>",
+        "",
+        [OrdG], ASC
+    )
+
+// Medidas de referencia do grafico (px) usadas so para engrossar o traco nos
+// trechos inclinados; nao precisam ser exatas.
+VAR _refW = 600
+VAR _refH = 130
+VAR _traco = 1.1
+
+VAR _views =
+    CONCATENATEX(
+        _grans,
+        VAR _g = [G]
+        VAR _sufV = [SufV]
+        VAR _rotAc = [RotAc]
+        VAR _dicaAc = [DicaAc]
+        VAR _ordG = [OrdG]
+        VAR _dG = FILTER( _serieP, [Gran] = _g )
+        VAR _nPer = COUNTROWS( _dG ) + 0
+        VAR _ordMax = MAXX( _dG, [Ord] )
+        VAR _ordMeio = ( MINX( _dG, [Ord] ) + _ordMax ) / 2
+        VAR _comV = FILTER( _dG, NOT ISBLANK( [P] ) )
+        VAR _minV = MINX( _comV, [P] )
+        VAR _maxV = MAXX( _comV, [P] )
+
+        // -- eixo Y: nao comeca no zero (e uma curva, nao barra); passo redondo
+        VAR _lo = MIN( COALESCE( _minV, _meta ), _meta ) - 0.01
+        VAR _hi = MAX( COALESCE( _maxV, _meta ), _meta ) + 0.01
+        VAR _amp = _hi - _lo
+        VAR _passo = SWITCH( TRUE(), _amp <= 0.10, 0.02, _amp <= 0.25, 0.05, _amp <= 0.50, 0.10, 0.20 )
+        VAR _yMin = MAX( 0, ROUNDDOWN( ROUND( _lo / _passo, 6 ), 0 ) * _passo )
+        VAR _yMax = MIN( 1, ROUNDUP( ROUND( _hi / _passo, 6 ), 0 ) * _passo )
+        VAR _nPassos = ROUND( ( _yMax - _yMin ) / _passo, 0 )
+        VAR _linhasGrade =
+            CONCATENATEX(
+                GENERATESERIES( 0, _nPassos ),
+                VAR _valG = _yMin + [Value] * _passo
+                RETURN
+                    "<div class='v' style='--g:" & FORMAT( ( _yMax - _valG ) / ( _yMax - _yMin ) * 100, "0.00", "en-US" ) & "%'>" &
+                    "<i class='gl'><b>" & FORMAT( _valG, "0%", _loc ) & "</b></i></div>",
+                "",
+                [Value], ASC
+            )
+        VAR _yMeta = ( _yMax - _meta ) / ( _yMax - _yMin ) * 100
+        VAR _posLinhaMeta = FORMAT( _yMeta, "0.00", "en-US" )
+
+        // -- pontos: Y = distancia do topo, em % da altura
+        VAR _dY =
+            ADDCOLUMNS( _dG, "Y", IF( ISBLANK( [P] ), BLANK(), ( _yMax - [P] ) / ( _yMax - _yMin ) * 100 ) )
+        VAR _ultOrd = MAXX( _comV, [Ord] )
+        // O unico rotulo fixo e o do ultimo ponto, a direita dele (o melhor e o pior
+        // estao no resumo do cabecalho; os demais na dica e na linha da tabela).
+        // Se ele cair na altura do rotulo da meta, o da meta sobe ou desce.
+        VAR _yUlt = MAXX( FILTER( _dY, [Ord] = _ultOrd ), [Y] )
+        VAR _clsMeta =
+            IF(
+                _ultOrd = _ordMax && NOT ISBLANK( _yUlt ) && ABS( _yUlt - _yMeta ) < 16,
+                IF( _yUlt >= _yMeta, " up", " dw" ),
+                ""
+            )
+        VAR _meiaCol = _refW / MAX( _nPer, 1 ) / 2
+        VAR _pontos =
+            CONCATENATEX(
+                _dY,
+                VAR _o = [Ord]
+                VAR _y = [Y]
+                VAR _pv = [P]
+                VAR _futuro = [Ini] > _hoje
+                VAR _atual = [Ini] <= _hoje && [Fim] >= _hoje
+                VAR _yAnt = MAXX( FILTER( _dY, [Ord] = _o - 1 ), [Y] )
+                VAR _yPro = MAXX( FILTER( _dY, [Ord] = _o + 1 ), [Y] )
+                // o traco vai do meio do caminho ate o ponto anterior ao meio do caminho ate o proximo
+                VAR _ya = IF( ISBLANK( _yAnt ), _y, ( _y + _yAnt ) / 2 )
+                VAR _yc = IF( ISBLANK( _yPro ), _y, ( _y + _yPro ) / 2 )
+                VAR _ep = _traco * MIN( 3.5, SQRT( 1 + POWER( ( _ya - _y ) / 100 * _refH / _meiaCol, 2 ) ) )
+                VAR _eq = _traco * MIN( 3.5, SQRT( 1 + POWER( ( _yc - _y ) / 100 * _refH / _meiaCol, 2 ) ) )
+                VAR _tierP = SWITCH( TRUE(), _pv >= _meta, "tG", _pv >= _lim90, "tY", _pv >= _lim80, "tO", "tR" )
+                VAR _dica =
+                    "<span class='tip'><b>" & [RotL] & IF( _atual, " · em andamento", "" ) & "</b>" &
+                        "<span><i></i>No prazo<em>" & FORMAT( _pv, "0.0%", _loc ) & "</em></span>" &
+                        "<span>vs. meta<em class='" & IF( _pv >= _meta, "up", "dn" ) & "'>" & FORMAT( ( _pv - _meta ) * 100, "+0.0;-0.0;0.0", _loc ) & " p.p.</em></span>" &
+                        "<span>Instaladas<em>" & FORMAT( [pD], "#,0", _loc ) & "</em></span>" &
+                        "<span>No prazo<em>" & FORMAT( [pN], "#,0", _loc ) & "</em></span>" &
+                        "<span>Fora do prazo<em>" & FORMAT( [pD] - [pN], "#,0", _loc ) & "</em></span>" &
+                    "</span>"
+                RETURN
+                    IF(
+                        ISBLANK( _pv ),
+                        "<div class='pt nd" & IF( _futuro, " fu", "" ) & IF( _atual, " hj", "" ) & IF( _o > _ordMeio, " tr", "" ) & "'>" &
+                            IF( _futuro, "", "<span class='tip'><b>" & [RotL] & "</b><span>Sem instalações concluídas</span></span>" ) &
+                        "</div>",
+                        "<div class='v' style='--y:" & FORMAT( _y, "0.00", "en-US" ) & "%;--a:" & FORMAT( _ya, "0.00", "en-US" ) & "%;--c:" & FORMAT( _yc, "0.00", "en-US" ) &
+                            "%;--l:" & IF( ISBLANK( _yAnt ), "50%", "0%" ) & ";--r:" & IF( ISBLANK( _yPro ), "50%", "100%" ) &
+                            ";--p:" & FORMAT( _ep, "0.00", "en-US" ) & "px;--q:" & FORMAT( _eq, "0.00", "en-US" ) & "px'>" &
+                        "<div class='pt " & _tierP & IF( _atual, " hj", "" ) & IF( _o > _ordMeio, " tr", "" ) & "'>" &
+                            "<i class='ln'></i><u class='dot'></u>" &
+                            IF( _o = _ultOrd, "<em class='lb'>" & FORMAT( _pv, "0.0%", _loc ) & "</em>", "" ) &
+                            _dica &
+                        "</div></div>"
+                    ),
+                "",
+                [Ord], ASC
+            )
+
+        // -- eixo X (tambem e o cabecalho das colunas da abertura)
+        VAR _eixoX =
+            CONCATENATEX(
+                _dG,
+                "<span class='xl" & IF( [Fds] = 1, " we", "" ) & IF( [Ini] <= _hoje && [Fim] >= _hoje, " hj", "" ) & "'>" & [Rot] & "</span>",
+                "",
+                [Ord], ASC
+            )
+
+        // -- abertura: uma linha por Geral / selecao / cor / AT, colunas = periodos
+        VAR _linhasAbertura =
+            CONCATENATEX(
+                _linhas,
+                VAR _e = [Ent]
+                VAR _serieE = FILTER( _series, [Ent] = _e && [Gran] = _g )
+                VAR _acN = SUMX( _serieE, [N] )
+                VAR _acD = SUMX( _serieE, [D] )
+                VAR _acP = DIVIDE( _acN, _acD )
+                VAR _tierAc =
+                    SWITCH( TRUE(), ISBLANK( _acP ), "tN", _acP >= _meta, "tG", _acP >= _lim90, "tY", _acP >= _lim80, "tO", "tR" )
+                VAR _celulas =
+                    CONCATENATEX(
+                        _dG,
+                        VAR _iC = [Ini]
+                        VAR _regC = FILTER( _serieE, [Ini] = _iC )
+                        VAR _dC = SUMX( _regC, [D] )
+                        VAR _nC = SUMX( _regC, [N] )
+                        VAR _pC = DIVIDE( _nC, _dC )
+                        RETURN
+                            IF(
+                                ISBLANK( _pC ),
+                                "<i class='c z'>" & IF( _iC > _hoje, "", "·" ) & "</i>",
+                                "<i class='c " & SWITCH( TRUE(), _pC >= _meta, "tG", _pC >= _lim90, "tY", _pC >= _lim80, "tO", "tR" ) &
+                                    "' title='" & [RotL] & " · " & FORMAT( _pC, "0.0%", _loc ) & " · " & FORMAT( _nC, "#,0", _loc ) & " de " & FORMAT( _dC, "#,0", _loc ) & " no prazo'>" &
+                                    IF( _g = "D", FORMAT( _pC * 100, "0", _loc ), FORMAT( _pC * 100, "0.0", _loc ) ) & "</i>"
+                            ),
+                        "",
+                        [Ord], ASC
+                    )
+                RETURN
+                    "<div class='rw r-" & LOWER( [Tipo] ) & IF( [ClsL] = "", "", " " & [ClsL] ) & IF( _e = _entPrincipal, " pr", "" ) & "'>" &
+                        "<span class='rl'>" & IF( [Tipo] = "C" || [Tipo] = "A", "<i class='cd'></i>", "" ) & "<b>" & [Nome] & "</b>" &
+                            IF( [Sub] = "", "", "<small>" & [Sub] & "</small>" ) & "</span>" &
+                        "<div class='cs'>" & _celulas & "</div>" &
+                        "<b class='ac " & _tierAc & "'>" & IF( ISBLANK( _acP ), "—", FORMAT( _acP, "0.0%", _loc ) ) & "</b>" &
+                    "</div>",
+                "",
+                [OrdGrp], ASC,
+                [OrdTipo], ASC,
+                [PM], DESC,
+                [Nome], ASC
+            )
+
+        // -- volume da serie principal, nas mesmas colunas
+        VAR _volTotal = SUMX( _dG, [pD] )
+        VAR _linhaVolume =
+            "<div class='rw r-q'>" &
+                "<span class='rl'><b>Instaladas</b></span>" &
+                "<div class='cs'>" &
+                    CONCATENATEX(
+                        _dG,
+                        VAR _qv = [pD]
+                        RETURN
+                            "<i class='c q'>" &
+                                SWITCH(
+                                    TRUE(),
+                                    ISBLANK( _qv ), "",
+                                    _qv >= 10000, FORMAT( _qv / 1000, "0", _loc ) & "k",
+                                    _qv >= 1000, FORMAT( _qv / 1000, "0.0", _loc ) & "k",
+                                    FORMAT( _qv, "0", _loc )
+                                ) & "</i>",
+                        "",
+                        [Ord], ASC
+                    ) &
+                "</div>" &
+                "<b class='ac q'>" &
+                    SWITCH(
+                        TRUE(),
+                        ISBLANK( _volTotal ), "—",
+                        _volTotal >= 10000, FORMAT( _volTotal / 1000, "0.0", _loc ) & "k",
+                        FORMAT( _volTotal, "#,0", _loc )
+                    ) & "</b>" &
+            "</div>"
+        RETURN
+            "<div class='v' style='--m:" & _posLinhaMeta & "%'>" &
+            "<div class='view v-" & _sufV & IF( _ordG = _gA, " ini", "" ) & IF( _g = "D", " dense", "" ) & "'>" &
+                "<div class='ch'>" &
+                    "<div class='lg'>" &
+                        "<span class='tG'><i></i>na meta</span>" &
+                        "<span class='tY'><i></i>até 10% abaixo</span>" &
+                        "<span class='tO'><i></i>até 20% abaixo</span>" &
+                        "<span class='tR'><i></i>mais de 20%</span>" &
+                    "</div>" &
+                    "<div class='plot'>" & _linhasGrade & "<i class='ml" & _clsMeta & "'><b>meta " & FORMAT( _meta, "0%", _loc ) & "</b></i>" & _pontos & "</div>" &
+                "</div>" &
+                "<div class='xr'><span class='xk'>% no prazo</span><div class='xs'>" & _eixoX & "</div><span class='xa' title='" & _dicaAc & "'>" & _rotAc & "</span></div>" &
+                "<div class='mx'>" & _linhasAbertura & _linhaVolume & "</div>" &
+            "</div></div>",
+        "",
+        [OrdG], ASC
+    )
+
+// ============================================================================
+// 8. HOJE (D-0): ORDENS PENDENTES NA CARGA DO DIA ('ETA DIRECT D-0')
+// Idade = dias passados desde a abertura (uteis ou corridos, conforme
+// pesos por dia). O ultimo dia do prazo e quando a idade chega a _prazoDias.
+//   P = ja perdida (idade maior que o prazo)   H = vence hoje (idade = prazo)
+//   A = vence amanha (idade = prazo - 1)       N = no prazo
+// ============================================================================
+VAR _rotDias = "dias com peso (útil " & FORMAT( _pesoUtil, "0.##", _loc ) & " · sáb " & FORMAT( _pesoSab, "0.##", _loc ) & " · dom " & FORMAT( _pesoDom, "0.##", _loc ) & " · feriado " & FORMAT( _pesoFeriado, "0.##", _loc ) & ")"
+// Peso de hoje, de amanha e de depois de amanha (para saber quem vence quando)
+VAR _dw0 = WEEKDAY( _hojeN, 2 )
+VAR _wHoje = IF( CONTAINSROW( _feriados, _hojeN ), _pesoFeriado, IF( _dw0 = 6, _pesoSab, IF( _dw0 = 7, _pesoDom, _pesoUtil ) ) )
+VAR _dw1 = WEEKDAY( _hojeN + 1, 2 )
+VAR _wAmanha = IF( CONTAINSROW( _feriados, _hojeN + 1 ), _pesoFeriado, IF( _dw1 = 6, _pesoSab, IF( _dw1 = 7, _pesoDom, _pesoUtil ) ) )
+VAR _dw2 = WEEKDAY( _hojeN + 2, 2 )
+VAR _wDepois = IF( CONTAINSROW( _feriados, _hojeN + 2 ), _pesoFeriado, IF( _dw2 = 6, _pesoSab, IF( _dw2 = 7, _pesoDom, _pesoUtil ) ) )
+
+VAR _qCarga = COUNTROWS( _pendModelo ) + 0
+VAR _qComAbertura = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Abertura] ) ) ) + 0
+VAR _temInd = COUNTROWS( FILTER( _pendModelo, NOT ISBLANK( [Ind] ) ) ) + 0 > 0
+// _semAbertura = nem a coluna do indicador nem a de abertura estao ligadas
+VAR _semAbertura = _qCarga > 0 && _qComAbertura = 0 && NOT _temInd
+// _soInd = so a coluna do indicador esta ligada: separa perdidas x dentro, mas
+// nao consegue dizer quem vence hoje ou amanha (isso precisa da abertura)
+VAR _soInd = _qCarga > 0 && _qComAbertura = 0 && _temInd
+// so as ordens das ATs do filtro (vale mesmo sem relacionamento com a dAT)
+VAR _pend0 =
+    FILTER( _pendModelo, ( NOT ISBLANK( [Abertura] ) || NOT ISBLANK( [Ind] ) ) && CONTAINSROW( _atsCtx, [AT] ) )
+VAR _pend1 =
+    ADDCOLUMNS(
+        _pend0,
+        "CorN",
+            VAR _a0 = [AT]
+            RETURN COALESCE( MAXX( FILTER( _atsTodas, [AT] = _a0 ), [Cor] ), "" ),
+        "AbN", IF( ISBLANK( [Abertura] ), BLANK(), INT( [Abertura] ) ),
+        "Fora", IF( [Ind] = _valorFora, 1, 0 ),
+        "AgN", IF( ISBLANK( [Agenda] ), BLANK(), INT( [Agenda] ) )
+    )
+// A coluna Agenda so aparece quando informa alguma coisa: se todas as ordens
+// estao agendadas para hoje (carga D-0 pura), ela seria uma coluna de "hoje".
+VAR _qAgDiferente = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) && [AgN] <> _hojeN ) ) + 0
+VAR _qAgVazia = COUNTROWS( FILTER( _pend1, ISBLANK( [AgN] ) ) ) + 0
+VAR _qAgCheia = COUNTROWS( FILTER( _pend1, NOT ISBLANK( [AgN] ) ) ) + 0
+VAR _temAgenda = _qAgDiferente > 0 || ( _qAgVazia > 0 && _qAgCheia > 0 )
+VAR _pend2 =
+    ADDCOLUMNS(
+        _pend1,
+        // Idade = prazo consumido ate o fim de hoje: cada dia DEPOIS da criacao pesa
+        // 1 (util), 0,75 (sabado), 0,25 (domingo) ou 0,5 (feriado). Igual ao Power Query.
+        "Idade",
+            VAR _ab1 = [AbN]
+            RETURN
+                IF(
+                    ISBLANK( _ab1 ),
+                    BLANK(),
+                    SUMX(
+                        GENERATESERIES( MAX( _ab1 + 1, _hojeN - 30 ), _hojeN ),
+                        VAR _d1 = [Value]
+                        VAR _w1 = WEEKDAY( _d1, 2 )
+                        RETURN IF( CONTAINSROW( _feriados, _d1 ), _pesoFeriado, IF( _w1 = 6, _pesoSab, IF( _w1 = 7, _pesoDom, _pesoUtil ) ) )
+                    ) + 0
+                ),
+        // a data de criacao e a propria data agendada: nao ha agenda separada para comparar
+        "Vence", BLANK(),
+        "ClsC",
+            VAR _c8 = [CorN]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c8 ), [ClsCor] ), "c-outra" )
+    )
+// Risco = ainda no prazo, mas sem agenda ou com agenda para depois do vencimento.
+VAR _pend =
+    ADDCOLUMNS(
+        _pend2,
+        // a coluna do indicador manda: fora = ja perdida. Sem ela, vale a idade.
+        "Sit",
+            SWITCH(
+                TRUE(),
+                _temInd && [Fora] = 1, "P",
+                ISBLANK( [Idade] ), "N",
+                _temInd && [Idade] > _prazoDias, "N",
+                [Idade] > _prazoDias, "P",
+                [Idade] + _wAmanha > _prazoDias, "H",
+                [Idade] + _wAmanha + _wDepois > _prazoDias, "A",
+                "N"
+            ),
+        "Risco", IF( _temAgenda && NOT ISBLANK( [Idade] ) && [Idade] <= _prazoDias && ( ISBLANK( [AgN] ) || [AgN] > [Vence] ), 1, 0 )
+    )
+VAR _pendAgg = GROUPBY( _pend, [AT], [CorN], [Sit], "Q", SUMX( CURRENTGROUP(), 1 ) )
+
+VAR _qPend = COUNTROWS( _pend ) + 0
+VAR _qP = SUMX( FILTER( _pendAgg, [Sit] = "P" ), [Q] ) + 0
+VAR _qH = SUMX( FILTER( _pendAgg, [Sit] = "H" ), [Q] ) + 0
+VAR _qA = SUMX( FILTER( _pendAgg, [Sit] = "A" ), [Q] ) + 0
+VAR _qN = SUMX( FILTER( _pendAgg, [Sit] = "N" ), [Q] ) + 0
+VAR _qSemData = COUNTROWS( FILTER( _pend, ISBLANK( [Idade] ) && [Sit] = "N" ) ) + 0
+VAR _qDentro = _qPend - _qP
+VAR _pctDentro = DIVIDE( _qDentro, _qPend )
+VAR _pctFora = DIVIDE( _qP, _qPend )
+VAR _txtPctDentro = IF( ISBLANK( _pctDentro ), "", FORMAT( _pctDentro, "0.0%", _loc ) )
+VAR _txtPctFora = IF( ISBLANK( _pctFora ), "", FORMAT( _pctFora, "0.0%", _loc ) )
+VAR _tierProj =
+    SWITCH( TRUE(), ISBLANK( _pctDentro ), "tN", _pctDentro >= _meta, "tG", _pctDentro >= _lim90, "tY", _pctDentro >= _lim80, "tO", "tR" )
+VAR _qViraramHoje = COUNTROWS( FILTER( _pend, NOT ISBLANK( [Idade] ) && [Idade] > _prazoDias && [Idade] - _wHoje <= _prazoDias ) ) + 0
+VAR _qRiscoH = COUNTROWS( FILTER( _pend, [Sit] = "H" && [Risco] = 1 ) ) + 0
+VAR _qRiscoA = COUNTROWS( FILTER( _pend, [Sit] = "A" && [Risco] = 1 ) ) + 0
+
+// ---- aviso da carga ----
+VAR _defasagemCarga = IF( ISBLANK( _dataCarga ), BLANK(), _hojeN - INT( _dataCarga ) )
+VAR _chipCarga =
+    SWITCH(
+        TRUE(),
+        ISBLANK( _defasagemCarga ), "",
+        _defasagemCarga <= 0, "<span class='cg' title='A base já recebeu a carga de hoje.'><i></i>carga de hoje</span>",
+        "<span class='cg late' title='A última carga da base é de " & FORMAT( _dataCarga, "dd/MM", _loc ) & ". As ordens abaixo podem estar desatualizadas.'><i></i>carga D-" &
+            _defasagemCarga & " · " & FORMAT( _dataCarga, "dd/MM", _loc ) & "</span>"
+    )
+
+VAR _barraCarteira =
+    IF( _qP > 0, "<div class='v' style='--w:" & FORMAT( _qP, "0", "en-US" ) & "'><i class='tR'></i></div>", "" ) &
+    IF( _qH > 0, "<div class='v' style='--w:" & FORMAT( _qH, "0", "en-US" ) & "'><i class='tO'></i></div>", "" ) &
+    IF( _qA > 0, "<div class='v' style='--w:" & FORMAT( _qA, "0", "en-US" ) & "'><i class='tY'></i></div>", "" ) &
+    IF( _qN > 0, "<div class='v' style='--w:" & FORMAT( _qN, "0", "en-US" ) & "'><i class='tG'></i></div>", "" )
+
+VAR _heroHoje =
+    "<section class='hero hd'>" &
+        "<div class='dk'>" &
+            "<span class='live'><i></i>Hoje · D-0</span>" &
+            "<b>" & FORMAT( _hoje, "ddd, dd/MM", _loc ) & "</b>" &
+            "<small title='Prazo: " & _rotDias & "'>não muda com o filtro de mês</small>" &
+            _chipCarga &
+        "</div>" &
+        "<div class='ds'>" &
+            IF(
+                _semAbertura,
+                "<div class='st'><small>Na carga</small><b>" & FORMAT( _qCarga, "#,0", _loc ) & "</b><em>atividades</em></div>" &
+                "<div class='st tR'><small><i></i>Fora</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tO'><small><i></i>Vence hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tY'><small><i></i>Amanhã</small><b>—</b><em>falta a abertura</em></div>" &
+                "<div class='st tG'><small><i></i>No prazo</small><b>—</b><em>falta a abertura</em></div>",
+                IF(
+                    _soInd,
+                    "<div class='st'><small>Pendentes</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>" & FORMAT( _qDentro, "#,0", _loc ) & " dentro · " & _txtPctDentro & "</em></div>" &
+                    "<div class='st tR' title='Ordens que a coluna Indicador Instalação 3D marca como fora do indicador.'><small><i></i>Fora</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctFora & " do total</em></div>" &
+                    "<div class='st tO' title='Precisa da data em que a ordem foi gerada para separar quem vence hoje.'><small><i></i>Vence hoje</small><b>—</b><em>falta a abertura</em></div>" &
+                    "<div class='st tY' title='Precisa da data em que a ordem foi gerada para separar quem vence amanhã.'><small><i></i>Amanhã</small><b>—</b><em>falta a abertura</em></div>" &
+                    "<div class='st tG'><small><i></i>No prazo</small><b>—</b><em>falta a abertura</em></div>",
+                "<div class='st' title='Todas as ordens da carga de hoje no filtro.'><small>Volume</small><b>" & FORMAT( _qPend, "#,0", _loc ) & "</b><em>ordens em campo</em></div>" &
+                "<div class='st tG' title='Ainda dentro do prazo: se concluir hoje, conta a favor do indicador.'><small><i></i>Até " & _prazoDias & " dias</small><b>" & FORMAT( _qDentro, "#,0", _loc ) & "</b><em>dá para salvar</em></div>" &
+                "<div class='st tR' title='Já passaram do prazo: contam contra o indicador quando forem concluídas.'><small><i></i>+ de " & _prazoDias & " dias</small><b>" & FORMAT( _qP, "#,0", _loc ) & "</b><em>já fora</em></div>" &
+                "<div class='st " & _tierProj & "' title='Quanto fica o indicador desta carga se todas as ordens forem concluídas hoje: até " & _prazoDias & " dias ÷ volume.'><small><i></i>Prazo " & _prazoDias & " dias</small><b>" & IF( ISBLANK( _pctDentro ), "—", FORMAT( _pctDentro, "0.0%", _loc ) ) & "</b><em>projeção</em></div>" &
+                "<div class='st tO' title='Dentro do prazo, mas hoje é o último dia. Amanhã = último dia amanhã.'><small><i></i>Vence hoje</small><b>" & FORMAT( _qH, "#,0", _loc ) & "</b><em>amanhã: " & FORMAT( _qA, "#,0", _loc ) & "</em></div>"
+                )
+            ) &
+        "</div>" &
+        "<div class='cb' title='Composição da carteira pendente: já perdidas, vencem hoje, vencem amanhã e no prazo.'>" & _barraCarteira & "</div>" &
+    "</section>"
+
+// ---- por cor (colunas alinhadas com os 4 numeros da faixa escura) ----
+VAR _coresHoje =
+    ADDCOLUMNS(
+        _coresVis,
+        "OrdC",
+            VAR _c9 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c9 ), [OrdCor] ), 99 ),
+        "Cls",
+            VAR _c10 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c10 ), [ClsCor] ), "c-outra" )
+    )
+VAR _linhasCoresHoje =
+    CONCATENATEX(
+        _coresHoje,
+        VAR _corD = [Cor]
+        VAR _aggD = FILTER( _pendAgg, [CorN] = _corD )
+        VAR _tD = SUMX( _aggD, [Q] ) + 0
+        VAR _pD = SUMX( FILTER( _aggD, [Sit] = "P" ), [Q] ) + 0
+        VAR _hD = SUMX( FILTER( _aggD, [Sit] = "H" ), [Q] ) + 0
+        VAR _aD = SUMX( FILTER( _aggD, [Sit] = "A" ), [Q] ) + 0
+        VAR _nD = SUMX( FILTER( _aggD, [Sit] = "N" ), [Q] ) + 0
+        RETURN
+            "<div class='dr " & [Cls] & "'>" &
+                "<span class='dn'><i class='cd'></i><b>" & _corD & "</b><em>" & FORMAT( _tD, "#,0", _loc ) & "</em></span>" &
+                "<span><b>" & FORMAT( _pD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _pD, _tD ), "0%", _loc ) ) & "</small></span>" &
+                "<span><b>" & FORMAT( _hD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _hD, _tD ), "0%", _loc ) ) & "</small></span>" &
+                "<span><b>" & FORMAT( _aD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _aD, _tD ), "0%", _loc ) ) & "</small></span>" &
+                "<span><b>" & FORMAT( _nD, "#,0", _loc ) & "</b><small>" & IF( _tD = 0, "", FORMAT( DIVIDE( _nD, _tD ), "0%", _loc ) ) & "</small></span>" &
+            "</div>",
+        "",
+        [OrdC], ASC,
+        [Cor], ASC
+    )
+
+// ---- por AT: 3 linhas (perdidas, hoje, amanha) x uma coluna por AT ----
+VAR _atsHoje =
+    ADDCOLUMNS(
+        _atsVis,
+        "OrdC",
+            VAR _c11 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c11 ), [OrdCor] ), 99 ),
+        "Cls",
+            VAR _c12 = [Cor]
+            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c12 ), [ClsCor] ), "c-outra" ),
+        // primeira AT de cada cor: abre um espaco para separar os grupos
+        "Prim",
+            VAR _c13 = [Cor]
+            VAR _a13 = [AT]
+            RETURN IF( COUNTROWS( FILTER( _atsVis, [Cor] = _c13 && [AT] < _a13 ) ) + 0 = 0, 1, 0 )
+    )
+VAR _cabATs =
+    CONCATENATEX(
+        _atsHoje,
+        "<span class='" & [Cls] & IF( [Prim] = 1, " g", "" ) & "'>" & [AT] & "</span>",
+        "",
+        [OrdC], ASC,
+        [AT], ASC
+    )
+VAR _sits =
+    DATATABLE(
+        "SitG", STRING,
+        "OrdS", INTEGER,
+        "RotS", STRING,
+        "TierS", STRING,
+        {
+            { "P", 0, "Fora", "tR" },
+            { "H", 1, "Hoje", "tO" },
+            { "A", 2, "Amanhã", "tY" },
+            { "N", 3, "No prazo", "tG" }
+        }
+    )
+VAR _linhasATs =
+    CONCATENATEX(
+        _sits,
+        VAR _sG = [SitG]
+        VAR _aggS = FILTER( _pendAgg, [Sit] = _sG )
+        VAR _porAT =
+            ADDCOLUMNS(
+                _atsHoje,
+                "Qa",
+                    VAR _a14 = [AT]
+                    RETURN SUMX( FILTER( _aggS, [AT] = _a14 ), [Q] ) + 0
+            )
+        VAR _maxS = MAXX( _porAT, [Qa] )
+        RETURN
+            "<div class='ar " & [TierS] & "'><span class='al'><i></i>" & [RotS] & "</span><div class='as'>" &
+                CONCATENATEX(
+                    _porAT,
+                    VAR _rel = DIVIDE( [Qa], _maxS, 0 )
+                    RETURN
+                        "<i class='k" & SWITCH( TRUE(), [Qa] = 0, 0, _rel <= 0.25, 1, _rel <= 0.50, 2, _rel <= 0.75, 3, 4 ) & IF( [Prim] = 1, " g", "" ) & "'>" &
+                            IF( [Qa] = 0, "·", FORMAT( [Qa], "0", _loc ) ) & "</i>",
+                    "",
+                    [OrdC], ASC,
+                    [AT], ASC
+                ) &
+            "</div></div>",
+        "",
+        [OrdS], ASC
+    )
+
+// ---- lista de ordens: uma aba por situacao ----
+// Posicao das abas: 0 = Perdidas | 1 = Vencem hoje | 2 = Amanha.
+// Abre na primeira que tiver ordem, nesta prioridade: hoje, amanha, perdidas.
+VAR _lA = SWITCH( TRUE(), _qH > 0, 1, _qA > 0, 2, _qP > 0, 0, 1 )
+VAR _lB = IF( _lA = 0, 1, 0 )
+VAR _lC = IF( _lA = 2, 1, 2 )
+VAR _abas =
+    DATATABLE(
+        "SitA", STRING,
+        "PosA", INTEGER,
+        "SufA", STRING,
+        "TierA", STRING,
+        "VazioA", STRING,
+        {
+            { "P", 0, "p", "tR", "Nenhuma ordem pendente fora do prazo." },
+            { "H", 1, "h", "tO", "Nenhuma ordem vence hoje." },
+            { "A", 2, "a", "tY", "Nenhuma ordem vence amanhã." }
+        }
+    )
+VAR _listas =
+    CONCATENATEX(
+        _abas,
+        VAR _sA = [SitA]
+        VAR _todasA = FILTER( _pend, [Sit] = _sA )
+        VAR _qTodasA = COUNTROWS( _todasA ) + 0
+        // em risco primeiro; depois as mais antigas
+        VAR _topA = TOPN( _maxLinhas, _todasA, [Risco], DESC, [Abertura], ASC, [Ordem], ASC )
+        VAR _linhasA =
+            CONCATENATEX(
+                _topA,
+                VAR _agTxt =
+                    SWITCH(
+                        TRUE(),
+                        ISBLANK( [AgN] ), "sem agenda",
+                        [AgN] = _hojeN, "hoje",
+                        [AgN] = _hojeN + 1, "amanhã",
+                        FORMAT( [AgN], "dd/MM", _loc )
+                    )
+                RETURN
+                    "<div class='or" & IF( [Risco] = 1, " rk", "" ) & "'>" &
+                        "<b class='on'>" & [Ordem] & "</b>" &
+                        "<span class='op' title='Clique para selecionar o PON inteiro e copie com Ctrl+C'>" & IF( [PON] = "", "—", [PON] ) & "</span>" &
+                        "<span class='oa " & [ClsC] & "'><i class='cd'></i>" & [AT] & "</span>" &
+                        "<span class='od'>" & IF( ISBLANK( [Abertura] ), "—", FORMAT( [Abertura], "dd/MM", _loc ) ) & "</span>" &
+                        IF( ISBLANK( [Idade] ), "<span class='oi'>—</span>", "<span class='oi'>D+" & IF( [Idade] = INT( [Idade] ), FORMAT( [Idade], "0", _loc ), FORMAT( [Idade], "0.00", _loc ) ) & "</span>" ) &
+                    "</div>",
+                "",
+                [Risco], DESC,
+                [Abertura], ASC,
+                [Ordem], ASC
+            )
+        RETURN
+            "<div class='lv l-" & [SufA] & " " & [TierA] & IF( [PosA] = _lA, " ini", "" ) & "'>" &
+                IF(
+                    _qTodasA = 0,
+                    "<div class='empty'><b>" & IF( _soInd && [SitA] <> "P", "Sem a data de abertura não dá para separar", [VazioA] ) & "</b>" &
+                        IF( _soInd && [SitA] <> "P", "Ligue a linha Abertura na VAR _pendModelo para ver quem vence hoje e amanhã.", "Carteira de hoje, no filtro de cor e AT atual." ) & "</div>",
+                    _linhasA &
+                        IF(
+                            _qTodasA > _maxLinhas,
+                            "<p class='more'>Mostrando as " & _maxLinhas & " mais urgentes de " & FORMAT( _qTodasA, "#,0", _loc ) & ". Filtre a AT para ver as demais.</p>",
+                            ""
+                        )
+                ) &
+            "</div>",
+        "",
+        [PosA], ASC
+    )
+
+// ============================================================================
+// 9. BOTOES CLICAVEIS (sem JavaScript)
+// Cada grupo de 3 botoes usa 3 <details> invisiveis. As 8 combinacoes de
+// aberto/fechado sao mapeadas para as 3 visoes, e a camada clicavel de cada
+// <details> e posicionada sobre o botao da visao para onde aquele clique
+// leva. Assim qualquer visao fica sempre a 1 clique. Tabela:
+//   E1 E2 E3 = estado dos 3 <details> | Va = visao mostrada
+//   T1 T2 T3 = visao para onde o clique em cada <details> leva (9 = escondido)
+// A "visao 0" e a que aparece com tudo fechado (estado inicial).
+// ============================================================================
+VAR _estados =
+    DATATABLE(
+        "E1", INTEGER, "E2", INTEGER, "E3", INTEGER,
+        "Va", INTEGER,
+        "T1", INTEGER, "T2", INTEGER, "T3", INTEGER,
+        {
+            { 0, 0, 0, 0, 1, 2, 9 },
+            { 0, 0, 1, 0, 2, 1, 9 },
+            { 0, 1, 0, 2, 9, 0, 1 },
+            { 0, 1, 1, 1, 0, 9, 2 },
+            { 1, 0, 0, 1, 0, 2, 9 },
+            { 1, 0, 1, 2, 0, 9, 1 },
+            { 1, 1, 0, 2, 9, 1, 0 },
+            { 1, 1, 1, 0, 1, 2, 9 }
+        }
+    )
+// Pre = prefixo da classe dos <details> | Suf = sufixo das variaveis CSS
+// PA / PB / PC = posicao (0 a 2) do botao das visoes 0, 1 e 2
+VAR _grupos =
+    UNION(
+        ROW( "Pre", "b", "Suf", "g", "PA", _gA, "PB", _gB, "PC", _gC ),
+        ROW( "Pre", "c", "Suf", "l", "PA", _lA, "PB", _lB, "PC", _lC )
+    )
+VAR _cssBotoes =
+    CONCATENATEX(
+        CROSSJOIN( _grupos, _estados ),
+        VAR _posV = SWITCH( [Va], 0, [PA], 1, [PB], [PC] )
+        VAR _pos1 = IF( [T1] = 9, -9, SWITCH( [T1], 0, [PA], 1, [PB], [PC] ) )
+        VAR _pos2 = IF( [T2] = 9, -9, SWITCH( [T2], 0, [PA], 1, [PB], [PC] ) )
+        VAR _pos3 = IF( [T3] = 9, -9, SWITCH( [T3], 0, [PA], 1, [PB], [PC] ) )
+        RETURN
+            ".i3:has(." & [Pre] & "1" & IF( [E1] = 1, "[open]", ":not([open])" ) & ")" &
+                ":has(." & [Pre] & "2" & IF( [E2] = 1, "[open]", ":not([open])" ) & ")" &
+                ":has(." & [Pre] & "3" & IF( [E3] = 1, "[open]", ":not([open])" ) & ")" &
+            "{--v" & [Suf] & _posV & ":flex;--i" & [Suf] & _posV & ":block;--k" & [Suf] & _posV & ":var(--ink);--a" & [Suf] & ":" & _posV &
+            ";--p" & [Suf] & "1:" & _pos1 & ";--p" & [Suf] & "2:" & _pos2 & ";--p" & [Suf] & "3:" & _pos3 & "}",
+        "
+"
+    )
+
+VAR _botoesGran =
+    "<div class='seg sg' role='group' aria-label='Granularidade da curva'>" &
+        "<i class='thumb'></i><span class='o'>Mês</span><span class='o'>Semana</span><span class='o'>Dia</span>" &
+        "<details class='b1'><summary aria-label='Trocar a granularidade'></summary></details>" &
+        "<details class='b2'><summary aria-label='Trocar a granularidade'></summary></details>" &
+        "<details class='b3'><summary aria-label='Trocar a granularidade'></summary></details>" &
+    "</div>"
+VAR _botoesLista =
+    "<div class='seg sl' role='group' aria-label='Situação das ordens'>" &
+        "<i class='thumb'></i>" &
+        "<span class='o tR'><i></i>Fora<b>" & FORMAT( _qP, "#,0", _loc ) & "</b></span>" &
+        "<span class='o tO'><i></i>Vencem hoje<b>" & FORMAT( _qH, "#,0", _loc ) & "</b></span>" &
+        "<span class='o tY'><i></i>Amanhã<b>" & FORMAT( _qA, "#,0", _loc ) & "</b></span>" &
+        "<details class='c1'><summary aria-label='Trocar a lista'></summary></details>" &
+        "<details class='c2'><summary aria-label='Trocar a lista'></summary></details>" &
+        "<details class='c3'><summary aria-label='Trocar a lista'></summary></details>" &
+    "</div>"
+
+// Texto do botao de ajuda (?)
+VAR _ajuda =
+    "<div class='help' tabindex='0' role='note' aria-label='Como ler este painel'><span class='help-b'>?</span>" &
+        "<div class='help-pop'>" &
+            "<b>Como ler</b>" &
+            "<p><i class='k'>Indicador</i>instalações no prazo de " & _prazoDias & " dias ÷ total de instalações. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
+            "<p><i class='k'>Lado esquerdo</i>segue o filtro de mês. Os botões Mês, Semana e Dia trocam a curva e as colunas da tabela. Cada linha é uma cor ou uma AT; passe o mouse em uma célula para ver os volumes.</p>" &
+            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: ordens pendentes na carga do dia (ETA DIRECT D-0). A equipe tem " & _prazoDias & " dias a partir do dia seguinte à criação da ordem: " & _rotDias & ". Perdida = já passou do prazo; vence hoje = último dia.</p>" &
+            "<p class='help-esc'><i class='e tG'>na meta</i><i class='e tY'>até −10%</i><i class='e tO'>até −20%</i><i class='e tR'>abaixo</i></p>" &
+        "</div>" &
+    "</div>"
+
+// ============================================================================
+// CSS
+// - 100vh de proposito (o wrapper do HTML Content nao tem altura definida).
+// - Nao usar aspas duplas aqui dentro (quebram a string DAX).
+// - Nao escrever o sinal de menor aqui dentro, nem em comentario: o filtro de
+//   alguns visuais entende como tag e descarta o bloco de CSS inteiro.
+// - .v = wrapper neutro que carrega as variaveis de posicao/tamanho:
+//   --w largura da barra | --y --a --c --l --r --p --q ponto e traco da curva
+//   --g linha de grade | --m linha da meta
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.i3,.i3 *{box-sizing:border-box}
+.i3 i,.i3 u,.i3 em{font-style:normal;text-decoration:none}
+.i3 summary{list-style:none}
+.i3 summary::-webkit-details-marker{display:none}
+.v{display:contents}
+.i3{" & _tokens & ";--ink:#0B1533;--ink2:#3F4C6B;--mut:#63708B;--ln:#E1E6EF;--ln2:#EDF0F6;--sf:#FFFFFF;--sf2:#F5F7FB;
+--s:#C2CAD8;--st:#8E99AE;--sb:#F1F3F7;--c:#94A3B8;--ease:cubic-bezier(.2,.8,.2,1);
+--gl:108px;--gr:52px;
+width:100%;height:100vh;overflow:hidden;padding:4px;display:grid;grid-template-columns:minmax(0,1fr) 448px;grid-template-rows:auto minmax(0,1fr);gap:10px;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:12px;line-height:1.2;text-align:left;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- ESCALA DE STATUS ---------- */
+/* sobre fundo claro: --s cor cheia | --st texto | --sb fundo suave | --rgb para transparencias
+   (os fundos suaves do laranja e do vermelho sao um pouco mais fortes que nos outros
+   paineis: no mapa de calor cada degrau precisa se separar bem do vizinho) */
+.tG{--s:#0E9F6E;--st:#04704B;--sb:#DDF5EA;--rgb:14,159,110}.tY{--s:#E0A100;--st:#7A5600;--sb:#FFF1C7;--rgb:224,161,0}.tO{--s:#F27321;--st:#8A3404;--sb:#FFD9BC;--rgb:242,115,33}.tR{--s:#E5383B;--st:#A3161A;--sb:#FBC6C6;--rgb:229,56,59}.tN{--s:#C2CAD8;--st:#8E99AE;--sb:#F1F3F7}
+/* sobre as faixas escuras */
+.hero .tG{--s:#34D399}.hero .tY{--s:#FBBF24}.hero .tO{--s:#FB923C}.hero .tR{--s:#F87171}.hero .tN{--s:#94A3B8}
+/* cores das areas: sempre um ponto ao lado do nome, nunca a unica informacao */
+.c-geral{--c:var(--a1)}.c-ouro{--c:#E2B33C}.c-prata1{--c:#7F95B8}.c-prata2{--c:#B4C0D4}.c-bronze{--c:#C9804F}.c-outra{--c:#94A3B8}
+.cd{flex:none;display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c)}
+.up{color:#6EE7B7}.dn{color:#FCA5A5}
+
+/* =====================================================================
+   FAIXAS ESCURAS (periodo a esquerda, hoje a direita)
+   ===================================================================== */
+.hero{position:relative;min-width:0;overflow:hidden;border-radius:18px;color:#FFFFFF;
+background:radial-gradient(70% 150% at 0% 0%,var(--g2),transparent 62%),radial-gradient(60% 140% at 100% 110%,var(--g1),transparent 60%),linear-gradient(115deg,var(--d1),var(--d0));
+box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
+.hero::before{content:'';position:absolute;left:0;top:0;right:0;bottom:0;background-image:radial-gradient(rgba(255,255,255,.10) 1px,transparent 1.3px);background-size:16px 16px;opacity:.45;pointer-events:none}
+.hp{display:grid;grid-template-columns:minmax(0,290fr) minmax(0,240fr) minmax(0,258fr);padding:10px 2px}
+.hz{position:relative;z-index:1;min-width:0;padding:0 14px;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+.hz+.hz{border-left:1px solid rgba(255,255,255,.11)}
+.kk{font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--a1);white-space:nowrap}
+
+/* ---- resultado do mes ---- */
+.kv{display:flex;align-items:center;gap:10px;min-width:0}
+.kv b{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:normal;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;height:20px;padding:0 9px;border-radius:99px;font-size:10px;font-weight:700;color:var(--d0);background:var(--s);white-space:nowrap}
+.ks{overflow:hidden;text-overflow:ellipsis;font-size:10px;color:rgba(255,255,255,.70);white-space:nowrap}
+.ks b{color:#FFFFFF;font-weight:700}
+.km b{text-transform:capitalize}
+/* barra das cores: 0 a 100%, traco branco = meta */
+.bul{position:relative;height:5px;border-radius:3px;background:rgba(255,255,255,.15)}
+.bul u{position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);max-width:100%;border-radius:3px;background:var(--s);transform-origin:0 50%;animation:grow .8s var(--ease) both}
+.bul::after{content:'';position:absolute;left:" & _posMeta & "%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:#FFFFFF}
+
+/* ---- volumes do mes ---- */
+.kc{display:flex;align-items:center;gap:6px;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap}
+.kc small{overflow:hidden;text-overflow:ellipsis;font-size:9.5px;font-weight:500;color:rgba(255,255,255,.62)}
+.kp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr)}
+.kp div{min-width:0;padding-left:8px;border-left:1px solid rgba(255,255,255,.11)}
+.kp div:first-child{padding-left:0;border-left:none}
+.kp small{display:flex;align-items:center;gap:4px;overflow:hidden;font-size:7.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:rgba(255,255,255,.62);white-space:nowrap}
+.kp small i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
+.kp b{display:block;margin-top:3px;font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+.kd{overflow:hidden;text-overflow:ellipsis;font-size:10px;color:rgba(255,255,255,.72);white-space:nowrap}
+.kd b{font-weight:700}
+.kd b:not(.up):not(.dn){color:#FFFFFF}
+
+/* ---- cores ---- */
+.hc{justify-content:center;gap:3px}
+.cr{display:grid;grid-template-columns:7px 50px 32px minmax(18px,1fr) 42px 38px;align-items:center;column-gap:6px;height:16px;padding:0 4px;border-radius:5px;font-size:10.5px;white-space:nowrap}
+.cr>*{min-width:0}
+.crh{display:flex;align-items:center;gap:6px;height:13px;padding:0 4px;font-size:7.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.50);white-space:nowrap}
+.crh .kk{flex:1 1 auto}
+.crh span{flex:none;width:42px;text-align:right}
+.crh span:last-child{width:38px}
+.cn{font-weight:700;letter-spacing:.02em}
+.cr small{font-size:9px;color:rgba(255,255,255,.55)}
+.cv{text-align:right;font-weight:700}
+.cl{text-align:right;font-size:9.5px;font-weight:700;color:var(--s)}
+.cr.sel{background:rgba(255,255,255,.11);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+
+/* ---- hoje (D-0) ---- */
+.hd{display:flex;flex-direction:column;justify-content:space-between;gap:6px;padding:10px 14px}
+.dk{position:relative;z-index:1;display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.live{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--a1)}
+.live i{width:7px;height:7px;border-radius:50%;background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.22);animation:pulse 2.2s ease-in-out infinite}
+.dk b{flex:none;font-size:11.5px;font-weight:700}
+.dk small{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;color:rgba(255,255,255,.58)}
+.cg{flex:none;display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 8px;border-radius:99px;background:rgba(255,255,255,.10);font-size:9.5px;font-weight:700}
+.cg i{width:6px;height:6px;border-radius:50%;background:#34D399}
+.cg.late{background:#FBBF24;color:#3A2A00}
+.cg.late i{background:#3A2A00}
+.ds{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.st{min-width:0;padding-left:10px;border-left:1px solid rgba(255,255,255,.11)}
+.st:first-child{padding-left:0;border-left:none}
+.st small{display:flex;align-items:center;gap:4px;overflow:hidden;font-size:7.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.66);white-space:nowrap}
+.st small i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
+.st b{display:block;margin-top:2px;font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+.st em{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;color:rgba(255,255,255,.62);white-space:nowrap}
+.cb{position:relative;z-index:1;display:flex;gap:2px;height:6px}
+.cb i{flex:var(--w,0) 1 0%;min-width:3px;border-radius:3px;background:var(--s)}
+
+/* =====================================================================
+   PAINEIS
+   ===================================================================== */
+.panel{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:var(--sf);border:1px solid var(--ln);box-shadow:0 1px 2px rgba(11,21,51,.04),0 6px 16px rgba(11,21,51,.05)}
+.ph{position:relative;z-index:40;flex:none;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px 0 14px;border-bottom:1px solid var(--ln2)}
+.ph h2{flex:none;margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink);white-space:nowrap}
+.cx{flex:none;display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 8px;border-radius:99px;background:var(--pri-b);color:var(--pri);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.ins{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;color:var(--mut);white-space:nowrap}
+.ins b{color:var(--ink);font-weight:700}
+.sp{flex:1 1 auto}
+
+/* ---------- BOTOES (3 posicoes, com a tag details) ---------- */
+.seg{position:relative;flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:26px;padding:2px;overflow:hidden;border-radius:9px;background:var(--sf2);box-shadow:inset 0 0 0 1px var(--ln);--n:3}
+.sg{width:186px}
+.sl{flex:1 1 auto}
+.seg .o{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:0 6px;font-size:10.5px;font-weight:650;color:var(--mut);white-space:nowrap;pointer-events:none;transition:color .15s ease}
+.seg .o i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
+.seg .o b{font-weight:700;color:var(--ink2)}
+.thumb{position:absolute;top:2px;bottom:2px;left:calc(2px + var(--a,0) * (100% - 4px) / var(--n));width:calc((100% - 4px) / var(--n));border-radius:7px;background:var(--sf);box-shadow:0 1px 2px rgba(11,21,51,.14);transition:left .22s var(--ease)}
+.seg details{position:absolute;left:0;top:0;right:0;bottom:0;margin:0;padding:0;pointer-events:none}
+.seg summary{position:absolute;z-index:2;top:2px;bottom:2px;left:calc(2px + var(--p,-9) * (100% - 4px) / var(--n));width:calc((100% - 4px) / var(--n));display:block;border-radius:7px;cursor:pointer;outline:none;pointer-events:auto;color:transparent;font-size:0;-webkit-user-select:none;user-select:none}
+.seg summary::marker{content:''}
+.seg summary:hover{background:rgba(11,21,51,.05)}
+.seg summary:focus-visible{outline:2px solid var(--pri);outline-offset:-2px}
+.sg .thumb{--a:var(--ag)}.sl .thumb{--a:var(--al)}
+.b1 summary{--p:var(--pg1)}.b2 summary{--p:var(--pg2)}.b3 summary{--p:var(--pg3)}
+.c1 summary{--p:var(--pl1)}.c2 summary{--p:var(--pl2)}.c3 summary{--p:var(--pl3)}
+.sg .o:nth-of-type(1){color:var(--kg0,var(--mut))}.sg .o:nth-of-type(2){color:var(--kg1,var(--mut))}.sg .o:nth-of-type(3){color:var(--kg2,var(--mut))}
+.sl .o:nth-of-type(1){color:var(--kl0,var(--mut))}.sl .o:nth-of-type(2){color:var(--kl1,var(--mut))}.sl .o:nth-of-type(3){color:var(--kl2,var(--mut))}
+/* 8 combinacoes de cada grupo -> visao, botao ativo e posicao das camadas (gerado pela medida) */
+" & _cssBotoes & "
+.v-mes{display:var(--vg0,none)}.v-sem{display:var(--vg1,none)}.v-dia{display:var(--vg2,none)}
+.i-mes{display:var(--ig0,none)}.i-sem{display:var(--ig1,none)}.i-dia{display:var(--ig2,none)}
+.l-p{display:var(--vl0,none)}.l-h{display:var(--vl1,none)}.l-a{display:var(--vl2,none)}
+/* navegador sem :has(): mostra a visao inicial e esconde os botoes */
+@supports not selector(:has(a)){.view.ini,.lv.ini{display:flex}.ins.ini{display:block}.seg{display:none}}
+
+/* ajuda (?): abre com o mouse em cima ou com um clique (foco) */
+.help{position:relative;flex:none;outline:none}
+.help-b{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--ln);background:var(--sf2);color:var(--ink2);font-size:11px;font-weight:700;cursor:help;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.help:hover .help-b,.help:focus-within .help-b{background:var(--pri);border-color:var(--pri);color:#FFFFFF}
+.help-pop{position:absolute;right:0;top:29px;width:312px;padding:12px 13px 11px;border-radius:12px;background:var(--d0);color:#D5DBEA;box-shadow:0 12px 28px rgba(5,14,38,.34);font-size:10.5px;line-height:1.4;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s ease,transform .16s ease,visibility .16s}
+.help:hover .help-pop,.help:focus-within .help-pop{opacity:1;visibility:visible;transform:none}
+.help-pop b{display:block;margin-bottom:6px;color:#FFFFFF;font-size:11.5px;font-weight:700}
+.help-pop p{margin:0 0 6px}
+.help-pop .k{display:block;color:var(--a1);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.help-esc{display:flex;gap:4px;margin:9px 0 0!important}
+.help-esc .e{flex:1 1 0;height:18px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--sb);color:var(--st);font-size:9.5px;font-weight:700}
+
+/* =====================================================================
+   CURVA
+   ===================================================================== */
+.view{flex:1 1 auto;min-height:0;flex-direction:column;padding:2px 12px 7px 14px}
+.ch{flex:1 1 0;min-height:96px;display:grid;grid-template-columns:var(--gl) minmax(0,1fr) var(--gr)}
+.lg{align-self:center;display:flex;flex-direction:column;gap:4px;font-size:8px;font-weight:500;color:var(--mut);white-space:nowrap}
+.lg span{display:flex;align-items:center;gap:5px}
+.lg i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--s)}
+.plot{position:relative;min-width:0;margin:10px 0 8px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.gl{position:absolute;left:0;right:0;top:var(--g);height:0;border-top:1px solid var(--ln2);pointer-events:none}
+.gl b{position:absolute;right:calc(100% + 7px);top:-6px;font-size:9px;font-weight:500;line-height:12px;color:var(--mut)}
+.ml{position:absolute;z-index:2;left:0;right:0;top:var(--m);height:0;border-top:1.5px dashed var(--ink2);opacity:.8;pointer-events:none}
+.ml b{position:absolute;left:calc(100% + 6px);top:-7px;font-size:9px;font-weight:700;line-height:12px;color:var(--ink2);white-space:nowrap}
+.ml.up b{top:-17px}.ml.dw b{top:5px}
+.pt{position:relative;z-index:3;min-width:0}
+.pt:hover{z-index:20}
+.ln{position:absolute;left:-.5px;right:-.5px;top:0;bottom:0;background:var(--pri);pointer-events:none;
+clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p)),50% calc(var(--y) - var(--q)),var(--r) calc(var(--c) - var(--q)),var(--r) calc(var(--c) + var(--q)),50% calc(var(--y) + var(--q)),50% calc(var(--y) + var(--p)),var(--l) calc(var(--a) + var(--p)))}
+.dot{position:absolute;left:50%;top:var(--y);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--s);box-shadow:0 0 0 2px var(--sf);pointer-events:none}
+/* periodo em andamento (mes, semana ou dia de hoje): ponto vazado */
+.pt.hj .dot{background:var(--sf);box-shadow:inset 0 0 0 2.5px var(--s),0 0 0 2px var(--sf)}
+.lb{position:absolute;z-index:4;left:calc(50% + 9px);top:var(--y);transform:translateY(-50%);padding:1px 4px;border-radius:4px;background:var(--sf);box-shadow:0 1px 3px rgba(11,21,51,.16);color:var(--ink);font-size:9.5px;font-weight:700;line-height:12px;white-space:nowrap;pointer-events:none}
+.pt:hover{background:linear-gradient(180deg,rgba(51,65,85,.02),rgba(51,65,85,.07))}
+.pt.nd:not(.fu)::after{content:'';position:absolute;left:50%;bottom:-2px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#C5CCDA}
+.tip{display:none;position:absolute;z-index:30;top:6px;left:calc(50% + 12px);width:164px;padding:8px 10px;border-radius:10px;background:var(--d0);color:#FFFFFF;box-shadow:0 10px 24px rgba(5,14,38,.30);pointer-events:none}
+.pt.tr .tip{left:auto;right:calc(50% + 12px)}
+.pt:hover .tip{display:block}
+.tip b{display:block;margin-bottom:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.tip span{display:flex;align-items:center;gap:6px;padding:1.5px 0;font-size:10px;color:#C5CDDA;white-space:nowrap}
+.tip em{margin-left:auto;color:#FFFFFF;font-weight:700}
+.tip em.up{color:#6EE7B7}.tip em.dn{color:#FCA5A5}
+.tip i{width:7px;height:7px;border-radius:50%;background:var(--s)}
+
+/* ---------- EIXO X = CABECALHO DA ABERTURA ---------- */
+.xr{flex:none;display:grid;grid-template-columns:var(--gl) minmax(0,1fr) var(--gr);align-items:center;height:18px;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln2);color:var(--mut);font-size:8.5px;font-weight:600;white-space:nowrap}
+.xk,.xa{font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.xa{text-align:center;padding-left:5px}
+.xs{min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.xl{min-width:0;overflow:hidden;text-align:center}
+.xl.we{color:#B0B8C8}
+.xl.hj{color:var(--ink);font-weight:800}
+
+/* ---------- ABERTURA POR COR / AT (mapa de calor) ---------- */
+.mx{flex:0 1 auto;min-height:0;padding-top:1px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA transparent}
+.mx::-webkit-scrollbar{width:6px}
+.mx::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
+.rw{display:grid;grid-template-columns:var(--gl) minmax(0,1fr) var(--gr);align-items:stretch;height:12px;margin-top:1px;transition:opacity .15s ease}
+.rl{min-width:0;display:flex;align-items:center;gap:5px;padding-right:8px;overflow:hidden;font-size:9.5px;color:var(--ink2);white-space:nowrap}
+.rl b{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.rl small{flex:none;font-size:8px;color:var(--mut)}
+.r-g .rl b,.r-s .rl b,.r-c .rl b{font-weight:700;color:var(--ink)}
+.r-a .rl{padding-left:12px}
+.r-c,.r-q{margin-top:4px}
+.rw.pr .rl{box-shadow:inset 2px 0 0 var(--pri);padding-left:6px}
+.rw.pr.r-a .rl{padding-left:12px}
+.cs{min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);column-gap:2px}
+.dense .cs{column-gap:1px}
+.c{min-width:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:2px;background:var(--sb);color:var(--st);font-size:8.5px;font-weight:600;line-height:1;white-space:nowrap;cursor:default}
+.dense .c{font-size:8px}
+.c.z{background:transparent;color:#C5CCDA}
+.c.q{background:transparent;color:var(--mut);font-weight:500}
+.c:not(.z):not(.q):hover{box-shadow:inset 0 0 0 1px var(--st)}
+.ac{margin-left:5px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:var(--sb);color:var(--st);font-size:9px;font-weight:700;line-height:1;white-space:nowrap}
+.ac.q{background:transparent;color:var(--ink2)}
+/* mouse em uma cor da faixa escura destaca as linhas daquela cor */
+.i3:has(.hc .c-ouro:hover) :is(.r-c,.r-a):not(.c-ouro),.i3:has(.hc .c-prata1:hover) :is(.r-c,.r-a):not(.c-prata1),.i3:has(.hc .c-prata2:hover) :is(.r-c,.r-a):not(.c-prata2),.i3:has(.hc .c-bronze:hover) :is(.r-c,.r-a):not(.c-bronze){opacity:.28}
+
+/* =====================================================================
+   HOJE: POR COR, POR AT E LISTA DE ORDENS
+   ===================================================================== */
+.d0{padding:0}
+/* ---- quadro Prazo 3 dias por cor e AT ---- */
+.qh0,.qr{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,1fr)) minmax(0,1.15fr) repeat(2,minmax(0,.9fr));align-items:center;column-gap:4px;padding:0 12px 0 14px;text-align:center;white-space:nowrap}
+.qh0{flex:none;height:24px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.qh0 span{overflow:hidden;text-overflow:ellipsis}
+.qh0 span:first-child,.qn{text-align:left}
+.qt{flex:0 1 auto;min-height:60px;padding:2px 0 4px;overflow-y:auto;overflow-x:hidden;border-bottom:1px solid var(--ln2);scrollbar-width:thin;scrollbar-color:#C5CCDA transparent}
+.qt::-webkit-scrollbar{width:6px}
+.qt::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
+.qr{height:15px;font-size:9.5px;color:var(--ink2)}
+.qr>*{min-width:0}
+.qr b{font-weight:700;color:var(--ink)}
+.qn{display:flex;align-items:center;gap:5px;padding-left:12px;overflow:hidden}
+.qn b{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.qc{margin-top:3px;height:17px;background:var(--sf2);font-size:10px}
+.qc .qn{padding-left:0}
+.qc .qn b,.qc span{font-weight:700;color:var(--ink)}
+.qd{color:#04704B}
+.qf.x{color:#A3161A;font-weight:700}
+.qp{height:13px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:var(--sb);color:var(--st)!important;font-size:9.5px}
+.qh,.qa{color:var(--ink2)}
+.crs{flex:none;padding:7px 14px 6px;border-bottom:1px solid var(--ln2)}
+.dr{display:grid;grid-template-columns:minmax(0,1.55fr) repeat(4,minmax(0,1fr));align-items:center;height:18px;font-size:10.5px;white-space:nowrap}
+.dr>span{min-width:0;display:flex;align-items:baseline;gap:5px;padding-left:10px}
+.dr .dn{align-items:center;padding:0 10px 0 0}
+.dr b{font-weight:700;color:var(--ink)}
+.dr .dn b{overflow:hidden;text-overflow:ellipsis;font-size:10px;letter-spacing:.02em}
+.dr .dn em{margin-left:auto;font-weight:700;color:var(--ink)}
+.dr small{font-size:8.5px;color:var(--mut)}
+.ag{flex:none;padding:6px 14px 8px;border-bottom:1px solid var(--ln2)}
+.ar{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:stretch;height:16px;margin-top:1px}
+.ar.ah{height:17px;margin:0 0 1px}
+.al{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:600;color:var(--ink2);white-space:nowrap}
+.al i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
+.ah .al{font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.as{min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);column-gap:1px}
+.as>*{min-width:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:2px;font-size:8.5px;font-weight:700;line-height:1;white-space:nowrap}
+.as .g{margin-left:4px}
+.as>span{align-items:flex-end;padding-bottom:2px;border-radius:0;border-top:2px solid var(--c);color:var(--ink2)}
+.k0{color:#C5CCDA}
+.k1{background:rgba(var(--rgb),.13);color:var(--ink)}
+.k2{background:rgba(var(--rgb),.30);color:var(--ink)}
+.k3{background:rgba(var(--rgb),.55);color:var(--ink)}
+.k4{background:rgb(var(--rgb));color:var(--ink)}
+.tR .k4{color:#FFFFFF}
+
+.lh{flex:none;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px 0 14px}
+.lh h2{flex:none;margin:0;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.oh,.or{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) 48px 44px 50px;align-items:center;column-gap:8px;padding:0 12px 0 14px}
+.oh{flex:none;height:22px;background:var(--sf2);border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.lv{flex:1 1 120px;min-height:96px;flex-direction:column;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA var(--sf2)}
+.lv::-webkit-scrollbar{width:7px}
+.lv::-webkit-scrollbar-track{background:var(--sf2)}
+.lv::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
+.or{flex:none;height:24px;border-bottom:1px solid var(--ln2);font-size:10.5px;white-space:nowrap;transition:background .15s ease}
+.or:hover{background:var(--sf2)}
+.or,.or *{-webkit-user-select:text;user-select:text}
+/* PON: um clique seleciona o valor inteiro, pronto para Ctrl+C */
+.op{overflow:hidden;text-overflow:ellipsis;color:var(--ink2);cursor:copy;-webkit-user-select:all;user-select:all}
+.on{overflow:hidden;text-overflow:ellipsis;font-weight:650;color:var(--ink)}
+.oa{display:flex;align-items:center;gap:5px;font-weight:700;color:var(--ink)}
+.od{color:var(--ink2)}
+.oi{justify-self:start;padding:2px 6px;border-radius:5px;background:var(--sb);color:var(--st);font-size:10px;font-weight:700;line-height:1}
+.og{overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+.rk .og{color:#9A3D06;font-weight:700}
+.rk .og::before{content:'⚠ '}
+.more{flex:none;margin:0;padding:9px 14px 10px;color:var(--mut);font-size:9.5px;line-height:1.35}
+.empty{margin:auto;padding:24px 16px;text-align:center;color:var(--mut);font-size:10.5px;line-height:1.4}
+.empty b{display:block;margin-bottom:4px;color:var(--ink);font-size:12px;font-weight:700}
+
+/* ---------- ANIMACOES (so na entrada) ---------- */
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(52,211,153,.22)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.06)}}
+
+/* ---------- OUTROS TAMANHOS / ACESSIBILIDADE ---------- */
+@media (max-width:1120px){.i3{grid-template-columns:minmax(0,1fr) 404px;--gl:92px;--gr:46px}.hp{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}.hv{display:none}.ins{display:none!important}.lg{visibility:hidden}.dk small{display:none}.sg{margin-left:auto}}
+@media (max-width:900px){.i3{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.hd,.d0{display:none}}
+@media (max-height:560px){.hero{padding-top:8px;padding-bottom:8px}.kv b{font-size:30px}.ag{display:none}.rw{height:13px}}
+@media (prefers-reduced-motion:reduce){.i3 *,.i3 *::before,.i3 *::after{animation:none!important;transition:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _painelCurva =
+    "<article class='panel ev'>" &
+        "<div class='ph'>" &
+            "<h2>Evolução</h2><span class='cx " & _clsCtx & "'>" & IF( _ctx = "C" || _ctx = "A", "<i class='cd'></i>", "" ) & _nomeCtx & "</span>" &
+            IF( _qtdTodas = 0, "<span class='sp'></span>", _insViews & _botoesGran ) &
+            _ajuda &
+        "</div>" &
+        IF(
+            _qtdTodas = 0,
+            "<div class='empty'><b>Nenhuma instalação concluída na janela</b>Confira o filtro de mês e se a base de instalações está atualizada.</div>",
+            _views
+        ) &
+    "</article>"
+
+// O que dizer quando nao ha ordem para mostrar: o motivo, e nao so um vazio.
+VAR _avisoHoje =
+    SWITCH(
+        TRUE(),
+        _qCarga = 0,
+            "<b>Nenhuma atividade na carga de hoje</b>A tabela ETA DIRECT D-0 não tem linhas para o filtro atual.",
+        _semAbertura,
+            "<b>Falta ligar a coluna do indicador</b>A carga de hoje tem " & FORMAT( _qCarga, "#,0", _loc ) &
+                " atividades, mas a medida não sabe quais estão dentro do indicador. Confira a linha Ind na VAR _pendModelo.",
+        "<b>Nenhuma ordem pendente nas ATs do filtro</b>Se a carga tem ordens dessas ATs, confira se a coluna AT da ETA DIRECT D-0 usa os mesmos nomes da dAT."
+    )
+
+// ---- projecao da carga por cor e AT (o quadro "Prazo 3 dias") ----
+// Volume | Ate 3 dias (da para salvar) | Mais de 3 dias (ja fora) | Prazo 3 dias
+// = ate 3 dias / volume: quanto fica o indicador da area se concluir tudo hoje.
+// As duas ultimas colunas mostram quem vence hoje e quem vence amanha.
+VAR _tabAT =
+    ADDCOLUMNS(
+        _atsHoje,
+        "Vol", VAR _t1 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t1 ), [Q] ) + 0,
+        "ForaQ", VAR _t2 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t2 && [Sit] = "P" ), [Q] ) + 0,
+        "HojeQ", VAR _t3 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t3 && [Sit] = "H" ), [Q] ) + 0,
+        "AmaQ", VAR _t4 = [AT] RETURN SUMX( FILTER( _pendAgg, [AT] = _t4 && [Sit] = "A" ), [Q] ) + 0
+    )
+VAR _tabLinhas =
+    UNION(
+        SELECTCOLUMNS( _tabAT, "Nome", [AT], "TipoT", 1, "OrdT", [OrdC], "ClsT", [Cls], "Vol", [Vol], "ForaQ", [ForaQ], "HojeQ", [HojeQ], "AmaQ", [AmaQ] ),
+        SELECTCOLUMNS(
+            GROUPBY( _tabAT, [Cor], [OrdC], [Cls], "gV", SUMX( CURRENTGROUP(), [Vol] ), "gF", SUMX( CURRENTGROUP(), [ForaQ] ), "gH", SUMX( CURRENTGROUP(), [HojeQ] ), "gA", SUMX( CURRENTGROUP(), [AmaQ] ) ),
+            "Nome", [Cor], "TipoT", 0, "OrdT", [OrdC], "ClsT", [Cls], "Vol", [gV], "ForaQ", [gF], "HojeQ", [gH], "AmaQ", [gA]
+        )
+    )
+VAR _tabHoje =
+    CONCATENATEX(
+        _tabLinhas,
+        VAR _vT = [Vol]
+        VAR _dT = [Vol] - [ForaQ]
+        VAR _pT = DIVIDE( _dT, _vT )
+        VAR _tierT = SWITCH( TRUE(), ISBLANK( _pT ), "tN", _pT >= _meta, "tG", _pT >= _lim90, "tY", _pT >= _lim80, "tO", "tR" )
+        RETURN
+            "<div class='qr " & IF( [TipoT] = 0, "qc ", "" ) & [ClsT] & "'>" &
+                "<span class='qn'><i class='cd'></i><b>" & [Nome] & "</b></span>" &
+                "<b>" & IF( _vT = 0, "·", FORMAT( _vT, "#,0", _loc ) ) & "</b>" &
+                "<span class='qd'>" & IF( _vT = 0, "·", FORMAT( _dT, "#,0", _loc ) ) & "</span>" &
+                "<span class='qf" & IF( [ForaQ] > 0, " x", "" ) & "'>" & IF( _vT = 0, "·", FORMAT( [ForaQ], "#,0", _loc ) ) & "</span>" &
+                "<b class='qp " & _tierT & "'>" & IF( ISBLANK( _pT ), "—", FORMAT( _pT, "0.0%", _loc ) ) & "</b>" &
+                "<span class='qh'>" & IF( [HojeQ] = 0, "·", FORMAT( [HojeQ], "#,0", _loc ) ) & "</span>" &
+                "<span class='qa'>" & IF( [AmaQ] = 0, "·", FORMAT( [AmaQ], "#,0", _loc ) ) & "</span>" &
+            "</div>",
+        "",
+        [OrdT], ASC,
+        [TipoT], ASC,
+        [Nome], ASC
+    )
+
+VAR _painelHoje =
+    "<article class='panel d0" & IF( _temAgenda, "", " na" ) & "'>" &
+        IF(
+            _qPend = 0,
+            "<div class='empty'>" & _avisoHoje & "</div>",
+            "<div class='qh0'><span>Cor / AT</span><span>Volume</span><span>Até " & _prazoDias & " dias</span><span>+ de " & _prazoDias & " dias</span><span title='Até " & _prazoDias & " dias ÷ volume: o indicador da área se concluir tudo hoje'>Prazo " & _prazoDias & " dias</span><span title='Dentro do prazo, último dia hoje'>Hoje</span><span title='Último dia amanhã'>Amanhã</span></div>" &
+            "<div class='qt'>" & _tabHoje & "</div>" &
+            "<div class='lh'><h2>Ordens</h2>" & _botoesLista & "</div>" &
+            "<div class='oh'><span>Ordem</span><span title='Clique no PON para selecionar e copie com Ctrl+C'>PON (clique e copie)</span><span>AT</span><span>Venda</span><span title='Prazo consumido: " & _rotDias & "'>Idade</span></div>" &
+            _listas
+        ) &
+    "</article>"
+
+// O bloco de CSS vai DENTRO da div principal, nunca na frente dela: visuais
+// HTML que filtram o conteudo jogam fora um <style> que seja a primeira coisa
+// do texto, e o painel aparece como texto cru.
+VAR _html =
+"<div class='i3'>" &
+    _css &
+    "<section class='hero hp'>" & _heroResultado & _heroVolumes & _heroCores & "</section>" &
+    _heroHoje &
+    _painelCurva &
+    _painelHoje &
+"</div>"
+
+RETURN
+    _html
