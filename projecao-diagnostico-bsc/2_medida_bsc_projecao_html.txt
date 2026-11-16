@@ -1,0 +1,1092 @@
+BSC Projeção HTML =
+
+// ============================================================================
+// BSC - PROJECAO E DIAGNOSTICO  (v1)   |   corpo da pagina "Projeção BSC"
+// Colocar em um HTML Content ocupando o corpo da pagina. Fundo TRANSPARENTE.
+// Tamanho de referencia: 987 x 576 (o mesmo do corpo do BSC).
+//
+// PERGUNTA QUE A PAGINA RESPONDE
+//   "Se o indicador tivesse o atingimento esperado (a meta), qual seria a nota
+//   do BSC?"  Ex.: Instalacao em ate D3 vale 10 pts e hoje entrega 5,0. Na
+//   meta ele entrega os 10 -> a nota sobe 5,0.
+//
+// DOIS SELETORES NATIVOS COMANDAM A SIMULACAO (tabelas do arquivo 1)
+//   'Seletor Cenário BSC'[Cenário]
+//       "Atingimento real"             -> sem projecao: so o diagnostico
+//       "Atingimento esperado (meta)"  -> os indicadores marcados contam com
+//                                         o peso inteiro (padrao se nada for
+//                                         marcado neste seletor)
+//   'Seletor Projeção BSC'[Indicador Projeção]
+//       quais indicadores entram na projecao. Desmarcar = TIRAR o indicador:
+//       ele continua com o atingimento real. Nada marcado = todos.
+//
+// REGRAS
+//   - Pontos atuais: a mesma medida [BSC Pontos Reais] e os mesmos filtros que
+//     o corpo do BSC usa para a nota (Geral, cor ou AT). A "nota atual" daqui
+//     e a nota do velocimetro do BSC.
+//   - Ganho do indicador = peso x atingimento esperado - pontos atuais.
+//     Nunca e negativo: quem ja passou da meta mantem o que tem.
+//   - Nota projetada = nota atual + ganho dos indicadores que estao na projecao.
+//   - Visao por AT: Indisponibilidade FTTH e Movel nao entram na nota da AT
+//     (como no BSC), entao ficam fora da simulacao.
+//   - Indicador sem resultado no filtro: hoje entrega 0 ponto; na projecao
+//     entra com o peso inteiro (desmarque no seletor se nao quiser contar).
+//
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
+// (use o mesmo tema das outras medidas HTML).
+//
+// COMPATIBILIDADE COM O HTML CONTENT (nao executa JavaScript)
+//   - so HTML + CSS + SVG embutido; sem <input>/<label>/<button>;
+//   - atributo style so carrega variaveis CSS e fica em um <div class='v'>
+//     neutro; valores globais (velocimetro, guias) vao direto no <style>;
+//   - 100vh de proposito: o visual envolve o conteudo em um wrapper sem altura;
+//   - nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+
+// ------------------------------------------------------------------- PALETA
+VAR _tema = "GRAFITE"
+
+// d0/d1/d2 = fundos escuros | a1/a2 = cores de destaque | g1/g2 = brilhos
+// pri/pri-b = destaque sobre fundo claro
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--d2:#43208A;--a1:#F472B6;--a2:#A78BFA;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30);--pri:#7C3AED;--pri-b:#F3EDFF",
+        "GRAFITE",
+            "--d0:#0C1016;--d1:#161C26;--d2:#2B3442;--a1:#7DD3FC;--a2:#CBD5E1;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20);--pri:#334155;--pri-b:#EEF2F6",
+        "--d0:#050E26;--d1:#0A1A42;--d2:#123A7C;--a1:#22D3EE;--a2:#60A5FA;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30);--pri:#2563EB;--pri-b:#E9F0FF"
+    )
+
+// Escala do velocimetro: 130% = teto de pontuacao por indicador.
+VAR _tetoBarra = 1.30
+
+// ============================================================================
+// SELECAO DE COR E AT  (igual ao corpo do BSC)
+// ============================================================================
+VAR _loc = "pt-BR"
+VAR _corSelecionada =
+    SELECTEDVALUE(
+        'Seletor Cor'[COR_AREA],
+        "GERAL"
+    )
+VAR _areaSelecionada =
+    SELECTEDVALUE(
+        dAT[AREA ]
+    )
+VAR _temAreaSelecionada =
+    HASONEVALUE(
+        dAT[AREA ]
+    )
+VAR _corEhFaixa =
+    _corSelecionada = "OURO" || _corSelecionada = "BRONZE"
+        || _corSelecionada = "PRATA 1" || _corSelecionada = "PRATA 2"
+
+// cor da AT selecionada: a nota por AT so vale se a AT for da cor filtrada
+VAR _corDaAT =
+    IF(
+        _temAreaSelecionada,
+        CALCULATE(
+            SELECTEDVALUE( dAT[COR_AREA ], "GERAL" ),
+            REMOVEFILTERS( dAT[AREA ] ),
+            REMOVEFILTERS( dAT[COR_AREA ] ),
+            TREATAS( { _areaSelecionada }, dAT[AREA ] )
+        )
+    )
+VAR _atValida =
+    _temAreaSelecionada
+        && ( ( NOT _corEhFaixa ) || ( _corDaAT = _corSelecionada ) )
+
+// O que esta selecionado: AT > cor > Geral
+VAR _modo = SWITCH( TRUE(), _atValida, "AT", _corEhFaixa, "COR", "GERAL" )
+
+// ============================================================================
+// SIMULACAO: o que os dois seletores nativos pedem
+// ============================================================================
+// Texto EXATO da opcao "sem projecao" da tabela 'Seletor Cenário BSC'.
+VAR _nomeCenarioReal = "Atingimento real"
+VAR _cenarioSel =
+    SELECTEDVALUE(
+        'Seletor Cenário BSC'[Cenário],
+        "Atingimento esperado (meta)"
+    )
+VAR _simularPedido = _cenarioSel <> _nomeCenarioReal
+
+// Atingimento esperado: 1 = 100% da meta. (Com 1.30 a pagina simula o teto.)
+VAR _atingEsperado = 1
+
+// Indicadores marcados no seletor (nada marcado = todos).
+VAR _indMarcados =
+    VALUES(
+        'Seletor Projeção BSC'[Chave]
+    )
+
+// ============================================================================
+// CALCULO - INDICADORES (mesma lista do corpo do BSC + sigla para os graficos)
+// ============================================================================
+VAR _indicadores =
+    DATATABLE(
+        "Indicador", STRING,
+        "NomeTela", STRING,
+        "Sigla", STRING,
+        "Grupo", STRING,
+        "Ordem", INTEGER,
+        "AnaliticoAT", INTEGER,
+        {
+            { "1 AGENDA", "Efetividade 1ª Agenda", "AGE", "NEGÓCIO", 1, 1 },
+            { "TMR", "Tempo de Reparo", "TMR", "NEGÓCIO", 2, 1 },
+            { "CHEGADA NO SLOT", "Chegada no Slot", "SLT", "NEGÓCIO", 3, 1 },
+            { "INSTALAÇÃO 3D", "Instalação em até D3", "D3", "NEGÓCIO", 4, 1 },
+            { "PRODUTIVIDADE PU", "Produtividade PU", "PU", "NEGÓCIO", 5, 1 },
+            { "ROTEIRIZAÇÃO AUTOMÁTICA", "Roteirização Automática", "ROT", "NEGÓCIO", 6, 1 },
+            { "IRT", "IRT", "IRT", "NEGÓCIO", 7, 1 },
+            { "EFICIÊNCIA DE CAMPO", "Eficiência de Campo", "EFC", "NEGÓCIO", 8, 1 },
+            { "IFI 7 DIAS", "IFI FTTH 7 Dias", "IFI", "QUALIDADE", 9, 1 },
+            { "IRR 7 DIAS", "Repetidas FTTH 7 Dias", "IRR", "QUALIDADE", 10, 1 },
+            { "INDISPONIBILIDADE FTTH", "Indisponibilidade FTTH", "FTTH", "QUALIDADE", 11, 0 },
+            { "INDISPONIBILIDADE MÓVEL", "Indisponibilidade Móvel", "MÓV", "QUALIDADE", 12, 0 }
+        }
+    )
+
+VAR _totalPontosDisponiveis =
+    SUMX(
+        _indicadores,
+        VAR _ind = [Indicador]
+        RETURN
+            CALCULATE(
+                [BSC Pontos Disponíveis],
+                REMOVEFILTERS( 'Seletor Cor' ),
+                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+            )
+    )
+
+// ============================================================================
+// CALCULO - RESULTADO, META E PONTOS DE CADA INDICADOR NO FILTRO ATUAL
+// __ResultadoBruto, __Meta, __MenorMelhor e __PtsDisp: copiados do corpo do BSC.
+// __PtsBruto: [BSC Pontos Reais] com os filtros que o BSC usa para a nota
+//             (Geral / cor / AT). Na visao por AT, so indicadores com
+//             abertura por AT (AnaliticoAT = 1) tem pontos.
+// ============================================================================
+VAR _tabIndBase =
+    ADDCOLUMNS(
+        _indicadores,
+        "__ResultadoBruto",
+            VAR _ind = [Indicador]
+            RETURN
+                IF(
+                    [AnaliticoAT] = 1,
+                    CALCULATE(
+                        [BSC Resultado Selecionado],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        FILTER(
+                            ALL( dAT[COR_AREA ] ),
+                            _corSelecionada = "GERAL"
+                                || dAT[COR_AREA ] = _corSelecionada
+                        ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    ),
+                    CALCULATE(
+                        [BSC Resultado Selecionado],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        REMOVEFILTERS( dAT[AREA ] ),
+                        REMOVEFILTERS( dAT[COR_AREA ] ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    )
+                ),
+        "__Meta",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Meta Selecionada],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__MenorMelhor",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Menor Melhor],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PtsDisp",
+            VAR _ind = [Indicador]
+            RETURN
+                CALCULATE(
+                    [BSC Pontos Disponíveis],
+                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                ),
+        "__PtsBruto",
+            VAR _ind = [Indicador]
+            RETURN
+                SWITCH(
+                    _modo,
+                    "AT",
+                        IF(
+                            [AnaliticoAT] = 1,
+                            CALCULATE(
+                                [BSC Pontos Reais],
+                                REMOVEFILTERS( 'Seletor Cor' ),
+                                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                                REMOVEFILTERS( dAT[AREA ] ),
+                                TREATAS( { _areaSelecionada }, dAT[AREA ] ),
+                                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                            )
+                        ),
+                    "COR",
+                        CALCULATE(
+                            [BSC Pontos Reais],
+                            REMOVEFILTERS( 'Seletor Cor' ),
+                            REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                            REMOVEFILTERS( dAT[AREA ] ),
+                            REMOVEFILTERS( dAT[COR_AREA ] ),
+                            TREATAS( { _corSelecionada }, dAT[COR_AREA ] ),
+                            TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                        ),
+                    CALCULATE(
+                        [BSC Pontos Reais],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        REMOVEFILTERS( dAT[COR_AREA ] ),
+                        REMOVEFILTERS( dAT[AREA ] ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    )
+                )
+    )
+
+// -- guarda contra NaN / -nan(ind) vindo de divisao por zero na medida base
+VAR _tabIndResultado =
+    ADDCOLUMNS(
+        _tabIndBase,
+        "__Resultado",
+            VAR _bruto = [__ResultadoBruto]
+            VAR _invalido = SEARCH( "n", FORMAT( _bruto, "0.000000", "en-US" ), 1, 0 ) > 0
+            RETURN
+                IF( _invalido, BLANK(), _bruto )
+    )
+
+VAR _tabIndAting =
+    ADDCOLUMNS(
+        _tabIndResultado,
+        "__Ating",
+            VAR _res = [__Resultado]
+            VAR _meta = [__Meta]
+            RETURN
+                IF(
+                    ISBLANK( _res ) || ISBLANK( _meta ),
+                    BLANK(),
+                    IF(
+                        [Indicador] = "IFI 7 DIAS" && _res = 0,
+                        1.30,
+                        IF(
+                            [__MenorMelhor] = 1,
+                            DIVIDE( _meta, _res ),
+                            DIVIDE( _res, _meta )
+                        )
+                    )
+                )
+    )
+
+// ============================================================================
+// PROJECAO - PONTOS ATUAIS, OPORTUNIDADE E GANHO DE CADA INDICADOR
+// ============================================================================
+VAR _tabIndPts =
+    ADDCOLUMNS(
+        _tabIndAting,
+        // 1 = o indicador compoe a nota deste filtro
+        "__NaNota", IF( _modo = "AT" && [AnaliticoAT] = 0, 0, 1 ),
+        // regra do BSC: IFI 7 dias com resultado 0% recebe o teto de 130%
+        "__PtsReais",
+            IF(
+                [Indicador] = "IFI 7 DIAS" && ( NOT ISBLANK( [__Resultado] ) ) && [__Resultado] = 0,
+                [__PtsDisp] * 1.30,
+                [__PtsBruto]
+            ),
+        "__Faixa",
+            SWITCH(
+                TRUE(),
+                ISBLANK( [__Ating] ), "neutral",
+                [__Ating] >= 1, "green",
+                [__Ating] >= 0.90, "yellow",
+                [__Ating] >= 0.80, "orange",
+                "red"
+            ),
+        // 1 = esta marcado no seletor de indicadores
+        "__Marcado",
+            VAR _ind = [Indicador]
+            RETURN
+                IF( ISEMPTY( FILTER( _indMarcados, 'Seletor Projeção BSC'[Chave] = _ind ) ), 0, 1 )
+    )
+
+// Oportunidade = pontos que faltam para o indicador entregar o esperado.
+// Nao depende dos seletores (e o diagnostico).
+VAR _tabIndPot =
+    ADDCOLUMNS(
+        _tabIndPts,
+        "__Potencial",
+            VAR _p = [__PtsDisp] * _atingEsperado - COALESCE( [__PtsReais], 0 )
+            RETURN
+                IF( [__NaNota] = 1 && _p >= 0.005, _p, 0 )
+    )
+
+// Nota atual = soma dos pontos dos indicadores que compoem a nota do filtro.
+VAR _ptsAtual = SUMX( FILTER( _tabIndPot, [__NaNota] = 1 ), [__PtsReais] )
+VAR _temNota = NOT ISBLANK( _ptsAtual )
+// sem nenhum resultado no filtro nao ha o que projetar
+VAR _simular = _simularPedido && _temNota
+
+// Ganho = oportunidade que entrou na projecao (cenario esperado + marcado).
+VAR _tabIndGanho =
+    ADDCOLUMNS(
+        _tabIndPot,
+        "__Ganho", IF( _simular && [__Marcado] = 1, [__Potencial], 0 )
+    )
+VAR _ganhoSim = COALESCE( SUMX( _tabIndGanho, [__Ganho] ), 0 )
+VAR _potencialTotal = COALESCE( SUMX( _tabIndGanho, [__Potencial] ), 0 )
+VAR _ptsProj = COALESCE( _ptsAtual, 0 ) + _ganhoSim
+// teto = nota se TODOS os indicadores entregassem o esperado
+VAR _ptsTeto = COALESCE( _ptsAtual, 0 ) + _potencialTotal
+VAR _temGanho = _ganhoSim >= 0.005
+
+VAR _atingAtual = DIVIDE( _ptsAtual, _totalPontosDisponiveis )
+VAR _atingProj = IF( _temNota, DIVIDE( _ptsProj, _totalPontosDisponiveis ) )
+VAR _faixaAtual =
+    SWITCH(
+        TRUE(),
+        ISBLANK( _atingAtual ), "neutral",
+        _atingAtual >= 1, "green",
+        _atingAtual >= 0.90, "yellow",
+        _atingAtual >= 0.80, "orange",
+        "red"
+    )
+VAR _faixaProj =
+    SWITCH(
+        TRUE(),
+        ISBLANK( _atingProj ), "neutral",
+        _atingProj >= 1, "green",
+        _atingProj >= 0.90, "yellow",
+        _atingProj >= 0.80, "orange",
+        "red"
+    )
+
+// ---- escala da ponte: da nota atual (esquerda) ate a meta ou o teto ----
+VAR _d0 = COALESCE( _ptsAtual, 0 )
+VAR _d1 = MAX( _totalPontosDisponiveis, _ptsTeto )
+VAR _dom = MAX( _d1 - _d0, _totalPontosDisponiveis * 0.10 )
+
+// Estado do indicador na simulacao e chave de ordenacao da lista:
+//   sim  = esta na projecao (ordem: maior ganho primeiro)
+//   pot  = tem oportunidade, mas ficou com o atingimento real
+//   ok   = ja entrega o esperado
+//   fora = nao compoe a nota deste filtro
+VAR _tabIndChave =
+    ADDCOLUMNS(
+        _tabIndGanho,
+        "__Estado",
+            SWITCH(
+                TRUE(),
+                [__NaNota] = 0, "fora",
+                [__Ganho] > 0, "sim",
+                [__Potencial] > 0, "pot",
+                "ok"
+            ),
+        "__Chave",
+            SWITCH(
+                TRUE(),
+                [__NaNota] = 0, 4000 + [Ordem],
+                [__Ganho] > 0, 1000 - [__Ganho] + [Ordem] / 100000,
+                [__Potencial] > 0, 2000 - [__Potencial] + [Ordem] / 100000,
+                3000 + [Ordem]
+            ),
+        // posicao pelo tamanho da oportunidade (1 = maior), usada no caminho mais curto
+        "__PosPot",
+            VAR _p = [__Potencial]
+            VAR _o = [Ordem]
+            RETURN
+                IF(
+                    _p > 0,
+                    1 + COUNTROWS(
+                        FILTER(
+                            _tabIndGanho,
+                            [__Potencial] > _p
+                                || ( [__Potencial] = _p && [Ordem] < _o )
+                        )
+                    )
+                )
+    )
+
+VAR _tabInd =
+    ADDCOLUMNS(
+        _tabIndChave,
+        // nota em que a barra do indicador comeca na ponte
+        "__Ini",
+            VAR _k = [__Chave]
+            RETURN
+                SWITCH(
+                    [__Estado],
+                    "sim",
+                        _d0 + COALESCE(
+                            SUMX( FILTER( _tabIndChave, [__Estado] = "sim" && [__Chave] < _k ), [__Ganho] ),
+                            0
+                        ),
+                    "pot", _ptsProj
+                ),
+        // nota acumulada recuperando da maior oportunidade ate esta
+        "__AcumPot",
+            VAR _pp = [__PosPot]
+            RETURN
+                IF(
+                    NOT ISBLANK( _pp ),
+                    _d0 + SUMX(
+                        FILTER( _tabIndChave, ( NOT ISBLANK( [__PosPot] ) ) && [__PosPot] <= _pp ),
+                        [__Potencial]
+                    )
+                )
+    )
+
+VAR _qtdNaNota = COUNTROWS( FILTER( _tabInd, [__NaNota] = 1 ) ) + 0
+VAR _qtdOport = COUNTROWS( FILTER( _tabInd, [__Potencial] > 0 ) ) + 0
+VAR _qtdSim = COUNTROWS( FILTER( _tabInd, [__Estado] = "sim" ) ) + 0
+VAR _qtdVerde = COUNTROWS( FILTER( _tabInd, [__Faixa] = "green" ) ) + 0
+VAR _qtdAmarelo = COUNTROWS( FILTER( _tabInd, [__Faixa] = "yellow" ) ) + 0
+VAR _qtdLaranja = COUNTROWS( FILTER( _tabInd, [__Faixa] = "orange" ) ) + 0
+VAR _qtdVermelho = COUNTROWS( FILTER( _tabInd, [__Faixa] = "red" ) ) + 0
+VAR _qtdSemDados = COUNTROWS( FILTER( _tabInd, [__Faixa] = "neutral" ) ) + 0
+
+// ============================================================================
+// APRESENTACAO - FAIXA DE DESTAQUE 1/3: NOTA ATUAL x NOTA PROJETADA
+// ============================================================================
+VAR _tituloSel =
+    SWITCH( _modo, "AT", "AT " & _areaSelecionada, "COR", "BSC " & _corSelecionada, "BSC Geral" )
+VAR _faltaProj = _totalPontosDisponiveis - _ptsProj
+
+// ---- geometria do velocimetro (meio circulo), a mesma do corpo do BSC ----
+// arco principal: raio 84 -> comprimento 263,9 | arco das zonas: raio 95 -> 298,5
+VAR _arcoL = 263.9
+VAR _arcoZ = 298.5
+VAR _fracAtual = MIN( MAX( COALESCE( _atingAtual, 0 ), 0 ), _tetoBarra ) / _tetoBarra
+VAR _fracProj = MIN( MAX( COALESCE( _atingProj, 0 ), 0 ), _tetoBarra ) / _tetoBarra
+VAR _dashAtual = FORMAT( _fracAtual * _arcoL, "0.0", "en-US" )
+VAR _dashProj = FORMAT( _fracProj * _arcoL, "0.0", "en-US" )
+VAR _angMeta = FORMAT( 180 / _tetoBarra, "0.0", "en-US" )
+VAR _z80 = 0.80 / _tetoBarra * _arcoZ
+VAR _z90 = 0.90 / _tetoBarra * _arcoZ
+VAR _z100 = 1 / _tetoBarra * _arcoZ
+VAR _dashZ1 = FORMAT( _z80 - 2, "0.0", "en-US" ) & " 600"
+VAR _dashZ2 = "0 " & FORMAT( _z80, "0.0", "en-US" ) & " " & FORMAT( _z90 - _z80 - 2, "0.0", "en-US" ) & " 600"
+VAR _dashZ3 = "0 " & FORMAT( _z90, "0.0", "en-US" ) & " " & FORMAT( _z100 - _z90 - 2, "0.0", "en-US" ) & " 600"
+VAR _dashZ4 = "0 " & FORMAT( _z100, "0.0", "en-US" ) & " " & FORMAT( _arcoZ - _z100, "0.0", "en-US" ) & " 600"
+
+VAR _heroNota =
+    "<div class='hz gz d-" & _faixaProj & "'>" &
+        "<div class='gauge' title='" & _tituloSel & ": nota atual " & FORMAT( _ptsAtual, "0.00", _loc ) & " de " & FORMAT( _totalPontosDisponiveis, "0", _loc ) &
+            " pts (" & FORMAT( _atingAtual, "0.0%", _loc ) & ")" &
+            IF( _temGanho, " · projetada " & FORMAT( _ptsProj, "0.00", _loc ) & " pts (" & FORMAT( _atingProj, "0.0%", _loc ) & ")", "" ) &
+            ". Arco cheio = nota atual; arco claro = nota projetada; traço branco = meta de 100%.'>" &
+            "<svg viewBox='0 0 200 112' aria-hidden='true'>" &
+                "<path class='g-z g-z1' d='M5 100A95 95 0 0 1 195 100'></path>" &
+                "<path class='g-z g-z2' d='M5 100A95 95 0 0 1 195 100'></path>" &
+                "<path class='g-z g-z3' d='M5 100A95 95 0 0 1 195 100'></path>" &
+                "<path class='g-z g-z4' d='M5 100A95 95 0 0 1 195 100'></path>" &
+                "<path class='g-t' d='M16 100A84 84 0 0 1 184 100'></path>" &
+                IF( _temGanho, "<path class='g-p' d='M16 100A84 84 0 0 1 184 100'></path>", "" ) &
+                IF( _fracAtual > 0, "<path class='g-f d-" & _faixaAtual & "' d='M16 100A84 84 0 0 1 184 100'></path>", "" ) &
+                "<path class='g-m' d='M6 100h20'></path>" &
+            "</svg>" &
+            "<div class='g-v'><b>" & IF( _temNota, FORMAT( _ptsProj, "0.00", _loc ), "—" ) & "</b>" &
+                "<small>" & IF( _temGanho, "projetada", "atual" ) & " · de " & FORMAT( _totalPontosDisponiveis, "0", _loc ) & " pts</small></div>" &
+        "</div>" &
+        "<div class='gt'>" &
+            "<span class='gt-e'>" & _tituloSel & "</span>" &
+            IF(
+                NOT _temNota,
+                "<span class='chip'>sem pontuação neste filtro</span>",
+                "<span class='gt-s'>nota atual <b>" & FORMAT( _ptsAtual, "0.00", _loc ) & "</b> · " & FORMAT( _atingAtual, "0.0%", _loc ) & "</span>" &
+                "<span class='chip'>" &
+                    SWITCH(
+                        TRUE(),
+                        _temGanho, "▲ +" & FORMAT( _ganhoSim, "0.00", _loc ) & " pts na projeção",
+                        _simular, "sem ganho nos indicadores marcados",
+                        "cenário real · sem projeção"
+                    ) & "</span>" &
+                "<span class='gt-l'><b>" & FORMAT( _atingProj, "0.0%", _loc ) & "</b> da meta · <b>" & FORMAT( ABS( _faltaProj ), "0.00", _loc ) & "</b> " &
+                    IF( _faltaProj > 0, "abaixo", "acima" ) & "</span>" &
+                "<span class='gt-l'>" &
+                    IF(
+                        _simular,
+                        "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b> de " & FORMAT( _qtdNaNota, "0", _loc ) & " levados à meta",
+                        "potencial: <b>+" & FORMAT( _potencialTotal, "0.00", _loc ) & " pts</b>"
+                    ) & "</span>"
+            ) &
+        "</div>" &
+    "</div>"
+
+// ============================================================================
+// APRESENTACAO - FAIXA DE DESTAQUE 2/3: ONDE ESTAO OS PONTOS PERDIDOS
+// Uma barra: cada pedaco e um indicador abaixo do esperado, do maior para o
+// menor. Pedaco aceso = esta na projecao; apagado = ficou de fora.
+// ============================================================================
+VAR _segmentos =
+    CONCATENATEX(
+        FILTER( _tabInd, [__Potencial] > 0 ),
+        VAR _part = DIVIDE( [__Potencial], _potencialTotal )
+        RETURN
+            "<div class='v' style='--f:" & FORMAT( [__Potencial], "0.00", "en-US" ) & "'>" &
+            "<i class='sg m-" & [__Faixa] & " i" & FORMAT( [Ordem], "0", "en-US" ) & IF( [__Estado] = "sim" || ( NOT _simular ), " on", "" ) & "'" &
+                " title='" & [NomeTela] & ": " & FORMAT( [__Potencial], "0.00", _loc ) & " pts abaixo do esperado (" & FORMAT( _part, "0%", _loc ) & " da perda) · " &
+                IF( [__Estado] = "sim", "está na projeção", IF( _simular, "fora da projeção", "cenário real" ) ) & "'>" &
+                IF( _part >= 0.085, [Sigla], "" ) & "</i></div>",
+        "",
+        [__Potencial], DESC,
+        [Ordem], ASC
+    )
+VAR _top3 = TOPN( 3, FILTER( _tabInd, [__Potencial] > 0 ), [__Potencial], DESC, [Ordem], ASC )
+VAR _partTop3 = DIVIDE( SUMX( _top3, [__Potencial] ), _potencialTotal )
+VAR _nomesTop3 = CONCATENATEX( _top3, [Sigla], " + ", [__Potencial], DESC, [Ordem], ASC )
+VAR _leituraPerda =
+    SWITCH(
+        TRUE(),
+        _qtdOport = 0, "nenhum indicador abaixo do esperado",
+        _qtdOport <= 3, "toda a perda está em <b>" & _nomesTop3 & "</b>",
+        "<b>" & _nomesTop3 & "</b> somam <b>" & FORMAT( _partTop3, "0%", _loc ) & "</b> da perda"
+    )
+VAR _heroPerda =
+    "<div class='hz'>" &
+        "<div class='hz-t'><span>Onde está a perda</span><span>" & IF( _temNota, "<b>" & FORMAT( _potencialTotal, "0.00", _loc ) & " pts</b>", "" ) & "</span></div>" &
+        SWITCH(
+            TRUE(),
+            NOT _temNota, "<div class='ls-0'>Sem pontuação neste filtro.</div>",
+            _qtdOport = 0, "<div class='ls-0'>Todos os indicadores entregam o esperado.</div>",
+            "<div class='ls'>" & _segmentos & "</div>" &
+            "<div class='ls-n'>" & _leituraPerda & "</div>" &
+            "<div class='ls-r'>" &
+                IF(
+                    _simular,
+                    "recuperado: <b>" & FORMAT( _ganhoSim, "0.00", _loc ) & " pts</b> · <b>" & FORMAT( DIVIDE( _ganhoSim, _potencialTotal ), "0%", _loc ) & "</b> da perda",
+                    "cenário real · potencial de <b>+" & FORMAT( _potencialTotal, "0.00", _loc ) & " pts</b>"
+                ) & "</div>"
+        ) &
+        "<div class='mos-l'>" &
+            "<span title='Indicadores com atingimento de 100% ou mais'><i class='mz m-green'></i>" & FORMAT( _qtdVerde, "0", _loc ) & "</span>" &
+            "<span title='Indicadores entre 90% e 100%'><i class='mz m-yellow'></i>" & FORMAT( _qtdAmarelo, "0", _loc ) & "</span>" &
+            "<span title='Indicadores entre 80% e 90%'><i class='mz m-orange'></i>" & FORMAT( _qtdLaranja, "0", _loc ) & "</span>" &
+            "<span title='Indicadores abaixo de 80%'><i class='mz m-red'></i>" & FORMAT( _qtdVermelho, "0", _loc ) & "</span>" &
+            "<span title='Indicadores sem resultado ou sem meta neste filtro'><i class='mz m-neutral'></i>" & FORMAT( _qtdSemDados, "0", _loc ) & "</span>" &
+        "</div>" &
+    "</div>"
+
+// ============================================================================
+// APRESENTACAO - FAIXA DE DESTAQUE 3/3: CAMINHO ATE CADA FAIXA
+// Para 80%, 90% e 100%: a projecao chega la? E, saindo da nota real, quantos
+// indicadores (do maior ganho para o menor) bastam para chegar.
+// ============================================================================
+VAR _limiares =
+    DATATABLE(
+        "Lim", DOUBLE,
+        "Classe", STRING,
+        {
+            { 0.80, "orange" },
+            { 0.90, "yellow" },
+            { 1.00, "green" }
+        }
+    )
+VAR _linhasFaixas =
+    CONCATENATEX(
+        _limiares,
+        VAR _alvo = [Lim] * _totalPontosDisponiveis
+        VAR _jaReal = _d0 >= _alvo - 0.0001
+        VAR _naProj = _ptsProj >= _alvo - 0.0001
+        // menor quantidade de indicadores (maiores oportunidades primeiro) que alcanca o alvo
+        VAR _n = MINX( FILTER( _tabInd, ( NOT ISBLANK( [__AcumPot] ) ) && [__AcumPot] >= _alvo - 0.0001 ), [__PosPot] )
+        VAR _siglas =
+            CONCATENATEX( FILTER( _tabInd, ( NOT ISBLANK( [__PosPot] ) ) && [__PosPot] <= _n ), [Sigla], " · ", [__PosPot], ASC )
+        VAR _siglaPrimeira = CONCATENATEX( FILTER( _tabInd, [__PosPot] = 1 ), [Sigla], "" )
+        VAR _siglaUltima = CONCATENATEX( FILTER( _tabInd, [__PosPot] = _n ), [Sigla], "" )
+        VAR _nomes =
+            CONCATENATEX( FILTER( _tabInd, ( NOT ISBLANK( [__PosPot] ) ) && [__PosPot] <= _n ), [NomeTela], ", ", [__PosPot], ASC )
+        VAR _notaCaminho = MAXX( FILTER( _tabInd, [__PosPot] = _n ), [__AcumPot] )
+        VAR _rotulo = FORMAT( [Lim], "0%", _loc )
+        VAR _situacao =
+            SWITCH(
+                TRUE(),
+                _jaReal, "✓ já alcançada",
+                _naProj, "✓ na projeção",
+                "faltam " & FORMAT( _alvo - _ptsProj, "0.00", _loc ) & " pts"
+            )
+        VAR _caminho =
+            SWITCH(
+                TRUE(),
+                _jaReal, "nota real já passou",
+                ISBLANK( _n ), "fora do alcance · teto " & FORMAT( _ptsTeto, "0.0", _loc ),
+                _n = 1, "basta <b>" & _siglas & "</b>",
+                _n <= 3, "<b>" & FORMAT( _n, "0", _loc ) & " maiores</b>: " & _siglas,
+                _n = _qtdOport, "todos os <b>" & FORMAT( _n, "0", _loc ) & "</b> abaixo da meta",
+                "<b>" & FORMAT( _n, "0", _loc ) & " maiores</b>: " & _siglaPrimeira & " até " & _siglaUltima
+            )
+        VAR _dica =
+            SWITCH(
+                TRUE(),
+                _jaReal, "A nota real (" & FORMAT( _d0, "0.00", _loc ) & ") já está em " & _rotulo & " ou acima.",
+                ISBLANK( _n ), "Mesmo com todos os indicadores na meta a nota chega a " & FORMAT( _ptsTeto, "0.00", _loc ) & ", abaixo de " & _rotulo & ".",
+                "Caminho mais curto até " & _rotulo & ", saindo da nota real: levar à meta " & _nomes & ". A nota vai a " & FORMAT( _notaCaminho, "0.00", _loc ) & "."
+            )
+        RETURN
+            "<div class='fa d-" & [Classe] & IF( _jaReal || _naProj, " ok", "" ) & "' title='" & _dica & "'>" &
+                "<b class='fa-t'>" & _rotulo & "</b>" &
+                "<span class='fa-s'>" & _situacao & "</span>" &
+                "<span class='fa-c'>" & _caminho & "</span>" &
+            "</div>",
+        "",
+        [Lim], ASC
+    )
+VAR _heroFaixas =
+    "<div class='hz'>" &
+        "<div class='hz-t'><span>Caminho até cada faixa</span><span>saindo da nota real</span></div>" &
+        IF( _temNota, _linhasFaixas, "<div class='ls-0'>Sem pontuação neste filtro.</div>" ) &
+    "</div>"
+
+// ============================================================================
+// APRESENTACAO - LISTA DE OPORTUNIDADES + PONTE DA NOTA
+// A ponte comeca na nota atual (borda esquerda). Cada barra cheia soma o
+// ganho de um indicador da projecao; a barra tracejada mostra a oportunidade
+// de quem ficou de fora, a partir da nota projetada.
+// ============================================================================
+// guias verticais da ponte: 80%, 90% e 100% do total de pontos
+VAR _g80 = DIVIDE( 0.80 * _totalPontosDisponiveis - _d0, _dom ) * 100
+VAR _g90 = DIVIDE( 0.90 * _totalPontosDisponiveis - _d0, _dom ) * 100
+VAR _g100 = DIVIDE( _totalPontosDisponiveis - _d0, _dom ) * 100
+VAR _vis80 = _temNota && _g80 > 1 && _g80 <= 100
+VAR _vis90 = _temNota && _g90 > 1 && _g90 <= 100
+VAR _vis100 = _temNota && _g100 > 1 && _g100 <= 100
+VAR _posG80 = IF( _vis80, FORMAT( _g80, "0.0", "en-US" ) & "%", "-9px" )
+VAR _posG90 = IF( _vis90, FORMAT( _g90, "0.0", "en-US" ) & "%", "-9px" )
+VAR _posG100 = IF( _vis100, FORMAT( _g100, "0.0", "en-US" ) & "%", "-9px" )
+// rotulos do eixo: "atual" so entra se a primeira guia estiver longe da borda;
+// o de 90% sai quando encosta no da meta; o da meta alinha a direita na borda
+VAR _primeiraGuia = SWITCH( TRUE(), _vis80, _g80, _vis90, _g90, _vis100, _g100, 100 )
+VAR _passoGuia = DIVIDE( 0.10 * _totalPontosDisponiveis, _dom ) * 100
+VAR _eixo =
+    "<span class='ax'>" &
+        IF( _temNota && _primeiraGuia > 30, "<i class='ax-a'>atual " & FORMAT( _d0, "0.0", _loc ) & "</i>", "" ) &
+        IF( _vis80, "<i class='ax-g g80'>80%</i>", "" ) &
+        IF( _vis90 && ( ( NOT _vis100 ) || _passoGuia >= 16 ), "<i class='ax-g g90'>90%</i>", "" ) &
+        IF( _vis100, "<i class='ax-g g100" & IF( _g100 > 93, " ax-r", "" ) & "'>meta</i>", "" ) &
+    "</span>"
+
+VAR _linhas =
+    CONCATENATEX(
+        _tabInd,
+        // ---- formatacao de meta/real: a mesma do corpo do BSC ----
+        VAR _ind = [Indicador]
+        VAR _res = [__Resultado]
+        VAR _meta = [__Meta]
+        VAR _ating = [__Ating]
+        VAR _faixa = [__Faixa]
+        VAR _estado = [__Estado]
+        VAR _semDados = ISBLANK( _ating )
+        VAR _ehTMR = _ind = "TMR"
+        VAR _ehQtd = _ind = "PRODUTIVIDADE PU"
+
+        // TMR e armazenado em horas decimais -> hh:mm:ss
+        VAR _sRes = ROUND( _res * 3600, 0 )
+        VAR _tmrRes =
+            FORMAT( INT( _sRes / 3600 ), "00" ) & ":" &
+            FORMAT( INT( MOD( _sRes, 3600 ) / 60 ), "00" ) & ":" &
+            FORMAT( MOD( _sRes, 60 ), "00" )
+        VAR _sMeta = ROUND( _meta * 3600, 0 )
+        VAR _tmrMeta =
+            FORMAT( INT( _sMeta / 3600 ), "00" ) & ":" &
+            FORMAT( INT( MOD( _sMeta, 3600 ) / 60 ), "00" ) & ":" &
+            FORMAT( MOD( _sMeta, 60 ), "00" )
+        VAR _fmtRes =
+            IF(
+                ISBLANK( _res ),
+                "—",
+                SWITCH(
+                    TRUE(),
+                    _ehTMR, _tmrRes,
+                    _ehQtd, FORMAT( _res, "0.0", _loc ),
+                    FORMAT( _res, "0.0%", _loc )
+                )
+            )
+        VAR _fmtMeta =
+            IF(
+                ISBLANK( _meta ),
+                "—",
+                SWITCH(
+                    TRUE(),
+                    _ehTMR, _tmrMeta,
+                    _ehQtd, FORMAT( _meta, "0.0", _loc ),
+                    FORMAT( _meta, "0.0%", _loc )
+                )
+            )
+        VAR _sinalMeta = IF( [__MenorMelhor] = 1, "≤", "≥" )
+
+        // ---- quanto o resultado precisa andar para bater a meta ----
+        // seta para cima = precisa subir; para baixo = precisa cair
+        VAR _dif = IF( [__MenorMelhor] = 1, _res - _meta, _meta - _res )
+        VAR _seta = IF( [__MenorMelhor] = 1, "↓ ", "↑ " )
+        VAR _sDif = ROUND( ABS( _dif ) * 3600, 0 )
+        VAR _tmrDif =
+            FORMAT( INT( _sDif / 3600 ), "0" ) & ":" &
+            FORMAT( INT( MOD( _sDif, 3600 ) / 60 ), "00" ) & ":" &
+            FORMAT( MOD( _sDif, 60 ), "00" )
+        VAR _fmtFalta =
+            SWITCH(
+                TRUE(),
+                _semDados, "—",
+                _dif <= 0, "✓ na meta",
+                _ehTMR, _seta & _tmrDif,
+                _ehQtd, _seta & FORMAT( _dif, IF( _dif < 0.095, "0.00", "0.0" ), _loc ),
+                _seta & FORMAT( _dif * 100, IF( _dif < 0.00095, "0.00", "0.0" ), _loc ) & " p.p."
+            )
+
+        // ---- pontos, ganho e ponte ----
+        VAR _pts = [__PtsReais]
+        VAR _pot = [__Potencial]
+        VAR _len = IF( _estado = "sim", [__Ganho], IF( _estado = "pot", _pot, 0 ) )
+        VAR _fim = [__Ini] + _len
+        VAR _x = IF( _len > 0, DIVIDE( [__Ini] - _d0, _dom ) * 100, 0 )
+        VAR _w = DIVIDE( _len, _dom ) * 100
+        // rotulo vai para a esquerda da barra quando ela encosta na borda direita
+        VAR _virar = ( _x + _w ) > 86
+        VAR _fmtAting = IF( _semDados, "s/ dados", FORMAT( _ating, "0%", _loc ) )
+        VAR _pilula =
+            SWITCH(
+                _estado,
+                "sim", "meta · " & FORMAT( _atingEsperado, "0%", _loc ),
+                "fora", "fora da nota",
+                "real · " & _fmtAting
+            )
+        VAR _base =
+            [NomeTela] & ": " &
+                IF(
+                    _semDados,
+                    "sem resultado ou sem meta neste filtro",
+                    "real " & _fmtRes & " · meta " & _sinalMeta & " " & _fmtMeta & " · atingimento " & FORMAT( _ating, "0.0%", _loc )
+                ) &
+                " · " & FORMAT( COALESCE( _pts, 0 ), "0.00", _loc ) & " de " & FORMAT( [__PtsDisp], "0", _loc ) & " pts. "
+        VAR _dica =
+            SWITCH(
+                _estado,
+                "sim",
+                    _base & "Na projeção: com o atingimento esperado soma +" & FORMAT( [__Ganho], "0.00", _loc ) &
+                        " e a nota acumulada chega a " & FORMAT( _fim, "0.00", _loc ) & ". Sozinho levaria a nota de " &
+                        FORMAT( _d0, "0.00", _loc ) & " para " & FORMAT( _d0 + _pot, "0.00", _loc ) & ".",
+                "pot",
+                    _base & "Fora da projeção (" & IF( _simular, "desmarcado no seletor de indicadores", "cenário real" ) &
+                        "): fica com o atingimento real. Se entrasse, somaria +" & FORMAT( _pot, "0.00", _loc ) &
+                        " e a nota iria a " & FORMAT( _fim, "0.00", _loc ) & ".",
+                "fora",
+                    [NomeTela] & ": indicador consolidado, sem abertura por AT. Não compõe a nota da AT e fica fora da simulação.",
+                _base & "Já entrega o esperado: não há ganho a projetar."
+            )
+        RETURN
+            "<div class='v' style='--x:" & FORMAT( _x, "0.00", "en-US" ) & "%;--w:" & FORMAT( _w, "0.00", "en-US" ) & "%'>" &
+            "<div class='row " & _faixa & " s-" & _estado & " i" & FORMAT( [Ordem], "0", "en-US" ) & "' title='" & _dica & "'>" &
+                "<div class='c-nm'><i class='st'></i><span class='nm'>" & [NomeTela] & "</span>" &
+                    IF( [AnaliticoAT] = 0, "<span class='tag'>consol.</span>", "" ) & "</div>" &
+                "<div class='n real'>" & _fmtRes & "</div>" &
+                "<div class='n'>" & IF( ISBLANK( _meta ), "—", "<i>" & _sinalMeta & "</i>" & _fmtMeta ) & "</div>" &
+                "<div class='n fal'>" & _fmtFalta & "</div>" &
+                "<div class='n'><b class='pc'>" &
+                    IF( _semDados, "s/ dados", IF( _ating >= 1, "▲ ", "▼ " ) & FORMAT( _ating, "0.0%", _loc ) ) & "</b></div>" &
+                "<div class='n pts'><b>" & IF( ISBLANK( _pts ), "—", FORMAT( _pts, "0.0", _loc ) ) & "</b><small>/" & FORMAT( [__PtsDisp], "0", _loc ) & "</small></div>" &
+                "<div class='n gn" & IF( _pot > 0, "", " z" ) & "'>" & IF( _pot > 0, "+" & FORMAT( _pot, IF( _pot < 0.05, "0.00", "0.0" ), _loc ), "—" ) & "</div>" &
+                "<div class='br'>" &
+                    IF( _len > 0, "<u></u><em" & IF( _virar, " class='fl'", "" ) & ">" & FORMAT( _fim, "0.0", _loc ) & "</em>", "" ) &
+                "</div>" &
+                "<div class='n so'>" & IF( _pot > 0, FORMAT( _d0 + _pot, "0.0", _loc ), "—" ) & "</div>" &
+                "<div class='pw'><span class='pl'>" & _pilula & "</span></div>" &
+            "</div></div>",
+        "",
+        [__Chave], ASC
+    )
+
+// ---- linha de total: nota projetada ----
+VAR _wTot = DIVIDE( _ptsProj - _d0, _dom ) * 100
+VAR _linhaTotal =
+    "<div class='v' style='--x:0%;--w:" & FORMAT( _wTot, "0.00", "en-US" ) & "%'>" &
+    "<div class='row tot " & _faixaProj & "' title='Nota projetada = nota atual " & FORMAT( _ptsAtual, "0.00", _loc ) & " + ganho " & FORMAT( _ganhoSim, "0.00", _loc ) &
+        " dos " & FORMAT( _qtdSim, "0", _loc ) & " indicadores que estão na projeção.'>" &
+        "<div class='c-nm'><i class='st'></i><span class='nm'>" & IF( _temGanho, "Nota projetada", "Nota atual" ) & "</span></div>" &
+        "<div class='n at3'>" &
+            SWITCH(
+                TRUE(),
+                NOT _temNota, "sem pontuação neste filtro",
+                _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador levado à meta", " indicadores levados à meta" ),
+                _simular, "nenhum ganho nos indicadores marcados",
+                "cenário real · sem projeção"
+            ) & "</div>" &
+        "<div class='n'><b class='pc'>" & IF( _temNota, IF( _atingProj >= 1, "▲ ", "▼ " ) & FORMAT( _atingProj, "0.0%", _loc ), "—" ) & "</b></div>" &
+        "<div class='n pts' title='Nota atual'><b>" & IF( _temNota, FORMAT( _ptsAtual, "0.0", _loc ), "—" ) & "</b></div>" &
+        "<div class='n gn" & IF( _temGanho, "", " z" ) & "'>" & IF( _temGanho, "+" & FORMAT( _ganhoSim, "0.0", _loc ), "—" ) & "</div>" &
+        "<div class='br'>" & IF( _temNota, "<u></u><em" & IF( _wTot > 78, " class='fl'", "" ) & ">" & FORMAT( _ptsProj, "0.00", _loc ) & "</em>", "" ) & "</div>" &
+        "<div class='n so'></div>" &
+        "<div class='pw'></div>" &
+    "</div></div>"
+
+// Maior oportunidade (resumo do cabecalho)
+VAR _topOport = TOPN( 1, FILTER( _tabInd, [__Potencial] > 0 ), [__Potencial], DESC, [Ordem], ASC )
+VAR _resumoTabela =
+    IF(
+        _qtdOport > 0,
+        "maior oportunidade: <b>" & CONCATENATEX( _topOport, [NomeTela], ", " ) & "</b> (+" & FORMAT( MAXX( _topOport, [__Potencial] ), "0.0", _loc ) & " pts)",
+        IF( _temNota, "nenhum indicador abaixo do esperado", "sem resultado neste filtro" )
+    )
+VAR _contexto = _corSelecionada & IF( _modo = "AT", " · AT " & _areaSelecionada, "" )
+VAR _chipCenario = IF( _simular, "esperado · meta " & FORMAT( _atingEsperado, "0%", _loc ), "real · sem projeção" )
+
+// Texto do botao de ajuda (?)
+VAR _ajuda =
+    "<div class='help' tabindex='0' role='note' aria-label='Como ler este painel'><span class='help-b'>?</span>" &
+        "<div class='help-pop'>" &
+            "<b>Como ler</b>" &
+            "<p><i class='k'>Ganho</i>peso × atingimento esperado − pontos atuais. É o quanto o indicador devolve à nota se bater a meta.</p>" &
+            "<p><i class='k'>Ponte</i>começa na nota atual. Barra cheia: o indicador está na projeção e o número é a nota acumulada. Barra tracejada: ficou de fora.</p>" &
+            "<p><i class='k'>Só este</i>nota se apenas aquele indicador batesse a meta.</p>" &
+            "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Indicadores tira ou devolve um indicador.</p>" &
+        "</div>" &
+    "</div>"
+
+// realce cruzado: mouse no pedaco da barra de perda <-> linha do indicador
+VAR _cssCruzado =
+    CONCATENATEX(
+        _indicadores,
+        VAR _i = FORMAT( [Ordem], "0", "en-US" )
+        RETURN
+            ".pj:has(.sg.i" & _i & ":hover) .row.i" & _i & "{background:var(--pri-b)}" &
+            ".pj:has(.row.i" & _i & ":hover) .sg:not(.i" & _i & "){opacity:.22}",
+        "",
+        [Ordem], ASC
+    )
+
+// ============================================================================
+// CSS
+// - 100vh de proposito (o wrapper do HTML Content nao tem altura definida).
+// - Nao usar aspas duplas aqui dentro (quebram a string DAX).
+// - .v = wrapper neutro que carrega --x/--w (inicio e largura da barra na
+//   ponte) e --f (tamanho do pedaco na barra de perda).
+// ============================================================================
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.pj,.pj *{box-sizing:border-box}
+.pj i,.pj u,.pj em{font-style:normal;text-decoration:none}
+.v{display:contents}
+.pj{" & _tokens & ";--ink:#0B1533;--ink2:#3F4C6B;--mut:#63708B;--ln:#E1E6EF;--ln2:#EDF0F6;--sf:#FFFFFF;--sf2:#F5F7FB;
+--ok:#0E9F6E;--ok-t:#04704B;--wa:#E0A100;--wa-t:#7A5600;--ri:#F27321;--ri-t:#9A3D06;--ba:#E5383B;--ba-t:#B01E22;--nd:#C2CAD8;
+--s:var(--nd);--st:var(--mut);--ease:cubic-bezier(.2,.8,.2,1);
+--cols:minmax(196px,1fr) 54px 64px 74px 58px 50px 40px minmax(0,1.05fr) 40px 74px;
+width:100%;height:100vh;overflow:hidden;padding:8px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:12px;line-height:1.2;text-align:left;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+
+/* ---------- ESCALA DE STATUS ---------- */
+/* sobre fundo claro */
+.green{--s:var(--ok);--st:var(--ok-t)}.yellow{--s:var(--wa);--st:var(--wa-t)}.orange{--s:var(--ri);--st:var(--ri-t)}.red{--s:var(--ba);--st:var(--ba-t)}.neutral{--s:var(--nd);--st:var(--mut)}
+/* sobre fundo escuro */
+.d-green{--s:#34D399}.d-yellow{--s:#FBBF24}.d-orange{--s:#FB923C}.d-red{--s:#F87171}.d-neutral{--s:#94A3B8}
+.m-green{background:#34D399}.m-yellow{background:#FBBF24}.m-orange{background:#FB923C}.m-red{background:#F87171}.m-neutral{background:rgba(255,255,255,.30)}
+
+/* =====================================================================
+   FAIXA DE DESTAQUE
+   ===================================================================== */
+.hero{position:relative;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.92fr) minmax(0,1.08fr);padding:13px 4px;overflow:hidden;border-radius:18px;color:#FFFFFF;
+background:radial-gradient(70% 150% at 0% 0%,var(--g2),transparent 62%),radial-gradient(60% 140% at 100% 110%,var(--g1),transparent 60%),linear-gradient(115deg,var(--d1),var(--d0));
+box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
+.hero::before{content:'';position:absolute;left:0;top:0;right:0;bottom:0;background-image:radial-gradient(rgba(255,255,255,.10) 1px,transparent 1.3px);background-size:16px 16px;opacity:.45;pointer-events:none}
+.hero::after{content:'';position:absolute;top:-40%;bottom:-40%;left:-30%;width:24%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);animation:drift 11s ease-in-out infinite;pointer-events:none}
+.hz{position:relative;z-index:1;min-width:0;padding:0 16px;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+.hz+.hz{border-left:1px solid rgba(255,255,255,.11)}
+.hz-t{display:flex;align-items:center;justify-content:space-between;gap:8px;height:14px;margin-bottom:2px;font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.62);white-space:nowrap}
+.hz-t span+span{font-size:9.5px;font-weight:500;letter-spacing:.02em;text-transform:none}
+.hz-t b{color:#FFFFFF;font-size:11px;font-weight:700}
+
+/* ---- velocimetro: arco cheio = atual, arco claro = projetada ---- */
+.gz{flex-direction:row;align-items:center;justify-content:flex-start;gap:14px}
+.gauge{position:relative;flex:none;width:182px;height:102px}
+.gauge svg{display:block;width:100%;height:100%;overflow:visible}
+.gauge path{fill:none}
+.g-z{stroke-width:3}
+.g-z1{stroke:#F87171;stroke-dasharray:" & _dashZ1 & "}.g-z2{stroke:#FB923C;stroke-dasharray:" & _dashZ2 & "}.g-z3{stroke:#FBBF24;stroke-dasharray:" & _dashZ3 & "}.g-z4{stroke:#34D399;stroke-dasharray:" & _dashZ4 & "}
+.g-t{stroke:rgba(255,255,255,.13);stroke-width:14;stroke-linecap:round}
+.g-p{stroke:var(--s);stroke-width:14;stroke-linecap:round;opacity:.5;stroke-dasharray:" & _dashProj & " 600;animation:arcp 1.5s var(--ease) both}
+.g-f{stroke:var(--s);stroke-width:14;stroke-linecap:round;stroke-dasharray:" & _dashAtual & " 600;animation:arc 1.1s var(--ease) both}
+.g-m{stroke:#FFFFFF;stroke-width:2.5;stroke-linecap:round;transform-origin:100px 100px;transform:rotate(" & _angMeta & "deg)}
+.g-v{position:absolute;left:0;right:0;bottom:-2px;text-align:center}
+.g-v b{display:block;font-size:33px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.g-v small{display:block;margin-top:3px;font-size:10px;font-weight:500;color:rgba(255,255,255,.68)}
+.gt{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.gt-e{font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.gt-s{font-size:10.5px;color:rgba(255,255,255,.74);white-space:nowrap}
+.gt-s,.gt-l,.gt-e{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.gt-s b{color:#FFFFFF;font-weight:700}
+.chip{display:inline-flex;align-items:center;height:20px;margin:2px 0 1px;padding:0 9px;border-radius:99px;font-size:10.5px;font-weight:700;color:var(--d0);background:var(--s);white-space:nowrap}
+.gt-l{font-size:10.5px;color:rgba(255,255,255,.80);white-space:nowrap}
+.gt-l b{color:#FFFFFF;font-weight:700}
+
+/* ---- onde estao os pontos perdidos ---- */
+.ls{display:flex;gap:2px;height:26px;margin-top:2px}
+.sg{flex:var(--f,1) 1 0;min-width:3px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px;color:#0C1016;font-size:9px;font-weight:800;letter-spacing:.02em;opacity:.34;transition:opacity .15s ease,transform .15s ease}
+.sg.on{opacity:1}
+.sg.m-neutral{color:#FFFFFF}
+.ls .sg:hover{opacity:1;transform:scaleY(1.16)}
+.ls-0{padding:8px 0;font-size:11px;color:rgba(255,255,255,.72)}
+.ls-n,.ls-r{font-size:10.5px;color:rgba(255,255,255,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ls-n b,.ls-r b{color:#FFFFFF;font-weight:700}
+.mos-l{display:flex;gap:11px;font-size:9.5px;color:rgba(255,255,255,.74)}
+.mos-l span{display:inline-flex;align-items:center;gap:4px}
+.mz{flex:none;width:8px;height:8px;border-radius:2px}
+
+/* ---- caminho ate cada faixa ---- */
+.fa{display:grid;grid-template-columns:42px minmax(0,auto) minmax(0,1fr);align-items:center;column-gap:8px;height:27px;margin:0 -6px;padding:0 6px;border-radius:8px;transition:background .2s ease}
+.fa:hover{background:rgba(255,255,255,.07)}
+.fa-t{display:flex;align-items:center;justify-content:center;height:19px;border-radius:6px;font-size:11px;font-weight:800;color:var(--s);box-shadow:inset 0 0 0 1.5px var(--s)}
+.fa.ok .fa-t{color:var(--d0);background:var(--s)}
+.fa-s{font-size:11px;font-weight:700;white-space:nowrap}
+.fa.ok .fa-s{color:#6EE7B7}
+.fa-c{min-width:0;text-align:right;font-size:10px;color:rgba(255,255,255,.66);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fa-c b{color:#FFFFFF;font-weight:700}
+
+/* =====================================================================
+   PAINEL CLARO
+   ===================================================================== */
+.panel{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:var(--sf);border:1px solid var(--ln);box-shadow:0 1px 2px rgba(11,21,51,.04),0 6px 16px rgba(11,21,51,.05)}
+.ph{position:relative;z-index:5;flex:none;display:flex;align-items:center;gap:8px;height:42px;padding:0 12px 0 16px;border-bottom:1px solid var(--ln2)}
+.ph h2{flex:none;margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink);white-space:nowrap}
+.cx{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:99px;background:var(--pri-b);color:var(--pri);font-size:9.5px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.cx.sc{background:var(--pri);color:#FFFFFF;letter-spacing:.02em}
+.cx.sc.off{background:transparent;color:var(--mut);box-shadow:inset 0 0 0 1px var(--ln)}
+.ins{flex:1 1 auto;min-width:0;font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins b{color:var(--ink2);font-weight:650}
+.lgd{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:9.5px;color:var(--mut);white-space:nowrap}
+.lgd i{display:inline-block;width:14px;height:7px;border-radius:2px}
+.lgd .l1{background:var(--pri)}
+.lgd .l2{margin-left:6px;box-shadow:inset 0 0 0 1.2px #9AA6BA;background:repeating-linear-gradient(135deg,transparent 0 2px,#CBD3E0 2px 3.5px)}
+
+/* ajuda (?): abre com o mouse em cima ou com um clique (foco) */
+.help{position:relative;flex:none;outline:none}
+.help-b{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--ln);background:var(--sf2);color:var(--ink2);font-size:11px;font-weight:700;cursor:help;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.help:hover .help-b,.help:focus-within .help-b{background:var(--pri);border-color:var(--pri);color:#FFFFFF}
+.help-pop{position:absolute;right:0;top:29px;width:300px;padding:12px 13px 6px;border-radius:12px;background:var(--d0);color:#D5DBEA;box-shadow:0 12px 28px rgba(5,14,38,.34);font-size:10.5px;line-height:1.4;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s ease,transform .16s ease,visibility .16s}
+.help:hover .help-pop,.help:focus-within .help-pop{opacity:1;visibility:visible;transform:none}
+.help-pop b{display:block;margin-bottom:6px;color:#FFFFFF;font-size:11.5px;font-weight:700}
+.help-pop p{margin:0 0 6px}
+.help-pop .k{display:block;color:var(--a1);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+
+/* ---------- TABELA ---------- */
+.th,.row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:7px;padding:0 14px 0 12px}
+.th{flex:none;height:24px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.th>span{text-align:right;white-space:nowrap}
+.th>span:first-child{padding-left:16px;text-align:left}
+.th>.c-pl{text-align:center}
+.rows{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#D3D9E4 transparent}
+.row{flex:1 1 23px;min-height:23px;max-height:38px;transition:background .15s ease}
+.row:hover{background:var(--sf2)}
+.c-nm{min-width:0;display:flex;align-items:center;gap:8px}
+.st{flex:none;width:8px;height:8px;border-radius:3px;background:var(--s)}
+.nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
+.tag{flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-size:9.5px;font-weight:500;white-space:nowrap}
+.n{text-align:right;font-size:11.5px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.n.real{color:var(--ink);font-weight:700}
+.n i{margin-right:3px;color:#8E99AE;font-size:10.5px}
+.n.fal{font-size:11px;color:var(--ink2)}
+.n.pts b{color:var(--ink);font-weight:700}
+.n.pts small{color:var(--mut);font-size:10px;font-weight:500}
+.pc{font-size:11px;font-weight:700;color:var(--st);white-space:nowrap}
+.gn{font-weight:700;color:var(--ok-t)}
+.gn.z{color:#A9B2C3;font-weight:500}
+.so{color:var(--ink);font-weight:600}
+
+/* ---- ponte: guias em 80%, 90% e 100% (mesma posicao em todas as linhas) ---- */
+.br{position:relative;align-self:stretch;min-height:18px;
+background-image:linear-gradient(#D9DFE9,#D9DFE9),linear-gradient(#D9DFE9,#D9DFE9),linear-gradient(#0B1533,#0B1533);background-repeat:no-repeat;background-size:1px 100%,1px 100%,1.5px 100%;
+background-position:" & _posG80 & " 0," & _posG90 & " 0," & _posG100 & " 0}
+.br u{position:absolute;left:var(--x,0%);top:50%;width:var(--w,0%);min-width:2px;height:12px;margin-top:-6px;border-radius:3px;background:var(--pri);transform-origin:0 50%;animation:grow .7s var(--ease) both}
+.br em{position:absolute;left:calc(var(--x,0%) + var(--w,0%));top:50%;margin:-7px 0 0 5px;font-size:10.5px;font-weight:700;line-height:14px;color:var(--ink);white-space:nowrap;text-shadow:-2px 0 #FFFFFF,2px 0 #FFFFFF,0 -1px #FFFFFF,0 1px #FFFFFF}
+.br em.fl{left:auto;right:calc(100% - var(--x,0%));margin:-7px 5px 0 0}
+/* fora da projecao: oportunidade em contorno tracejado */
+.s-pot .br u{background:repeating-linear-gradient(135deg,transparent 0 3px,#CBD3E0 3px 5px);box-shadow:inset 0 0 0 1.2px #9AA6BA;animation:none}
+.s-pot .br em{color:#8E99AE;font-weight:600}
+.s-pot .gn{color:#8E99AE}
+.s-pot .so{color:var(--ink2);font-weight:500}
+.s-ok .n.fal{color:var(--ok-t);font-weight:600}
+.s-ok .gn,.s-ok .so,.s-fora .gn,.s-fora .so{color:#A9B2C3;font-weight:500}
+.s-fora .nm,.s-fora .n,.s-fora .n.real,.s-fora .pc{color:#98A2B6;font-weight:500}
+.s-fora .st{background:var(--nd)}
+
+/* ---- atingimento usado na projecao ---- */
+.pw{display:flex;justify-content:flex-end}
+.pl{display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:99px;font-size:9.5px;font-weight:700;white-space:nowrap;color:var(--mut);box-shadow:inset 0 0 0 1px var(--ln)}
+.s-sim .pl{color:#FFFFFF;background:var(--pri);box-shadow:none}
+.s-ok .pl{color:var(--ok-t);box-shadow:inset 0 0 0 1px #9ED9C3}
+.s-fora .pl{color:#98A2B6;font-weight:500}
+.row.neutral .nm{color:#7A869F}
+.row.neutral .pc{font-size:10px;font-weight:600}
+
+/* ---- eixo no cabecalho ---- */
+.ax{position:relative;display:block;height:100%;text-align:left}
+.ax i{position:absolute;top:50%;margin-top:-5px;line-height:10px;font-size:8px;white-space:nowrap}
+.ax-a{left:0;color:var(--ink2)}
+.ax-g{transform:translateX(-50%)}
+.ax-g.ax-r{transform:translateX(-100%);margin-left:-3px}
+.g80{left:" & _posG80 & "}.g90{left:" & _posG90 & "}.g100{left:" & _posG100 & ";color:var(--ink)}
+
+/* ---- total ---- */
+.row.tot{flex:none;height:34px;max-height:none;background:var(--sf2);border-top:1px solid var(--ln)}
+.tot .nm{font-size:12.5px;font-weight:700}
+.tot .at3{grid-column:span 3;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;font-weight:500;color:var(--mut)}
+.tot .at3 b{color:var(--ink);font-weight:700}
+.tot .pts b{font-size:12.5px}
+.tot .br u{height:16px;margin-top:-8px;background:var(--s)}
+.tot .br em{font-size:12px}
+/* barra longa: o numero vai para dentro dela */
+.tot .br em.fl{right:calc(100% - var(--w,0%));margin-right:7px;color:#FFFFFF;text-shadow:none}
+
+/* ---------- SCROLLBAR ---------- */
+.rows::-webkit-scrollbar{width:7px}
+.rows::-webkit-scrollbar-thumb{background:#D3D9E4;border-radius:99px}
+
+/* ---------- REALCE CRUZADO (barra de perda <-> linha) ---------- */
+" & _cssCruzado & "
+
+/* ---------- ANIMACOES ---------- */
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes arc{from{stroke-dasharray:0 600}}
+@keyframes arcp{from{stroke-dasharray:" & _dashAtual & " 600}}
+@keyframes drift{0%,55%{left:-30%}100%{left:125%}}
+
+/* ---------- OUTROS TAMANHOS / ACESSIBILIDADE ---------- */
+@media (max-width:940px){.pj{--cols:minmax(168px,1fr) 52px 62px 56px 46px 40px minmax(0,1fr) 40px 74px}.fal,.c-fal,.lgd,.row .tag{display:none}.tot .at3{grid-column:span 2}.hero{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}.hero .hz:nth-child(2){display:none}.gauge{width:160px;height:90px}.g-v b{font-size:29px}}
+@media (max-width:760px){.pj{--cols:minmax(150px,1fr) 56px 46px 40px minmax(0,1fr) 74px}.row>.n:nth-child(2),.row>.n:nth-child(3),.th>span:nth-child(2),.th>span:nth-child(3),.so,.c-so,.tot .at3,.ins{display:none}.cx.sc{margin-left:auto}.hero{grid-template-columns:minmax(0,1fr)}.hero .hz:nth-child(3){display:none}}
+@media (max-height:500px){.hero{padding:9px 4px}.gauge{width:150px;height:84px}.g-v b{font-size:27px}.mos-l{display:none}.fa{height:23px}}
+@media (prefers-reduced-motion:reduce){.pj *,.pj *::before,.pj *::after{animation:none!important;transition:none!important}}
+</style>"
+
+// ============================================================================
+// HTML
+// ============================================================================
+VAR _html =
+"<div class='pj'>" &
+    "<section class='hero'>" & _heroNota & _heroPerda & _heroFaixas & "</section>" &
+    "<article class='panel'>" &
+        "<div class='ph'>" &
+            "<h2>Oportunidades por indicador</h2><span class='cx'>" & _contexto & "</span>" &
+            "<span class='ins'>" & _resumoTabela & "</span>" &
+            "<span class='lgd'><i class='l1'></i>na projeção<i class='l2'></i>fora da projeção</span>" &
+            "<span class='cx sc" & IF( _simular, "", " off" ) & "' title='Cenário escolhido no seletor: " & _cenarioSel & "'>" & _chipCenario & "</span>" &
+            _ajuda &
+        "</div>" &
+        "<div class='th'><span>Indicador</span><span>Real</span><span>Meta</span><span class='c-fal'>Falta</span><span>Ating.</span><span>Pontos</span><span>Ganho</span>" &
+            _eixo & "<span class='c-so' title='Nota se apenas este indicador batesse a meta'>Só este</span><span class='c-pl'>Na projeção</span></div>" &
+        "<div class='rows'>" & _linhas & "</div>" &
+        _linhaTotal &
+    "</article>" &
+"</div>"
+
+RETURN
+    _css & _html

@@ -1,0 +1,21 @@
+Seletor Cenário BSC = 
+// ============================================================================
+// TABELA DO SELETOR "CENARIO" DA PAGINA "Projeção BSC"
+// Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
+// NAO criar relacionamento: e uma tabela solta, usada so no seletor.
+//
+// Depois de criar: selecione a coluna Cenário > Classificar por coluna >
+// Ordem Cenário (para "Atingimento real" aparecer primeiro).
+//
+// A medida "BSC Projeção HTML" procura o texto exato "Atingimento real" para
+// desligar a projecao. Se mudar o texto aqui, mude tambem a VAR
+// _nomeCenarioReal da medida.
+// ============================================================================
+DATATABLE(
+    "Cenário", STRING,
+    "Ordem Cenário", INTEGER,
+    {
+        { "Atingimento real", 1 },
+        { "Atingimento esperado (meta)", 2 }
+    }
+)

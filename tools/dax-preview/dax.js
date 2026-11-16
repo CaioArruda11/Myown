@@ -586,17 +586,17 @@ function stripMeasureName(src) {
 }
 
 /**
- * Avalia a medida.
- * @param {string} file  caminho do .txt da medida
- * @param {object} mocks { nomeDaVAR: valor } para tudo que depende do modelo
- * @param {object} [opts] { utcNow: serial } relogio ficticio
+ * Avalia a medida a partir do texto (sem ler arquivo): funciona tambem no navegador.
+ * @param {string} raw    texto completo da medida ("Nome = ...")
+ * @param {object} mocks  { nomeDaVAR: valor } para tudo que depende do modelo
+ * @param {object} [opts] { utcNow: serial, calculate: fn } relogio ficticio / CALCULATE sob medida
+ * @param {string} [label] nome usado nas mensagens de erro
  */
-function evaluate(file, mocks, opts) {
-  const raw = require('fs').readFileSync(file, 'utf8');
+function evaluateSource(raw, mocks, opts, label) {
   const src = stripMeasureName(raw);
   const ast = parse(src);
   const chk = check(ast, src);
-  if (chk.problems.length) throw new Error(file + ':\n  ' + chk.problems.join('\n  '));
+  if (chk.problems.length) throw new Error((label || 'medida') + ':\n  ' + chk.problems.join('\n  '));
   if (opts && opts.utcNow !== undefined) CLOCK = { utcNow: opts.utcNow };
   const rt = { mocks: mocks || {}, usedMocks: new Set(), stack: [], topVars: null, calculate: opts && opts.calculate };
   const html = ev(ast, { env: null, row: null, rt, top: true });
@@ -605,4 +605,14 @@ function evaluate(file, mocks, opts) {
   return { html: str(html), funcs: chk.funcs, unusedMocks, notEvaluated, sourceChars: raw.length };
 }
 
-module.exports = { evaluate, parse, check, tokenize, serial, daxFormat, stripMeasureName };
+/**
+ * Avalia a medida.
+ * @param {string} file  caminho do .txt da medida
+ * @param {object} mocks { nomeDaVAR: valor } para tudo que depende do modelo
+ * @param {object} [opts] { utcNow: serial } relogio ficticio
+ */
+function evaluate(file, mocks, opts) {
+  return evaluateSource(require('fs').readFileSync(file, 'utf8'), mocks, opts, file);
+}
+
+module.exports = { evaluate, evaluateSource, parse, check, tokenize, serial, daxFormat, stripMeasureName };

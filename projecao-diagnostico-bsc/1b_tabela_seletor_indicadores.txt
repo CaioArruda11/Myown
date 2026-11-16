@@ -1,0 +1,41 @@
+Seletor Projeção BSC = 
+// ============================================================================
+// TABELA DO SELETOR "INDICADORES NA PROJECAO" DA PAGINA "Projeção BSC"
+// Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
+// NAO criar relacionamento: e uma tabela solta, usada so no seletor. (Os nomes
+// das colunas sao diferentes dos de 'Seletor Indicador BSC' de proposito, para
+// o Power BI nao sugerir relacionamento entre as duas.)
+//
+// Depois de criar: selecione a coluna Indicador Projeção > Classificar por
+// coluna > Ordem Projeção.
+//
+// Colunas
+//   Chave               = o mesmo texto de 'Seletor Indicador BSC'[Indicador].
+//                         E o que a medida le. Nao alterar.
+//   Indicador Projeção  = nome que aparece no seletor (pode renomear a vontade).
+//   Grupo Projeção      = opcional: coloque acima do indicador no seletor para
+//                         marcar/desmarcar NEGOCIO ou QUALIDADE de uma vez.
+//
+// Entrou indicador novo no BSC? Acrescente uma linha aqui e a mesma linha na
+// tabela _indicadores da medida "BSC Projeção HTML".
+// ============================================================================
+DATATABLE(
+    "Chave", STRING,
+    "Indicador Projeção", STRING,
+    "Grupo Projeção", STRING,
+    "Ordem Projeção", INTEGER,
+    {
+        { "1 AGENDA", "Efetividade 1ª Agenda", "NEGÓCIO", 1 },
+        { "TMR", "Tempo de Reparo", "NEGÓCIO", 2 },
+        { "CHEGADA NO SLOT", "Chegada no Slot", "NEGÓCIO", 3 },
+        { "INSTALAÇÃO 3D", "Instalação em até D3", "NEGÓCIO", 4 },
+        { "PRODUTIVIDADE PU", "Produtividade PU", "NEGÓCIO", 5 },
+        { "ROTEIRIZAÇÃO AUTOMÁTICA", "Roteirização Automática", "NEGÓCIO", 6 },
+        { "IRT", "IRT", "NEGÓCIO", 7 },
+        { "EFICIÊNCIA DE CAMPO", "Eficiência de Campo", "NEGÓCIO", 8 },
+        { "IFI 7 DIAS", "IFI FTTH 7 Dias", "QUALIDADE", 9 },
+        { "IRR 7 DIAS", "Repetidas FTTH 7 Dias", "QUALIDADE", 10 },
+        { "INDISPONIBILIDADE FTTH", "Indisponibilidade FTTH", "QUALIDADE", 11 },
+        { "INDISPONIBILIDADE MÓVEL", "Indisponibilidade Móvel", "QUALIDADE", 12 }
+    }
+)
