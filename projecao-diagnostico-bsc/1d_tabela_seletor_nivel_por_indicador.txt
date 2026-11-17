@@ -1,0 +1,47 @@
+Seletor Nível BSC = 
+// ============================================================================
+// TABELA DO SELETOR "% POR INDICADOR" DA PAGINA "Projeção BSC"
+// Serve para simular um % diferente em cada indicador (ex.: Instalacao D3 em
+// 80% da meta e Repetidas em 60%).
+// Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
+// NAO criar relacionamento: e uma tabela solta, usada so no seletor.
+//
+// A tabela tem uma linha para cada indicador x nivel (0%, 10%, ... 100%).
+// Para andar de 5 em 5, troque o 10 do GENERATESERIES por 5.
+//
+// Depois de criar, Classificar por coluna:
+//   Indicador Nível -> Ordem Indicador Nível
+//   Nível           -> Atingimento Nível
+//
+// No seletor: coloque DOIS campos, nesta ordem: Indicador Nível e, abaixo
+// dele, Nível. O seletor vira uma arvore: abra o indicador e marque o %.
+//
+// Chave Nível = o mesmo texto de 'Seletor Indicador BSC'[Indicador]. E o que
+// a medida le. Nao alterar. Entrou indicador novo? Acrescente a linha aqui.
+// ============================================================================
+GENERATE(
+    DATATABLE(
+        "Chave Nível", STRING,
+        "Indicador Nível", STRING,
+        "Ordem Indicador Nível", INTEGER,
+        {
+            { "1 AGENDA", "Efetividade 1ª Agenda", 1 },
+            { "TMR", "Tempo de Reparo", 2 },
+            { "CHEGADA NO SLOT", "Chegada no Slot", 3 },
+            { "INSTALAÇÃO 3D", "Instalação em até D3", 4 },
+            { "PRODUTIVIDADE PU", "Produtividade PU", 5 },
+            { "ROTEIRIZAÇÃO AUTOMÁTICA", "Roteirização Automática", 6 },
+            { "IRT", "IRT", 7 },
+            { "EFICIÊNCIA DE CAMPO", "Eficiência de Campo", 8 },
+            { "IFI 7 DIAS", "IFI FTTH 7 Dias", 9 },
+            { "IRR 7 DIAS", "Repetidas FTTH 7 Dias", 10 },
+            { "INDISPONIBILIDADE FTTH", "Indisponibilidade FTTH", 11 },
+            { "INDISPONIBILIDADE MÓVEL", "Indisponibilidade Móvel", 12 }
+        }
+    ),
+    SELECTCOLUMNS(
+        GENERATESERIES( 0, 100, 10 ),
+        "Atingimento Nível", [Value] / 100,
+        "Nível", FORMAT( [Value], "0" ) & "%"
+    )
+)

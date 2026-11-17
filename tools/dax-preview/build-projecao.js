@@ -70,6 +70,7 @@ for (const tema of ['OCEANO', 'AURORA']) corpo(ESTADOS.todos, tema);
 // todas as combinacoes de cor x AT x cenario (pega erro que so aparece em um filtro)
 let combos = 0;
 for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null].concat(P.ATS.map((a) => a[0]))) for (const cen of [REAL, ESPERADO]) for (const ating of [100, 80, 0]) { corpo({ cor, at, cenario: cen, ating }); combos++; }
+corpo({ niveis: { 'INSTALAÇÃO 3D': 0, 'IRT': 100 }, ating: 50 });
 console.log('\ncorpo  : ' + combos + ' combinacoes de cor x AT x cenario x % avaliadas sem erro');
 for (const pg of ['BSC', 'Projeção BSC', 'IFI', 'Abertura Hierarquia']) menu(MENU, Object.assign(P.mocksMenu({}), { _paginaAtual: pg }));
 console.log('menu   : sintaxe ok');
@@ -84,7 +85,8 @@ const L = {
   mes: { x: 639, y: 6, w: 112, h: 114 },
   cen: { x: 760, y: 6, w: 190, h: 114 },
   ati: { x: 959, y: 6, w: 140, h: 114 },
-  ind: { x: 1108, y: 6, w: 154, h: 114 },
+  ind: { x: 1108, y: 6, w: 154, h: 54 },
+  niv: { x: 1108, y: 66, w: 154, h: 54 },
   corpo: { x: 275, y: 130, w: 987, h: 576 },
 };
 const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
@@ -110,8 +112,11 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 '.op{display:flex;align-items:center;gap:7px;height:25px;font-size:11px;color:#344054;cursor:pointer;white-space:nowrap}' +
 '.op i{flex:none;width:12px;height:12px;border-radius:50%;border:1.5px solid #98A2B3;box-sizing:border-box}' +
 '.op.sel i{border-color:#334155;background:radial-gradient(#334155 0 3px,#fff 3.6px)}.op.sel{font-weight:600;color:#111827}' +
-'.pop{position:absolute;z-index:9;left:' + (L.ind.x) + 'px;top:' + (L.ind.y + 76) + 'px;width:' + L.ind.w + 'px;box-sizing:border-box;padding:5px 0;background:#fff;border:1px solid #D0D7E2;box-shadow:0 10px 24px rgba(16,24,40,.22);font-size:11px;color:#344054;display:none}' +
+'.pop{position:absolute;z-index:9;left:' + (L.ind.x) + 'px;top:' + (L.ind.y + 50) + 'px;width:' + L.ind.w + 'px;box-sizing:border-box;padding:5px 0;background:#fff;border:1px solid #D0D7E2;box-shadow:0 10px 24px rgba(16,24,40,.22);font-size:11px;color:#344054;display:none}' +
 '.pop.on{display:block}' +
+'.sl.mini{padding:5px 9px}.sl.mini>b{margin-bottom:4px;font-size:11px}.sl.mini:before{bottom:auto;top:6px}' +
+'.tr{display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;cursor:pointer;white-space:nowrap}.tr:hover,.lv:hover{background:#F3F7FC}.tr:before{content:"›";width:8px;color:#667085}.tr.ab:before{content:"⌄"}.tr em{margin-left:auto;font-style:normal;font-weight:700;color:#334155}' +
+'.lv{display:inline-flex;align-items:center;justify-content:center;width:38px;height:20px;margin:2px 0 2px 4px;border:1px solid #E3EAF3;font-size:10.5px;cursor:pointer}.lv.sel{background:#334155;border-color:#334155;color:#fff}.lvs{padding:2px 6px 5px 20px;border-bottom:1px solid #EEF1F6}' +
 '.vl{width:52px;height:22px;display:flex;align-items:center;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:11.5px;font-weight:600;color:#111827;box-sizing:border-box}' +
 '#ati{display:block;width:100%;margin:9px 0 0;accent-color:#334155;cursor:pointer}' +
 '.ck{display:flex;align-items:center;gap:7px;height:22px;padding:0 9px;cursor:pointer;white-space:nowrap}.ck:hover{background:#F3F7FC}' +
@@ -127,11 +132,13 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 '<div class="sl" style="' + box(L.mes) + '"><b>Selecione o Mês</b><div class="dd">Nov/2026</div></div>' +
 '<div class="sl novo" style="' + box(L.cen) + '"><b>Cenário</b><div id="cen"></div></div>' +
 '<div class="sl novo" style="' + box(L.ati) + '"><b>Atingimento da meta</b><div class="vl" id="atiTxt">100%</div><input type="range" id="ati" min="0" max="100" step="1" value="100"></div>' +
-'<div class="sl novo" style="' + box(L.ind) + '"><b>Indicadores</b><div class="dd" id="indDd"><span id="indTxt">Todos</span></div></div>' +
+'<div class="sl novo mini" style="' + box(L.ind) + '"><b>Indicadores</b><div class="dd" id="indDd"><span id="indTxt">Todos</span></div></div>' +
+'<div class="sl novo mini" style="' + box(L.niv) + '"><b>% por indicador</b><div class="dd" id="nivDd"><span id="nivTxt">Todos</span></div></div>' +
 '<div class="pop" id="indPop"></div>' +
+'<div class="pop" id="nivPop" style="top:' + (L.niv.y + 50) + 'px;left:' + (L.niv.x - 40) + 'px;width:' + (L.niv.w + 40) + 'px"></div>' +
 '<iframe name="corpo" title="Corpo: projeção e diagnóstico" style="' + box(L.corpo) + '"></iframe>' +
 '</div>' +
-'<div class="bar"><b>Prévia interativa.</b> Os filtros acima imitam os seletores nativos do Power BI: clique na cor, na AT, no cenário e nos indicadores, e arraste o atingimento. ' +
+'<div class="bar"><b>Prévia interativa.</b> Os filtros acima imitam os seletores nativos do Power BI: clique na cor, na AT, no cenário, nos indicadores e no % por indicador, e arraste o atingimento. ' +
 'A cada clique a própria medida DAX é reavaliada aqui no navegador, com dados fictícios.<br>Dados: ' +
 '<a data-d="print">do print</a><a data-d="semDados">2 indicadores sem resultado</a><a data-d="bom">resultado bom</a><a data-d="vazio">mês sem dados</a></div>' +
 '</div><script>\n' +
@@ -141,7 +148,7 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 'var REAL=' + embed(REAL) + ',ESPERADO=' + embed(ESPERADO) + ';\n' +
 `
 // estado dos "seletores nativos". marcados: null = nada marcado (o Power BI trata como todos)
-var st = { cor: 'GERAL', at: null, cenario: ESPERADO, marcados: null, ating: 100, dados: 'print', aberto: false };
+var st = { cor: 'GERAL', at: null, cenario: ESPERADO, marcados: null, ating: 100, niveis: {}, nivAberto: null, dados: 'print', aberto: false };
 try { if (location.hash.length > 1) Object.assign(st, JSON.parse(decodeURIComponent(location.hash.slice(1)))); } catch (e) {}
 
 function wrap(html) {
@@ -164,24 +171,36 @@ function desenhar() {
   // ---- indicadores (lista suspensa com varias selecoes + Selecionar tudo)
   var m = st.marcados, todos = !m || m.length === P.CHAVES.length;
   q('indTxt').textContent = !m || !m.length ? 'Todos' : todos ? 'Todos' : m.length === 1 ? nomeDe(m[0]) : 'Seleções múltiplas';
-  q('indPop').className = 'pop' + (st.aberto ? ' on' : '');
+  q('indPop').className = 'pop' + (st.aberto === true || st.aberto === 'ind' ? ' on' : '');
+  // ---- % por indicador (seletor em arvore: indicador > nivel)
+  var nk = Object.keys(st.niveis);
+  q('nivTxt').textContent = !nk.length ? 'Todos' : nk.length === 1 ? st.niveis[nk[0]] + '%' : 'Seleções múltiplas';
+  q('nivPop').className = 'pop' + (st.aberto === 'niv' ? ' on' : '');
+  q('nivPop').innerHTML = P.IND.map(function (r) {
+    var v = st.niveis[r[0]], ab = st.nivAberto === r[0];
+    return '<div class="tr' + (ab ? ' ab' : '') + '" data-n="' + r[0] + '">' + r[1] + (v === undefined ? '' : '<em>' + v + '%</em>') + '</div>' +
+      (ab ? '<div class="lvs">' + [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(function (l) { return '<span class="lv' + (v === l ? ' sel' : '') + '" data-l="' + l + '">' + l + '%</span>'; }).join('') + '</div>' : '');
+  }).join('');
   q('indPop').innerHTML = '<div class="ck all' + (m && todos ? ' sel' : '') + '" data-k="*"><i></i>Selecionar tudo</div>' +
     P.IND.map(function (r) { return '<div class="ck' + (m && m.indexOf(r[0]) >= 0 ? ' sel' : '') + '" data-k="' + r[0] + '"><i></i>' + r[1] + '</div>'; }).join('');
   [].forEach.call(document.querySelectorAll('.bar a'), function (a) { a.className = a.getAttribute('data-d') === st.dados ? 'sel' : ''; });
   // ---- visuais HTML: a medida e reavaliada com o estado dos filtros
   q('ati').value = st.ating; q('atiTxt').textContent = st.ating + '%';
-  var e = { cor: st.cor, at: st.at, cenario: st.cenario, marcados: st.marcados, ating: st.ating, dados: st.dados };
+  var e = { cor: st.cor, at: st.at, cenario: st.cenario, marcados: st.marcados, ating: st.ating, niveis: st.niveis, dados: st.dados };
   window.frames.corpo.document.open(); window.frames.corpo.document.write(wrap(DAX.evaluateSource(SRC.corpo, P.mocksProjecao(e), {}).html)); window.frames.corpo.document.close();
   var mn = wrap(DAX.evaluateSource(SRC.menu, P.mocksMenu(e), {}).html);
   if (mn !== desenhar.menu) { desenhar.menu = mn; window.frames.menu.document.open(); window.frames.menu.document.write(mn); window.frames.menu.document.close(); }
 }
 
 document.addEventListener('click', function (ev) {
-  var t = ev.target.closest('[data-c],[data-k],[data-d],#indDd');
-  var dentro = ev.target.closest('#indPop,#indDd');
+  var t = ev.target.closest('[data-c],[data-k],[data-d],[data-n],[data-l],#indDd,#nivDd');
+  var dentro = ev.target.closest('#indPop,#indDd,#nivPop,#nivDd');
   if (!dentro && st.aberto) { st.aberto = false; if (!t) return desenhar(); }
   if (!t) return;
-  if (t.id === 'indDd') st.aberto = !st.aberto;
+  if (t.id === 'indDd') st.aberto = st.aberto === 'ind' || st.aberto === true ? false : 'ind';
+  else if (t.id === 'nivDd') st.aberto = st.aberto === 'niv' ? false : 'niv';
+  else if (t.hasAttribute('data-n')) st.nivAberto = st.nivAberto === t.getAttribute('data-n') ? null : t.getAttribute('data-n');
+  else if (t.hasAttribute('data-l')) { var l = +t.getAttribute('data-l'); if (st.niveis[st.nivAberto] === l) delete st.niveis[st.nivAberto]; else st.niveis[st.nivAberto] = l; }
   else if (t.parentNode.id === 'cor') st.cor = st.cor === t.getAttribute('data-c') ? 'GERAL' : t.getAttribute('data-c');
   else if (t.parentNode.id === 'cen') st.cenario = t.getAttribute('data-c');
   else if (t.hasAttribute('data-d')) st.dados = t.getAttribute('data-d');
@@ -221,6 +240,10 @@ pagina('7-indicadores-sem-resultado', Object.assign({ marcados: tudoMarcado }, E
 pagina('8-resultado-bom', ESTADOS.bom);
 pagina('10-atingimento-de-80-por-cento', { ating: 80 });
 pagina('11-atingimento-de-80-so-instalacao-D3', { ating: 80, marcados: ['INSTALAÇÃO 3D'] });
+const MISTO = { niveis: { 'INSTALAÇÃO 3D': 80, 'IRR 7 DIAS': 60 }, marcados: ['INSTALAÇÃO 3D', 'IRR 7 DIAS'] };
+pagina('12-percentual-por-indicador-D3-80-e-repetidas-60', MISTO);
+pagina('13-seletor-de-percentual-por-indicador-aberto', Object.assign({ aberto: 'niv', nivAberto: 'INSTALAÇÃO 3D' }, MISTO));
+pagina('14-percentual-proprio-em-dois-e-geral-nos-demais', { niveis: MISTO.niveis });
 
 // menu: antes (v7 recebido) x depois (v8), com a posicao dos botoes nativos
 {
@@ -308,7 +331,9 @@ pagina('11-atingimento-de-80-so-instalacao-D3', { ating: 80, marcados: ['INSTALA
     const c = await nota();
     await page.fill('#ati', '80'); await page.waitForTimeout(300);
     const d = await nota();
-    console.log('previa interativa: todos na meta = ' + a + ' | cenario real = ' + b + ' | so Instalacao D3 = ' + c + ' | D3 a 80% = ' + d);
+    await page.click('#atiTxt'); await page.click('#nivDd'); await page.click('#nivPop .tr[data-n="INSTALAÇÃO 3D"]'); await page.click('#nivPop .lv[data-l="60"]'); await page.waitForTimeout(300);
+    const f = await nota();
+    console.log('previa interativa: todos na meta = ' + a + ' | cenario real = ' + b + ' | so Instalacao D3 = ' + c + ' | D3 a 80% = ' + d + ' | D3 com % proprio de 60 = ' + f);
     await page.close();
   }
   await browser.close();

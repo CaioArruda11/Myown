@@ -10,7 +10,10 @@ BSC Projeção HTML =
 //   do BSC?"  Ex.: Instalacao em ate D3 vale 10 pts e hoje entrega 5,0. Na
 //   meta ele entrega os 10 -> a nota sobe 5,0.
 //
-// TRES SELETORES NATIVOS COMANDAM A SIMULACAO (tabelas dos arquivos 1a, 1b, 1c)
+// QUATRO SELETORES NATIVOS COMANDAM A SIMULACAO (tabelas 1a, 1b, 1c e 1d)
+//   'Seletor Nível BSC' (arvore: Indicador Nível > Nível)
+//       % proprio de um indicador. Ex.: Instalacao D3 em 80% e Repetidas em
+//       60%. Quem nao tiver % marcado ali segue o % geral do seletor abaixo.
 //   'Seletor Atingimento BSC'[Atingimento]
 //       de 0% a 100%: quanto da meta os indicadores marcados atingiriam.
 //       100% = bater a meta (padrao se nada for marcado). Com 80%, cada
@@ -125,10 +128,40 @@ VAR _atingEsperado =
         'Seletor Atingimento BSC'[Atingimento],
         1
     )
+
+// % POR INDICADOR ('Seletor Nível BSC', seletor em arvore: indicador > %).
+// Uma linha para cada % marcado. O indicador que tiver % marcado ali usa esse
+// % no lugar do geral acima; os outros seguem o geral. Se marcarem mais de um
+// % no mesmo indicador (ou o indicador inteiro), vale o maior.
+// Nada marcado nesse seletor = todos seguem o % geral.
+VAR _temNivel = ISCROSSFILTERED( 'Seletor Nível BSC'[Chave Nível] )
+VAR _niveisMarcados =
+    FILTER(
+        SUMMARIZE(
+            'Seletor Nível BSC',
+            'Seletor Nível BSC'[Chave Nível],
+            'Seletor Nível BSC'[Atingimento Nível]
+        ),
+        _temNivel
+    )
+VAR _porIndicador = NOT ISEMPTY( _niveisMarcados )
+
 // textos que acompanham o nivel escolhido
 VAR _pctEsperado = FORMAT( _atingEsperado, "0%", _loc )
-VAR _levar = IF( _atingEsperado = 1, "à meta", "a " & _pctEsperado & " da meta" )
-VAR _abaixoDe = IF( _atingEsperado = 1, "abaixo da meta", "abaixo de " & _pctEsperado )
+VAR _levar =
+    SWITCH(
+        TRUE(),
+        _porIndicador, "ao % escolhido",
+        _atingEsperado = 1, "à meta",
+        "a " & _pctEsperado & " da meta"
+    )
+VAR _abaixoDe =
+    SWITCH(
+        TRUE(),
+        _porIndicador, "abaixo do % escolhido",
+        _atingEsperado = 1, "abaixo da meta",
+        "abaixo de " & _pctEsperado
+    )
 
 // Indicadores marcados no seletor (nada marcado = todos).
 VAR _indMarcados =
@@ -330,6 +363,16 @@ VAR _tabIndPts =
                 [__Ating] >= 0.80, "orange",
                 "red"
             ),
+        // atingimento esperado deste indicador: o % proprio, se houver; senao o geral
+        "__AtingAlvo",
+            VAR _ind = [Indicador]
+            VAR _nivel =
+                MAXX(
+                    FILTER( _niveisMarcados, 'Seletor Nível BSC'[Chave Nível] = _ind ),
+                    'Seletor Nível BSC'[Atingimento Nível]
+                )
+            RETURN
+                IF( ISBLANK( _nivel ), _atingEsperado, _nivel ),
         // 1 = esta marcado no seletor de indicadores
         "__Marcado",
             VAR _ind = [Indicador]
@@ -343,7 +386,7 @@ VAR _tabIndPot =
     ADDCOLUMNS(
         _tabIndPts,
         "__Potencial",
-            VAR _p = [__PtsDisp] * _atingEsperado - COALESCE( [__PtsReais], 0 )
+            VAR _p = [__PtsDisp] * [__AtingAlvo] - COALESCE( [__PtsReais], 0 )
             RETURN
                 IF( [__NaNota] = 1 && _p >= 0.005, _p, 0 )
     )
@@ -773,7 +816,7 @@ VAR _linhas =
         VAR _pilula =
             SWITCH(
                 _estado,
-                "sim", "meta · " & _pctEsperado,
+                "sim", "meta · " & FORMAT( [__AtingAlvo], "0%", _loc ),
                 "fora", "fora da nota",
                 "real · " & _fmtAting
             )
@@ -854,7 +897,13 @@ VAR _resumoTabela =
         IF( _temNota, "nenhum indicador abaixo do esperado", "sem resultado neste filtro" )
     )
 VAR _contexto = _corSelecionada & IF( _modo = "AT", " · AT " & _areaSelecionada, "" )
-VAR _chipCenario = IF( _simular, "esperado · " & _pctEsperado & " da meta", "real · sem projeção" )
+VAR _chipCenario =
+    SWITCH(
+        TRUE(),
+        NOT _simular, "real · sem projeção",
+        _porIndicador, "esperado · % por indicador",
+        "esperado · " & _pctEsperado & " da meta"
+    )
 
 // Texto do botao de ajuda (?)
 VAR _ajuda =
@@ -864,7 +913,7 @@ VAR _ajuda =
             "<p><i class='k'>Ganho</i>peso × atingimento esperado − pontos atuais. É o quanto o indicador devolve à nota se chegar ao % escolhido.</p>" &
             "<p><i class='k'>Ponte</i>começa na nota atual. Barra cheia: o indicador está na projeção e o número é a nota acumulada. Barra tracejada: ficou de fora.</p>" &
             "<p><i class='k'>Só este</i>nota se apenas aquele indicador chegasse ao % escolhido.</p>" &
-            "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Atingimento define o % da meta (100% = meta); Indicadores tira ou devolve um indicador.</p>" &
+            "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Atingimento define o % geral da meta e % por indicador dá um % próprio a quem você escolher; Indicadores tira ou devolve um indicador.</p>" &
         "</div>" &
     "</div>"
 
