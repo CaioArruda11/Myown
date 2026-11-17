@@ -1,0 +1,20 @@
+Seletor Atingimento BSC = 
+// ============================================================================
+// TABELA DO SELETOR DE % DE ATINGIMENTO DA PAGINA "Projeção BSC"
+// Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
+// NAO criar relacionamento: e uma tabela solta, usada so no seletor.
+//
+// Valores de 0% a 100%, de 1 em 1 ponto percentual. (Para andar de 5 em 5,
+// troque o ultimo 1 do GENERATESERIES por 5.)
+//
+// Depois de criar: selecione a coluna Atingimento > Formato: Porcentagem,
+// 0 casas decimais.
+//
+// No seletor: campo Atingimento, estilo "Valor unico" (aparece a barra
+// deslizante com a caixa para digitar). Deixe em 100%.
+// Nada marcado = 100% (bater a meta).
+// ============================================================================
+SELECTCOLUMNS(
+    GENERATESERIES( 0, 100, 1 ),
+    "Atingimento", [Value] / 100
+)

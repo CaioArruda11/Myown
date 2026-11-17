@@ -50,6 +50,7 @@ const BOM = {
  *   cor: 'GERAL' | 'OURO' | 'BRONZE' | 'PRATA 1' | 'PRATA 2'
  *   at: sigla da AT ou null
  *   cenario: texto do seletor de cenario, ou null (nada marcado)
+ *   ating: % do seletor de atingimento (0 a 100), ou null (nada marcado = 100)
  *   marcados: lista de chaves marcadas no seletor de indicadores, ou null (nada marcado = todos)
  *   dados: 'print' (padrao) | 'bom' | 'vazio' | 'semDados' (2 indicadores sem resultado)
  */
@@ -81,6 +82,7 @@ function mocksProjecao(e) {
   const m = {
     _corSelecionada: cor, _areaSelecionada: at, _temAreaSelecionada: !!at,
     _cenarioSel: st.cenario || 'Atingimento esperado (meta)',
+    _atingEsperado: (st.ating === undefined || st.ating === null ? 100 : st.ating) / 100,
     _indMarcados: marcados.map((c) => ({ Chave: c })),
     _totalPontosDisponiveis: IND.reduce((s, r) => s + r[9], 0),
     _tabIndBase: tab,

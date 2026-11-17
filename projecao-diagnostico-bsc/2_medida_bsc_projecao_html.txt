@@ -10,7 +10,12 @@ BSC Projeção HTML =
 //   do BSC?"  Ex.: Instalacao em ate D3 vale 10 pts e hoje entrega 5,0. Na
 //   meta ele entrega os 10 -> a nota sobe 5,0.
 //
-// DOIS SELETORES NATIVOS COMANDAM A SIMULACAO (tabelas do arquivo 1)
+// TRES SELETORES NATIVOS COMANDAM A SIMULACAO (tabelas dos arquivos 1a, 1b, 1c)
+//   'Seletor Atingimento BSC'[Atingimento]
+//       de 0% a 100%: quanto da meta os indicadores marcados atingiriam.
+//       100% = bater a meta (padrao se nada for marcado). Com 80%, cada
+//       indicador marcado conta 80% do peso (se hoje ja entrega mais do que
+//       isso, fica como esta).
 //   'Seletor Cenário BSC'[Cenário]
 //       "Atingimento real"             -> sem projecao: so o diagnostico
 //       "Atingimento esperado (meta)"  -> os indicadores marcados contam com
@@ -112,8 +117,18 @@ VAR _cenarioSel =
     )
 VAR _simularPedido = _cenarioSel <> _nomeCenarioReal
 
-// Atingimento esperado: 1 = 100% da meta. (Com 1.30 a pagina simula o teto.)
-VAR _atingEsperado = 1
+// Atingimento esperado: vem do seletor de % ('Seletor Atingimento BSC').
+// 1 = 100% da meta, 0.8 = 80% da meta... Nada marcado no seletor = 100%.
+// Ex.: com 80%, um indicador de 10 pts que hoje entrega 5,0 passa a contar 8,0.
+VAR _atingEsperado =
+    SELECTEDVALUE(
+        'Seletor Atingimento BSC'[Atingimento],
+        1
+    )
+// textos que acompanham o nivel escolhido
+VAR _pctEsperado = FORMAT( _atingEsperado, "0%", _loc )
+VAR _levar = IF( _atingEsperado = 1, "à meta", "a " & _pctEsperado & " da meta" )
+VAR _abaixoDe = IF( _atingEsperado = 1, "abaixo da meta", "abaixo de " & _pctEsperado )
 
 // Indicadores marcados no seletor (nada marcado = todos).
 VAR _indMarcados =
@@ -518,7 +533,7 @@ VAR _heroNota =
                 "<span class='gt-l'>" &
                     IF(
                         _simular,
-                        "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b> de " & FORMAT( _qtdNaNota, "0", _loc ) & " levados à meta",
+                        "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b> de " & FORMAT( _qtdNaNota, "0", _loc ) & " levados " & _levar,
                         "potencial: <b>+" & FORMAT( _potencialTotal, "0.00", _loc ) & " pts</b>"
                     ) & "</span>"
             ) &
@@ -624,15 +639,15 @@ VAR _linhasFaixas =
                 ISBLANK( _n ), "fora do alcance · teto " & FORMAT( _ptsTeto, "0.0", _loc ),
                 _n = 1, "basta <b>" & _siglas & "</b>",
                 _n <= 3, "<b>" & FORMAT( _n, "0", _loc ) & " maiores</b>: " & _siglas,
-                _n = _qtdOport, "todos os <b>" & FORMAT( _n, "0", _loc ) & "</b> abaixo da meta",
+                _n = _qtdOport, "todos os <b>" & FORMAT( _n, "0", _loc ) & "</b> " & _abaixoDe,
                 "<b>" & FORMAT( _n, "0", _loc ) & " maiores</b>: " & _siglaPrimeira & " até " & _siglaUltima
             )
         VAR _dica =
             SWITCH(
                 TRUE(),
                 _jaReal, "A nota real (" & FORMAT( _d0, "0.00", _loc ) & ") já está em " & _rotulo & " ou acima.",
-                ISBLANK( _n ), "Mesmo com todos os indicadores na meta a nota chega a " & FORMAT( _ptsTeto, "0.00", _loc ) & ", abaixo de " & _rotulo & ".",
-                "Caminho mais curto até " & _rotulo & ", saindo da nota real: levar à meta " & _nomes & ". A nota vai a " & FORMAT( _notaCaminho, "0.00", _loc ) & "."
+                ISBLANK( _n ), "Mesmo levando todos os indicadores " & _levar & " a nota chega a " & FORMAT( _ptsTeto, "0.00", _loc ) & ", abaixo de " & _rotulo & ".",
+                "Caminho mais curto até " & _rotulo & ", saindo da nota real: levar " & _levar & " " & _nomes & ". A nota vai a " & FORMAT( _notaCaminho, "0.00", _loc ) & "."
             )
         RETURN
             "<div class='fa d-" & [Classe] & IF( _jaReal || _naProj, " ok", "" ) & "' title='" & _dica & "'>" &
@@ -758,7 +773,7 @@ VAR _linhas =
         VAR _pilula =
             SWITCH(
                 _estado,
-                "sim", "meta · " & FORMAT( _atingEsperado, "0%", _loc ),
+                "sim", "meta · " & _pctEsperado,
                 "fora", "fora da nota",
                 "real · " & _fmtAting
             )
@@ -792,7 +807,7 @@ VAR _linhas =
                     IF( [AnaliticoAT] = 0, "<span class='tag'>consol.</span>", "" ) & "</div>" &
                 "<div class='n real'>" & _fmtRes & "</div>" &
                 "<div class='n'>" & IF( ISBLANK( _meta ), "—", "<i>" & _sinalMeta & "</i>" & _fmtMeta ) & "</div>" &
-                "<div class='n fal'>" & _fmtFalta & "</div>" &
+                "<div class='n fal" & IF( ( NOT _semDados ) && _dif <= 0, " k", "" ) & "'>" & _fmtFalta & "</div>" &
                 "<div class='n'><b class='pc'>" &
                     IF( _semDados, "s/ dados", IF( _ating >= 1, "▲ ", "▼ " ) & FORMAT( _ating, "0.0%", _loc ) ) & "</b></div>" &
                 "<div class='n pts'><b>" & IF( ISBLANK( _pts ), "—", FORMAT( _pts, "0.0", _loc ) ) & "</b><small>/" & FORMAT( [__PtsDisp], "0", _loc ) & "</small></div>" &
@@ -818,7 +833,7 @@ VAR _linhaTotal =
             SWITCH(
                 TRUE(),
                 NOT _temNota, "sem pontuação neste filtro",
-                _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador levado à meta", " indicadores levados à meta" ),
+                _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador levado ", " indicadores levados " ) & _levar,
                 _simular, "nenhum ganho nos indicadores marcados",
                 "cenário real · sem projeção"
             ) & "</div>" &
@@ -839,17 +854,17 @@ VAR _resumoTabela =
         IF( _temNota, "nenhum indicador abaixo do esperado", "sem resultado neste filtro" )
     )
 VAR _contexto = _corSelecionada & IF( _modo = "AT", " · AT " & _areaSelecionada, "" )
-VAR _chipCenario = IF( _simular, "esperado · meta " & FORMAT( _atingEsperado, "0%", _loc ), "real · sem projeção" )
+VAR _chipCenario = IF( _simular, "esperado · " & _pctEsperado & " da meta", "real · sem projeção" )
 
 // Texto do botao de ajuda (?)
 VAR _ajuda =
     "<div class='help' tabindex='0' role='note' aria-label='Como ler este painel'><span class='help-b'>?</span>" &
         "<div class='help-pop'>" &
             "<b>Como ler</b>" &
-            "<p><i class='k'>Ganho</i>peso × atingimento esperado − pontos atuais. É o quanto o indicador devolve à nota se bater a meta.</p>" &
+            "<p><i class='k'>Ganho</i>peso × atingimento esperado − pontos atuais. É o quanto o indicador devolve à nota se chegar ao % escolhido.</p>" &
             "<p><i class='k'>Ponte</i>começa na nota atual. Barra cheia: o indicador está na projeção e o número é a nota acumulada. Barra tracejada: ficou de fora.</p>" &
-            "<p><i class='k'>Só este</i>nota se apenas aquele indicador batesse a meta.</p>" &
-            "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Indicadores tira ou devolve um indicador.</p>" &
+            "<p><i class='k'>Só este</i>nota se apenas aquele indicador chegasse ao % escolhido.</p>" &
+            "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Atingimento define o % da meta (100% = meta); Indicadores tira ou devolve um indicador.</p>" &
         "</div>" &
     "</div>"
 
@@ -1014,7 +1029,7 @@ background-position:" & _posG80 & " 0," & _posG90 & " 0," & _posG100 & " 0}
 .s-pot .br em{color:#8E99AE;font-weight:600}
 .s-pot .gn{color:#8E99AE}
 .s-pot .so{color:var(--ink2);font-weight:500}
-.s-ok .n.fal{color:var(--ok-t);font-weight:600}
+.n.fal.k{color:var(--ok-t);font-weight:600}
 .s-ok .gn,.s-ok .so,.s-fora .gn,.s-fora .so{color:#A9B2C3;font-weight:500}
 .s-fora .nm,.s-fora .n,.s-fora .n.real,.s-fora .pc{color:#98A2B6;font-weight:500}
 .s-fora .st{background:var(--nd)}
@@ -1082,7 +1097,7 @@ VAR _html =
             _ajuda &
         "</div>" &
         "<div class='th'><span>Indicador</span><span>Real</span><span>Meta</span><span class='c-fal'>Falta</span><span>Ating.</span><span>Pontos</span><span>Ganho</span>" &
-            _eixo & "<span class='c-so' title='Nota se apenas este indicador batesse a meta'>Só este</span><span class='c-pl'>Na projeção</span></div>" &
+            _eixo & "<span class='c-so' title='Nota se apenas este indicador chegasse ao atingimento escolhido'>Só este</span><span class='c-pl'>Na projeção</span></div>" &
         "<div class='rows'>" & _linhas & "</div>" &
         _linhaTotal &
     "</article>" &

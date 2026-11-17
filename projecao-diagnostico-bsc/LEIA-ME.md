@@ -10,20 +10,24 @@ Exemplo do print: *Instalação em até D3* vale 10 pts e entrega 5,0. Na meta e
 |---|---|---|
 | `1a_tabela_seletor_cenario.txt` | tabela do seletor **Cenário** (real × esperado) | Modelagem > Nova tabela |
 | `1b_tabela_seletor_indicadores.txt` | tabela do seletor **Indicadores na projeção** | Modelagem > Nova tabela |
+| `1c_tabela_seletor_atingimento.txt` | tabela do seletor **Atingimento da meta** (0% a 100%) | Modelagem > Nova tabela |
 | `2_medida_bsc_projecao_html.txt` | medida **BSC Projeção HTML** (corpo da página) | Nova medida |
 | `3_medida_menu_lateral_v8.txt` | menu com o item **Projeção BSC** (substitui o v7) | nas medidas de menu que já existem |
+| `4_medida_menu_lateral_pagina_projecao.txt` | o mesmo menu, já com **Projeção BSC** como página atual | medida nova, para o menu da página nova |
 | `previas/` | prints e a prévia interativa | — |
 
 Nenhuma medida base muda. A página usa as mesmas que o corpo do BSC já usa: `[BSC Pontos Reais]`, `[BSC Resultado Selecionado]`, `[BSC Meta Selecionada]`, `[BSC Menor Melhor]`, `[BSC Pontos Disponíveis]`, e as tabelas `'Seletor Cor'`, `'Seletor Indicador BSC'` e `dAT`.
 
 ## Passo a passo
 
-### 1. Criar as duas tabelas
-Modelagem > **Nova tabela**, uma de cada vez (arquivos `1a` e `1b`). Não crie relacionamento para elas.
+### 1. Criar as três tabelas
+Modelagem > **Nova tabela**, uma de cada vez (arquivos `1a`, `1b` e `1c`). Não crie relacionamento para elas.
 
 Depois, em cada uma, **Classificar por coluna**:
 - `Cenário` → por `Ordem Cenário`
 - `Indicador Projeção` → por `Ordem Projeção`
+
+Na tabela `1c`, formate a coluna `Atingimento` como **Porcentagem**, 0 casas decimais.
 
 ### 2. Criar a medida do corpo
 **Nova medida** > colar o arquivo `2` inteiro. O nome vem junto: `BSC Projeção HTML`.
@@ -33,22 +37,24 @@ O caminho mais curto é **duplicar a página do BSC** e renomear para `Projeçã
 
 Na página duplicada:
 1. No visual HTML do corpo, troque a medida por `BSC Projeção HTML`.
-2. Apague o visual "atualização das bases" e use o espaço para os dois seletores novos:
+2. Apague o visual "atualização das bases" e use o espaço para os três seletores novos:
 
 | Seletor | Campo | Estilo | Configuração |
 |---|---|---|---|
 | **Cenário** | `'Seletor Cenário BSC'[Cenário]` | Lista vertical | Seleção única: **ativada**. Deixe "Atingimento esperado (meta)" marcado. |
+| **Atingimento da meta** | `'Seletor Atingimento BSC'[Atingimento]` | Valor único (barra deslizante) | Deixe em 100%. |
 | **Indicadores na projeção** | `'Seletor Projeção BSC'[Indicador Projeção]` | Suspenso | "Seleção múltipla com CTRL": **desativada**. "Mostrar opção Selecionar tudo": **ativada**. |
 
 Posições usadas nas prévias (página 1280 × 720, partindo das posições da página do BSC):
 
 | Visual | X | Y | Largura | Altura |
 |---|---|---|---|---|
-| Seletor de cor | 275 | 6 | 345 | 114 |
-| Seletor de AT | 629 | 6 | 110 | 114 |
-| Seletor de mês | 748 | 6 | 124 | 114 |
-| Cenário (novo) | 881 | 6 | 190 | 114 |
-| Indicadores na projeção (novo) | 1080 | 6 | 182 | 114 |
+| Seletor de cor | 275 | 6 | 246 | 114 |
+| Seletor de AT | 530 | 6 | 100 | 114 |
+| Seletor de mês | 639 | 6 | 112 | 114 |
+| Cenário (novo) | 760 | 6 | 190 | 114 |
+| Atingimento da meta (novo) | 959 | 6 | 140 | 114 |
+| Indicadores na projeção (novo) | 1108 | 6 | 154 | 114 |
 | Corpo HTML | 275 | 130 | 987 | 576 |
 
 O corpo se adapta a tamanhos menores (testado até 700 × 520), então dá para deixar o seletor de indicadores como lista vertical ao lado, se preferir ver as marcações o tempo todo.
@@ -81,6 +87,7 @@ Quer outro nome no item (por exemplo "Projeção e Diagnóstico")? Troque o text
 
 - **Cenário = Atingimento esperado (meta)**: os indicadores marcados contam como se tivessem batido a meta.
 - **Cenário = Atingimento real**: sem projeção. Fica só o diagnóstico (onde está a perda e quanto cada indicador devolveria).
+- **Atingimento da meta**: de 0% a 100%. Responde "e se não der para bater a meta, mas der para chegar a 80% dela?". Com 80%, cada indicador marcado conta 80% do peso; quem hoje já entrega mais do que isso fica como está. Nada marcado vale 100%.
 - **Indicadores na projeção**: marque quem entra. Para *tirar* um indicador, clique em "Selecionar tudo" e desmarque o que não quer. Nada marcado vale como todos.
 - Cor, AT e mês funcionam como no BSC.
 
@@ -103,7 +110,7 @@ Quer outro nome no item (por exemplo "Projeção e Diagnóstico")? Troque o text
 - **Nota projetada** = nota atual + ganho dos indicadores que estão na projeção.
 - **Visão por AT**: Indisponibilidade FTTH e Móvel não entram na nota da AT (como no BSC), então aparecem como "fora da nota". Por isso o teto de uma AT fica abaixo de 100.
 - **Indicador sem resultado no filtro**: hoje entrega 0 ponto; na projeção entra com o peso inteiro. Desmarque no seletor se não quiser contar.
-- Para simular o teto de pontuação em vez da meta, troque `_atingEsperado = 1` por `1.30` na medida.
+- **Com o atingimento abaixo de 100%**, "perda", "ganho" e "caminho até cada faixa" passam a ser medidos contra o nível escolhido (por exemplo, 80% do peso), não contra a meta cheia. A coluna *Falta* continua mostrando a distância até a meta.
 
 ## Conferência depois de colar
 
