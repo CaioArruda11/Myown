@@ -4,7 +4,8 @@ Seletor Atingimento BSC =
 // Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
 // NAO criar relacionamento: e uma tabela solta, usada so na segmentacao.
 //
-// Valores INTEIROS de 0 a 100 (80 = 80% da meta). Inteiro de proposito: a
+// Valores INTEIROS de 0 a 130 (80 = 80% da meta; 130 = teto de pontuacao do
+// BSC, que paga ate 130% do peso). Inteiro de proposito: a
 // barra deslizante so para em valores que existem na tabela. Com decimais
 // ela pode parar em 0,8234, que nao existe, e a medida voltaria a 100%.
 //
@@ -17,6 +18,6 @@ Seletor Atingimento BSC =
 // abre. A medida divide por 100.
 // ============================================================================
 SELECTCOLUMNS(
-    GENERATESERIES( 0, 100, 1 ),
+    GENERATESERIES( 0, 130, 1 ),
     "Atingimento", [Value]
 )

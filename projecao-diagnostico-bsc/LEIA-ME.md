@@ -10,7 +10,7 @@ Exemplo do print: *Instalação em até D3* vale 10 pts e entrega 5,0. Na meta e
 |---|---|---|
 | `1a_tabela_seletor_cenario.txt` | tabela do seletor **Cenário** (real × esperado) | Modelagem > Nova tabela |
 | `1b_tabela_seletor_indicadores.txt` | tabela do seletor **Indicadores na projeção** | Modelagem > Nova tabela |
-| `1c_tabela_seletor_atingimento.txt` | tabela do seletor **Atingimento da meta** (0% a 100%) | Modelagem > Nova tabela |
+| `1c_tabela_seletor_atingimento.txt` | tabela do seletor **Atingimento da meta** (0% a 130%) | Modelagem > Nova tabela |
 | `1d_tabela_seletor_nivel_por_indicador.txt` | tabela do seletor **% por indicador** (um % diferente em cada indicador) | Modelagem > Nova tabela |
 | `2_medida_bsc_projecao_html.txt` | medida **BSC Projeção HTML** (corpo da página) | Nova medida |
 | `3_medida_menu_lateral_v8.txt` | menu com o item **Projeção BSC** (substitui o v7) | nas medidas de menu que já existem |
@@ -30,7 +30,7 @@ Depois, em cada uma, **Classificar por coluna**:
 
 Na tabela `1d`, classifique `Indicador Nível` por `Ordem Indicador Nível` e `Nível` por `Atingimento Nível`.
 
-Na tabela `1c`, deixe a coluna `Atingimento` como **Número inteiro** e use o formato personalizado `0"%"` (mostra 80% em vez de 80). Não use o formato Porcentagem: os valores são de 0 a 100, e ele mostraria 8000%.
+Na tabela `1c`, deixe a coluna `Atingimento` como **Número inteiro** e use o formato personalizado `0"%"` (mostra 80% em vez de 80). Não use o formato Porcentagem: os valores são de 0 a 130, e ele mostraria 8000%.
 
 ### 2. Criar a medida do corpo
 **Nova medida** > colar o arquivo `2` inteiro. O nome vem junto: `BSC Projeção HTML`.
@@ -97,7 +97,7 @@ A página funciona com dois seletores novos: **Cenário** e a árvore **Indicado
 - **Árvore Indicador & % Atingimento** (é ela que decide a projeção):
   - **nada marcado**: todos os indicadores na meta (100%);
   - **marcou o indicador inteiro** (a caixa do pai): ele vai à meta (100%);
-  - **abriu o indicador pela seta e marcou um %**: ele vai a esse %, por exemplo Instalação D3 a 70%;
+  - **abriu o indicador pela seta e marcou um %**: ele vai a esse %, de 0% a **130%**. Por exemplo, Instalação D3 a 70%, ou Eficiência de Campo a 130% (o teto que o BSC paga);
   - só os indicadores marcados entram na projeção; os outros ficam com o resultado real;
   - para combinar (D3 a 80%, Repetidas a 60%, IFI inteiro), a "Seleção múltipla com CTRL" tem de estar **desativada**. Com ela ativada, segure CTRL para marcar mais de um.
 - **Atingimento da meta** (opcional): muda o % de quem foi marcado inteiro (ou de todos, se nada estiver marcado na árvore). Sem a barra na página, vale 100%.
@@ -128,11 +128,13 @@ A medida usa `dCalendario[Data]` (a mesma das páginas IFI e IRR) para voltar um
 ## Regras da conta
 
 - **Nota atual**: mesma medida e mesmos filtros que o corpo do BSC usa (Geral, cor ou AT). Deve ser igual à nota do velocímetro do BSC.
-- **Ganho** = peso × atingimento esperado − pontos atuais. Nunca é negativo: quem já passou da meta mantém o que tem.
+- **Ganho** = peso × atingimento esperado − pontos atuais. Nunca é negativo: quem já entrega mais do que o % escolhido mantém o que tem.
+- **Teto de 130%**: o BSC paga até 130% do peso (um indicador de 10 pts vale no máximo 13). Por isso os seletores vão até 130%: acima de 100% o indicador passou da meta e ainda soma pontos. Ex.: Eficiência de Campo com 114,2% de atingimento tem 11,4 pts; a 130% iria a 13,0 (+1,6).
+- **Resultado necessário**: passe o mouse na linha. O tooltip diz que resultado leva ao % escolhido (maior é melhor: meta × %; menor é melhor: meta ÷ %). Ex.: Eficiência de Campo a 130% precisa de 117,0%. Atenção aos indicadores que não passam de 100%: Instalação D3 a 130% precisaria de 105,3%, que não existe; o máximo real dela é 100% ÷ 81% ≈ 123% de atingimento.
 - **Nota projetada** = nota atual + ganho dos indicadores que estão na projeção.
 - **Visão por AT**: Indisponibilidade FTTH e Móvel não entram na nota da AT (como no BSC), então aparecem como "fora da nota". Por isso o teto de uma AT fica abaixo de 100.
 - **Indicador sem resultado no filtro**: hoje entrega 0 ponto; na projeção entra com o peso inteiro. Desmarque no seletor se não quiser contar.
-- **Com o atingimento abaixo de 100%**, "perda", "ganho" e "caminho até cada faixa" passam a ser medidos contra o nível escolhido (por exemplo, 80% do peso), não contra a meta cheia. A coluna *Falta* continua mostrando a distância até a meta.
+- **Com outro % que não 100%**, "perda", "ganho" e "caminho até cada faixa" passam a ser medidos contra o nível escolhido (por exemplo, 80% ou 130% do peso), não contra a meta cheia. A coluna *Falta* continua mostrando a distância até a meta.
 
 ## Conferência depois de colar
 
@@ -143,6 +145,6 @@ Se o item 1 não bater, me avise: as medidas foram conferidas no avaliador de DA
 
 ## Sobre as prévias
 
-- Os 10 indicadores visíveis no print estão com os mesmos números da tela. **Chegada no Slot e Indisponibilidade Móvel não apareciam no print e foram estimados**, então a nota 77,87 é ilustrativa. Cores e ATs são variações fictícias do Geral.
+- O Geral repete os números do print da página já montada: os 12 indicadores, nota 81,02 e mês anterior 79,57. Cores e ATs são variações fictícias do Geral.
 - `previas/previa-interativa.html`: abra no navegador e clique nos seletores. A própria medida DAX é reavaliada a cada clique.
 - Para gerar de novo: `node tools/dax-preview/build-projecao.js`

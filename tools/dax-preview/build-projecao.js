@@ -69,7 +69,7 @@ for (const [nome, e] of Object.entries(ESTADOS)) { corpo(e); process.stdout.writ
 for (const tema of ['OCEANO', 'AURORA']) corpo(ESTADOS.todos, tema);
 // todas as combinacoes de cor x AT x cenario (pega erro que so aparece em um filtro)
 let combos = 0;
-for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null].concat(P.ATS.map((a) => a[0]))) for (const cen of [REAL, ESPERADO]) for (const ating of [100, 80, 0]) { corpo({ cor, at, cenario: cen, ating }); combos++; }
+for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null].concat(P.ATS.map((a) => a[0]))) for (const cen of [REAL, ESPERADO]) for (const ating of [130, 100, 0]) { corpo({ cor, at, cenario: cen, ating }); combos++; }
 corpo({ niveis: { 'INSTALAÇÃO 3D': 0, 'IRT': 100 }, ating: 50 });
 for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null, 'RP', 'PL']) for (const semMesAnt of [false, true]) corpo({ cor, at, semMesAnt, niveis: { 'INSTALAÇÃO 3D': 70, 'IFI 7 DIAS': 'tudo' } });
 console.log('\ncorpo  : ' + combos + ' combinacoes de cor x AT x cenario x % avaliadas sem erro');
@@ -167,11 +167,13 @@ function desenhar() {
   q('nivTxt').textContent = !nk.length ? 'Todos' : nk.length === 1 ? nome(nk[0]) : 'Seleções múltiplas';
   q('nivPop').className = 'pop' + (st.aberto === 'niv' ? ' on' : '');
   var tudo = nk.length === P.CHAVES.length && nk.every(function (k) { return st.niveis[k] === 'tudo'; });
+  var rolagem = q('nivPop').scrollTop;
   q('nivPop').innerHTML = '<div class="tr all" data-n="*"><i class="cb' + (tudo ? ' on' : nk.length ? ' pa' : '') + '"></i>Selecionar tudo</div>' + P.IND.map(function (r) {
     var v = st.niveis[r[0]], ab = st.nivAberto === r[0];
     return '<div class="tr" data-n="' + r[0] + '"><u data-x="' + r[0] + '">' + (ab ? '⌄' : '›') + '</u><i class="cb' + (v === 'tudo' ? ' on' : v !== undefined ? ' pa' : '') + '"></i>' + r[1] + '</div>' +
       (ab ? P.NIVEIS.map(function (l) { return '<div class="lv" data-l="' + l + '"><i class="cb' + (v === 'tudo' || v === l ? ' on' : '') + '"></i>' + l + '%</div>'; }).join('') : '');
   }).join('');
+  q('nivPop').scrollTop = rolagem;
   [].forEach.call(document.querySelectorAll('.bar a'), function (a) { a.className = a.getAttribute('data-d') === st.dados ? 'sel' : ''; });
   // ---- visuais HTML: a medida e reavaliada com o estado dos filtros
   var e = { cor: st.cor, at: st.at, cenario: st.cenario, marcados: st.marcados, ating: st.ating, niveis: st.niveis, dados: st.dados, semMesAnt: st.semMesAnt };
@@ -232,6 +234,11 @@ pagina('8-cor-e-AT-selecionadas', { cor: 'BRONZE', at: 'RP', niveis: { 'INSTALA�
 pagina('10-indicadores-sem-resultado', ESTADOS.semDados);
 pagina('11-resultado-bom', ESTADOS.bom);
 pagina('12-sem-dados-no-mes-anterior', Object.assign({ semMesAnt: true }, D3_70));
+const TETO = {}; P.CHAVES.forEach((k) => { TETO[k] = 130; });
+pagina('13-eficiencia-de-campo-a-130', { niveis: { 'EFICIÊNCIA DE CAMPO': 130 } });
+pagina('14-arvore-aberta-ate-130', { aberto: 'niv', nivAberto: 'EFICIÊNCIA DE CAMPO', niveis: { 'EFICIÊNCIA DE CAMPO': 130 } },
+  async (p) => { await p.evaluate(() => { const e = document.querySelector('#nivPop'); e.scrollTop = e.scrollHeight; }); await p.waitForTimeout(200); });
+pagina('15-todos-a-130-teto', { niveis: TETO });
 
 // menu: antes (v7 recebido) x depois (v8), com a posicao dos botoes nativos
 {

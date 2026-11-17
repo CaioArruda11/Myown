@@ -15,7 +15,8 @@ BSC Projeção HTML =
 //       % proprio de um indicador. Ex.: Instalacao D3 em 80% e Repetidas em
 //       60%. Quem nao tiver % marcado ali segue o % geral do seletor abaixo.
 //   'Seletor Atingimento BSC'[Atingimento]
-//       de 0% a 100%: quanto da meta os indicadores marcados atingiriam.
+//       de 0% a 130%: quanto da meta os indicadores marcados atingiriam.
+//       Acima de 100% o indicador ainda soma pontos, ate o teto de 130%.
 //       100% = bater a meta (padrao se nada for marcado). Com 80%, cada
 //       indicador marcado conta 80% do peso (se hoje ja entrega mais do que
 //       isso, fica como esta).
@@ -130,7 +131,7 @@ VAR _cenarioSel =
     )
 VAR _simularPedido = _cenarioSel <> _nomeCenarioReal
 
-// Atingimento esperado GERAL: barra 'Seletor Atingimento BSC' (0 a 100,
+// Atingimento esperado GERAL: barra 'Seletor Atingimento BSC' (0 a 130,
 // inteiro). Vale para todos os indicadores, menos os que tiverem % proprio na
 // arvore 'Seletor Nível BSC'. 100 = bater a meta; nada marcado = 100.
 // Ex.: com 80, um indicador de 10 pts que hoje entrega 5,0 passa a contar 8,0.
@@ -933,6 +934,34 @@ VAR _linhas =
                 _seta & FORMAT( _dif * 100, IF( _dif < 0.00095, "0.00", "0.0" ), _loc ) & " p.p."
             )
 
+        // ---- resultado que leva ao atingimento usado na projecao ----
+        // maior e melhor: meta x atingimento | menor e melhor: meta / atingimento
+        VAR _alvo = [__AtingAlvo]
+        VAR _resAlvo =
+            IF(
+                ( NOT ISBLANK( _meta ) ) && _alvo > 0,
+                IF( [__MenorMelhor] = 1, DIVIDE( _meta, _alvo ), _meta * _alvo )
+            )
+        VAR _sAlvo = ROUND( _resAlvo * 3600, 0 )
+        VAR _fmtResAlvo =
+            SWITCH(
+                TRUE(),
+                ISBLANK( _resAlvo ), "",
+                _ehTMR,
+                    FORMAT( INT( _sAlvo / 3600 ), "00" ) & ":" &
+                    FORMAT( INT( MOD( _sAlvo, 3600 ) / 60 ), "00" ) & ":" &
+                    FORMAT( MOD( _sAlvo, 60 ), "00" ),
+                _ehQtd, FORMAT( _resAlvo, "0.00", _loc ),
+                FORMAT( _resAlvo, "0.0%", _loc )
+            )
+        VAR _txtAlvo =
+            IF(
+                _fmtResAlvo = "",
+                "",
+                " Para " & FORMAT( _alvo, "0%", _loc ) & " de atingimento o resultado precisa chegar a " & _fmtResAlvo &
+                    IF( ISBLANK( _res ), "", " (hoje " & _fmtRes & ")" ) & "."
+            )
+
         // ---- pontos, ganho e ponte ----
         VAR _pts = [__PtsReais]
         VAR _pot = [__Potencial]
@@ -964,11 +993,12 @@ VAR _linhas =
                 "sim",
                     _base & "Na projeção: com o atingimento esperado soma +" & FORMAT( [__Ganho], "0.00", _loc ) &
                         " e a nota acumulada chega a " & FORMAT( _fim, "0.00", _loc ) & ". Sozinho levaria a nota de " &
-                        FORMAT( _d0, "0.00", _loc ) & " para " & FORMAT( _d0 + _pot, "0.00", _loc ) & ".",
+                        FORMAT( _d0, "0.00", _loc ) & " para " & FORMAT( _d0 + _pot, "0.00", _loc ) & "." & _txtAlvo,
                 "pot",
-                    _base & "Fora da projeção (" & IF( _simular, "desmarcado no seletor de indicadores", "cenário real" ) &
+                    _base & "Fora da projeção (" &
+                        SWITCH( TRUE(), NOT _simular, "cenário real", _porIndicador, "não marcado na árvore Indicador & %", "desmarcado no seletor de indicadores" ) &
                         "): fica com o atingimento real. Se entrasse, somaria +" & FORMAT( _pot, "0.00", _loc ) &
-                        " e a nota iria a " & FORMAT( _fim, "0.00", _loc ) & ".",
+                        " e a nota iria a " & FORMAT( _fim, "0.00", _loc ) & "." & _txtAlvo,
                 "fora",
                     [NomeTela] & ": indicador consolidado, sem abertura por AT. Não compõe a nota da AT e fica fora da simulação.",
                 _base & "Já entrega o esperado: não há ganho a projetar."
@@ -1007,7 +1037,7 @@ VAR _linhaTotal =
                 TRUE(),
                 NOT _temNota, "sem pontuação neste filtro",
                 _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador", " indicadores" ) &
-                    " na projeção · nota <b>+" & FORMAT( _pctGanho, "0.0%", _loc ) & "</b>",
+                    " · nota <b>+" & FORMAT( _pctGanho, "0.0%", _loc ) & "</b>",
                 _simular, "nenhum ganho nos indicadores marcados",
                 "cenário real · sem projeção"
             ) & "</div>" &
@@ -1042,6 +1072,7 @@ VAR _ajuda =
         "<div class='help-pop'>" &
             "<b>Como ler</b>" &
             "<p><i class='k'>Ganho</i>peso × atingimento esperado − pontos atuais. É o quanto o indicador devolve à nota se chegar ao % escolhido.</p>" &
+            "<p><i class='k'>Até 130%</i>o BSC paga até 130% do peso. Acima da meta o indicador ainda soma pontos: escolha 110%, 120% ou 130% para ver esse ganho.</p>" &
             "<p><i class='k'>Ponte</i>começa na nota atual. Barra cheia: o indicador está na projeção e o número é a nota acumulada. Barra tracejada: ficou de fora.</p>" &
             "<p><i class='k'>Só este</i>nota se apenas aquele indicador chegasse ao % escolhido.</p>" &
             "<p><i class='k'>Seletores</i>Cenário liga ou desliga a projeção; Atingimento define o % geral da meta e % por indicador dá um % próprio a quem você escolher; Indicadores tira ou devolve um indicador.</p>" &

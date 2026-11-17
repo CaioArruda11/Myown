@@ -3,30 +3,30 @@
 // Dados ficticios da pagina "Projeção BSC". Sem dependencias: o mesmo arquivo
 // roda no Node (build-projecao.js) e dentro da previa interativa (navegador).
 //
-// Cenario GERAL: os 10 indicadores visiveis no print enviado (real, meta,
-// atingimento e pontos iguais aos da tela). Chegada no Slot e Indisponibilidade
-// Movel nao apareciam no print: valores estimados. Cores e ATs: derivados do
+// Cenario GERAL: os 12 indicadores do print da pagina ja montada (real, meta,
+// atingimento e pontos iguais aos da tela, nota 81,02; mes anterior 79,57).
+// Cores e ATs: derivados do
 // Geral com uma variacao fixa, so para a pagina responder aos filtros.
 // ============================================================================
 
 // Indicador, NomeTela, Sigla, Grupo, Ordem, AnaliticoAT, resultado, meta, menorMelhor, peso
 const IND = [
-  ['1 AGENDA', 'Efetividade 1ª Agenda', 'AGE', 'NEGÓCIO', 1, 1, 0.483, 0.732, 0, 10],
-  ['TMR', 'Tempo de Reparo', 'TMR', 'NEGÓCIO', 2, 1, 30.030833, 24, 1, 8],
-  ['CHEGADA NO SLOT', 'Chegada no Slot', 'SLT', 'NEGÓCIO', 3, 1, 0.836, 0.80, 0, 8],
-  ['INSTALAÇÃO 3D', 'Instalação em até D3', 'D3', 'NEGÓCIO', 4, 1, 0.409, 0.81, 0, 10],
-  ['PRODUTIVIDADE PU', 'Produtividade PU', 'PU', 'NEGÓCIO', 5, 1, 2.6136, 2.7, 0, 8],
-  ['ROTEIRIZAÇÃO AUTOMÁTICA', 'Roteirização Automática', 'ROT', 'NEGÓCIO', 6, 1, 0.8647, 0.85, 0, 4],
-  ['IRT', 'IRT', 'IRT', 'NEGÓCIO', 7, 1, 0.057, 0.04, 1, 8],
-  ['EFICIÊNCIA DE CAMPO', 'Eficiência de Campo', 'EFC', 'NEGÓCIO', 8, 1, 0.755, 0.90, 0, 10],
-  ['IFI 7 DIAS', 'IFI FTTH 7 Dias', 'IFI', 'QUALIDADE', 9, 1, 0.02703, 0.02, 1, 8],
-  ['IRR 7 DIAS', 'Repetidas FTTH 7 Dias', 'IRR', 'QUALIDADE', 10, 1, 0.0916, 0.05, 1, 8],
+  ['1 AGENDA', 'Efetividade 1ª Agenda', 'AGE', 'NEGÓCIO', 1, 1, 0.547, 0.732, 0, 10],
+  ['TMR', 'Tempo de Reparo', 'TMR', 'NEGÓCIO', 2, 1, 29.453611, 24, 1, 8],
+  ['CHEGADA NO SLOT', 'Chegada no Slot', 'SLT', 'NEGÓCIO', 3, 1, 0.8333, 0.80, 0, 8],
+  ['INSTALAÇÃO 3D', 'Instalação em até D3', 'D3', 'NEGÓCIO', 4, 1, 0.4455, 0.81, 0, 10],
+  ['PRODUTIVIDADE PU', 'Produtividade PU', 'PU', 'NEGÓCIO', 5, 1, 2.558, 2.67, 0, 8],
+  ['ROTEIRIZAÇÃO AUTOMÁTICA', 'Roteirização Automática', 'ROT', 'NEGÓCIO', 6, 1, 0.852, 0.85, 0, 4],
+  ['IRT', 'IRT', 'IRT', 'NEGÓCIO', 7, 1, 0.058, 0.04, 1, 8],
+  ['EFICIÊNCIA DE CAMPO', 'Eficiência de Campo', 'EFC', 'NEGÓCIO', 8, 1, 1.0278, 0.90, 0, 10],
+  ['IFI 7 DIAS', 'IFI FTTH 7 Dias', 'IFI', 'QUALIDADE', 9, 1, 0.03021, 0.02, 1, 8],
+  ['IRR 7 DIAS', 'Repetidas FTTH 7 Dias', 'IRR', 'QUALIDADE', 10, 1, 0.09124, 0.05, 1, 8],
   ['INDISPONIBILIDADE FTTH', 'Indisponibilidade FTTH', 'FTTH', 'QUALIDADE', 11, 0, 0.002, 0.001, 1, 8],
-  ['INDISPONIBILIDADE MÓVEL', 'Indisponibilidade Móvel', 'MÓV', 'QUALIDADE', 12, 0, 0.0044, 0.005, 1, 10],
+  ['INDISPONIBILIDADE MÓVEL', 'Indisponibilidade Móvel', 'MÓV', 'QUALIDADE', 12, 0, 0.005317, 0.0058, 1, 10],
 ];
 const CHAVES = IND.map((r) => r[0]);
-// niveis da arvore 'Seletor Nível BSC' (0% a 100%, de 10 em 10)
-const NIVEIS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+// niveis da arvore 'Seletor Nível BSC' (0% a 130%, de 10 em 10)
+const NIVEIS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
 
 // ATs e cores: os mesmos nomes das previas do corpo do BSC
 const ATS = [
@@ -84,6 +84,11 @@ function mocksProjecao(e) {
       // mes anterior: um pouco abaixo do atual, variando por indicador (ou sem dados)
       __PtsMesAnt: pts === null || st.semMesAnt ? null : Math.min(peso * 1.3, pts * (0.95 + 0.05 * ruido('M1' + cor + (at || '') + chave))) };
   });
+  // mes anterior do print: 79,57 no Geral
+  if (dados === 'print' && modo === 'GERAL' && !st.semMesAnt) {
+    const soma = tab.reduce((s, r) => s + (r.__PtsMesAnt || 0), 0);
+    tab.forEach((r) => { if (r.__PtsMesAnt !== null) r.__PtsMesAnt *= 79.57 / soma; });
+  }
   const marcados = st.marcados && st.marcados.length ? st.marcados : CHAVES;
   const m = {
     _corSelecionada: cor, _areaSelecionada: at, _temAreaSelecionada: !!at,

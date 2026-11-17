@@ -6,7 +6,9 @@ Seletor Nível BSC =
 // Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
 // NAO criar relacionamento: e uma tabela solta, usada so no seletor.
 //
-// A tabela tem uma linha para cada indicador x nivel (0%, 10%, ... 100%).
+// A tabela tem uma linha para cada indicador x nivel (0%, 10%, ... 130%).
+// Acima de 100% o indicador passa da meta e ainda soma pontos, ate o teto de
+// 130% do peso que o BSC paga.
 // Para andar de 5 em 5, troque o 10 do GENERATESERIES por 5.
 //
 // Depois de criar, Classificar por coluna:
@@ -40,7 +42,7 @@ GENERATE(
         }
     ),
     SELECTCOLUMNS(
-        GENERATESERIES( 0, 100, 10 ),
+        GENERATESERIES( 0, 130, 10 ),
         "Atingimento Nível", [Value] / 100,
         "Nível", FORMAT( [Value], "0" ) & "%"
     )
