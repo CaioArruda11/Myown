@@ -30,7 +30,7 @@ Depois, em cada uma, **Classificar por coluna**:
 
 Na tabela `1d`, classifique `Indicador Nível` por `Ordem Indicador Nível` e `Nível` por `Atingimento Nível`.
 
-Na tabela `1c`, formate a coluna `Atingimento` como **Porcentagem**, 0 casas decimais.
+Na tabela `1c`, deixe a coluna `Atingimento` como **Número inteiro** e use o formato personalizado `0"%"` (mostra 80% em vez de 80). Não use o formato Porcentagem: os valores são de 0 a 100, e ele mostraria 8000%.
 
 ### 2. Criar a medida do corpo
 **Nova medida** > colar o arquivo `2` inteiro. O nome vem junto: `BSC Projeção HTML`.
@@ -45,7 +45,7 @@ Na página duplicada:
 | Seletor | Campo | Estilo | Configuração |
 |---|---|---|---|
 | **Cenário** | `'Seletor Cenário BSC'[Cenário]` | Lista vertical | Seleção única: **ativada**. Deixe "Atingimento esperado (meta)" marcado. |
-| **Atingimento da meta** | `'Seletor Atingimento BSC'[Atingimento]` | Valor único (barra deslizante) | Deixe em 100%. |
+| **Atingimento da meta** | `'Seletor Atingimento BSC'[Atingimento]` | Valor único (barra deslizante) | Arraste até 100% e salve: é o valor com que o relatório abre. |
 | **% por indicador** | `'Seletor Nível BSC'[Indicador Nível]` e, abaixo dele, `'Seletor Nível BSC'[Nível]` | Suspenso (vira uma árvore) | "Seleção múltipla com CTRL": **desativada**. Deixe sem nada marcado. |
 | **Indicadores na projeção** | `'Seletor Projeção BSC'[Indicador Projeção]` | Suspenso | "Seleção múltipla com CTRL": **desativada**. "Mostrar opção Selecionar tudo": **ativada**. |
 

@@ -120,14 +120,15 @@ VAR _cenarioSel =
     )
 VAR _simularPedido = _cenarioSel <> _nomeCenarioReal
 
-// Atingimento esperado: vem do seletor de % ('Seletor Atingimento BSC').
-// 1 = 100% da meta, 0.8 = 80% da meta... Nada marcado no seletor = 100%.
-// Ex.: com 80%, um indicador de 10 pts que hoje entrega 5,0 passa a contar 8,0.
+// Atingimento esperado GERAL: barra 'Seletor Atingimento BSC' (0 a 100,
+// inteiro). Vale para todos os indicadores, menos os que tiverem % proprio na
+// arvore 'Seletor Nível BSC'. 100 = bater a meta; nada marcado = 100.
+// Ex.: com 80, um indicador de 10 pts que hoje entrega 5,0 passa a contar 8,0.
 VAR _atingEsperado =
     SELECTEDVALUE(
         'Seletor Atingimento BSC'[Atingimento],
-        1
-    )
+        100
+    ) / 100
 
 // % POR INDICADOR ('Seletor Nível BSC', seletor em arvore: indicador > %).
 // Uma linha para cada % marcado. O indicador que tiver % marcado ali usa esse

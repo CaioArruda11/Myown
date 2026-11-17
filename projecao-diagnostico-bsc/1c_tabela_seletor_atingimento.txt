@@ -1,20 +1,22 @@
 Seletor Atingimento BSC = 
 // ============================================================================
-// TABELA DO SELETOR DE % DE ATINGIMENTO DA PAGINA "Projeção BSC"
+// TABELA DA BARRA "ATINGIMENTO DA META" DA PAGINA "Projeção BSC"
 // Como criar: Modelagem > Nova tabela > colar este arquivo inteiro.
-// NAO criar relacionamento: e uma tabela solta, usada so no seletor.
+// NAO criar relacionamento: e uma tabela solta, usada so na segmentacao.
 //
-// Valores de 0% a 100%, de 1 em 1 ponto percentual. (Para andar de 5 em 5,
-// troque o ultimo 1 do GENERATESERIES por 5.)
+// Valores INTEIROS de 0 a 100 (80 = 80% da meta). Inteiro de proposito: a
+// barra deslizante so para em valores que existem na tabela. Com decimais
+// ela pode parar em 0,8234, que nao existe, e a medida voltaria a 100%.
 //
-// Depois de criar: selecione a coluna Atingimento > Formato: Porcentagem,
-// 0 casas decimais.
+// Depois de criar, na coluna Atingimento:
+//   Tipo de dados: Numero inteiro
+//   Formato: personalizado  0"%"   (aparece 80% em vez de 80)
 //
-// No seletor: campo Atingimento, estilo "Valor unico" (aparece a barra
-// deslizante com a caixa para digitar). Deixe em 100%.
-// Nada marcado = 100% (bater a meta).
+// Segmentacao: campo Atingimento > Formatar > Configuracoes da segmentacao >
+// Estilo: "Valor unico". Arraste ate 100 e salve: e o valor que o relatorio
+// abre. A medida divide por 100.
 // ============================================================================
 SELECTCOLUMNS(
     GENERATESERIES( 0, 100, 1 ),
-    "Atingimento", [Value] / 100
+    "Atingimento", [Value]
 )
