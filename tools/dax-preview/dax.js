@@ -206,7 +206,7 @@ function parse(src) {
 // Checagem estatica: variaveis declaradas antes do uso + funcoes conhecidas
 // ---------------------------------------------------------------------------
 const MODEL_FUNCS = ['CALCULATE', 'CALCULATETABLE', 'SELECTEDVALUE', 'HASONEVALUE', 'VALUES', 'ALL', 'ALLSELECTED',
-  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'DISTINCT', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED', 'CONTAINSROW', 'GENERATESERIES', 'GENERATE', 'SUMMARIZE', 'ISCROSSFILTERED'];
+  'TREATAS', 'REMOVEFILTERS', 'DISTINCTCOUNT', 'KEEPFILTERS', 'DISTINCT', 'SUM', 'AVERAGE', 'COUNT', 'ISFILTERED', 'CONTAINSROW', 'GENERATESERIES', 'GENERATE', 'SUMMARIZE', 'ISCROSSFILTERED', 'DATEADD'];
 const SYMBOLS = ['ASC', 'DESC', 'STRING', 'INTEGER', 'DOUBLE', 'BOOLEAN', 'DATETIME', 'CURRENCY'];
 
 function check(ast, src) {

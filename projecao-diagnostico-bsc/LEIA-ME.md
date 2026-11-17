@@ -44,10 +44,10 @@ Na página duplicada:
 
 | Seletor | Campo | Estilo | Configuração |
 |---|---|---|---|
-| **Cenário** | `'Seletor Cenário BSC'[Cenário]` | Lista vertical | Seleção única: **ativada**. Deixe "Atingimento esperado (meta)" marcado. |
-| **Atingimento da meta** | `'Seletor Atingimento BSC'[Atingimento]` | Valor único (barra deslizante) | Arraste até 100% e salve: é o valor com que o relatório abre. |
-| **% por indicador** | `'Seletor Nível BSC'[Indicador Nível]` e, abaixo dele, `'Seletor Nível BSC'[Nível]` | Suspenso (vira uma árvore) | "Seleção múltipla com CTRL": **desativada**. Deixe sem nada marcado. |
-| **Indicadores na projeção** | `'Seletor Projeção BSC'[Indicador Projeção]` | Suspenso | "Seleção múltipla com CTRL": **desativada**. "Mostrar opção Selecionar tudo": **ativada**. |
+| **Cenário** | `'Seletor Cenário BSC'[Cenário]` | Lista vertical | Configurações da segmentação > Seleção > **Seleção única: ativada**. É isso que troca os quadradinhos por bolinhas. Deixe "Atingimento esperado (meta)" marcado. |
+| **Atingimento da meta** (opcional) | `'Seletor Atingimento BSC'[Atingimento]` | Valor único (barra deslizante) | Arraste até 100% e salve: é o valor com que o relatório abre. |
+| **Indicador & % Atingimento** | `'Seletor Nível BSC'[Indicador Nível]` e, abaixo dele, `'Seletor Nível BSC'[Nível]` | Suspenso (vira uma árvore) | Seleção > "Seleção múltipla com CTRL": **desativada**; "Mostrar opção Selecionar tudo": ativada. Deixe sem nada marcado. |
+| **Indicadores na projeção** (opcional) | `'Seletor Projeção BSC'[Indicador Projeção]` | Suspenso | "Seleção múltipla com CTRL": **desativada**. "Mostrar opção Selecionar tudo": **ativada**. |
 
 Posições usadas nas prévias (página 1280 × 720, partindo das posições da página do BSC):
 
@@ -90,12 +90,28 @@ Quer outro nome no item (por exemplo "Projeção e Diagnóstico")? Troque o text
 
 ## Como usar a página
 
-- **Cenário = Atingimento esperado (meta)**: os indicadores marcados contam como se tivessem batido a meta.
-- **Cenário = Atingimento real**: sem projeção. Fica só o diagnóstico (onde está a perda e quanto cada indicador devolveria).
-- **Atingimento da meta**: de 0% a 100%. Responde "e se não der para bater a meta, mas der para chegar a 80% dela?". Com 80%, cada indicador marcado conta 80% do peso; quem hoje já entrega mais do que isso fica como está. Nada marcado vale 100%.
-- **% por indicador**: para simular níveis diferentes, por exemplo Instalação D3 em 80% e Repetidas em 60%. Abra o indicador e marque o % dele (de 10 em 10). Quem não tiver % marcado ali segue a barra de atingimento geral. Marcando mais de um % no mesmo indicador, vale o maior.
-- **Indicadores na projeção**: marque quem entra. Para *tirar* um indicador, clique em "Selecionar tudo" e desmarque o que não quer. Nada marcado vale como todos.
+A página funciona com dois seletores novos: **Cenário** e a árvore **Indicador & % Atingimento**. A barra "Atingimento da meta" e o seletor "Indicadores na projeção" são opcionais.
+
+- **Cenário = Atingimento esperado**: liga a projeção.
+- **Cenário = Atingimento real**: sem projeção, fica só o diagnóstico.
+- **Árvore Indicador & % Atingimento** (é ela que decide a projeção):
+  - **nada marcado**: todos os indicadores na meta (100%);
+  - **marcou o indicador inteiro** (a caixa do pai): ele vai à meta (100%);
+  - **abriu o indicador pela seta e marcou um %**: ele vai a esse %, por exemplo Instalação D3 a 70%;
+  - só os indicadores marcados entram na projeção; os outros ficam com o resultado real;
+  - para combinar (D3 a 80%, Repetidas a 60%, IFI inteiro), a "Seleção múltipla com CTRL" tem de estar **desativada**. Com ela ativada, segure CTRL para marcar mais de um.
+- **Atingimento da meta** (opcional): muda o % de quem foi marcado inteiro (ou de todos, se nada estiver marcado na árvore). Sem a barra na página, vale 100%.
 - Cor, AT e mês funcionam como no BSC.
+
+## O que a faixa escura mostra
+
+- **Número grande**: nota projetada.
+- **"nota atual 77,87 → 79,82"**: de onde sai e onde chega.
+- **Etiqueta "▲ +1,95 pts · +2,5%"**: quantos pontos a projeção soma e quanto isso representa sobre a nota atual.
+- **"mês ant. 74,37 · projeção +5,44"**: nota do mês anterior e a diferença da nota projetada para ela. No cenário real, a diferença é da nota atual. Sem dados no mês anterior, a linha volta a mostrar quantos indicadores foram levados ao %.
+
+### Mês anterior: confira a tabela de calendário
+A medida usa `dCalendario[Data]` (a mesma das páginas IFI e IRR) para voltar um mês. Se o seletor "Selecione o Mês" filtrar outra tabela, troque `dCalendario` por ela no `VAR _filtroMesAnterior` e nos `REMOVEFILTERS( dCalendario )` da coluna `__PtsMesAnt`. Para conferir: com o mês de outubro selecionado, o "mês ant." tem de ser igual à nota do velocímetro do BSC em setembro.
 
 ## Como ler
 

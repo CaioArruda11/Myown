@@ -25,6 +25,8 @@ const IND = [
   ['INDISPONIBILIDADE MÓVEL', 'Indisponibilidade Móvel', 'MÓV', 'QUALIDADE', 12, 0, 0.0044, 0.005, 1, 10],
 ];
 const CHAVES = IND.map((r) => r[0]);
+// niveis da arvore 'Seletor Nível BSC' (0% a 100%, de 10 em 10)
+const NIVEIS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 // ATs e cores: os mesmos nomes das previas do corpo do BSC
 const ATS = [
@@ -50,7 +52,8 @@ const BOM = {
  *   cor: 'GERAL' | 'OURO' | 'BRONZE' | 'PRATA 1' | 'PRATA 2'
  *   at: sigla da AT ou null
  *   cenario: texto do seletor de cenario, ou null (nada marcado)
- *   niveis: { chave: % } do seletor em arvore "% por indicador" (vazio = ninguem com % proprio)
+ *   niveis: { chave: % | 'tudo' } da arvore "Indicador & %" (vazio = nada marcado)
+ *   semMesAnt: true = mes anterior sem dados
  *   ating: % do seletor de atingimento (0 a 100), ou null (nada marcado = 100)
  *   marcados: lista de chaves marcadas no seletor de indicadores, ou null (nada marcado = todos)
  *   dados: 'print' (padrao) | 'bom' | 'vazio' | 'semDados' (2 indicadores sem resultado)
@@ -77,7 +80,9 @@ function mocksProjecao(e) {
     let pts = ating === null ? null : peso * Math.min(1.3, ating);
     if (modo === 'AT' && !analitico) pts = null; // consolidado nao tem ponto por AT
     return { Indicador: chave, NomeTela: nome, Sigla: sigla, Grupo: grupo, Ordem: ordem, AnaliticoAT: analitico,
-      __ResultadoBruto: res, __Meta: meta, __MenorMelhor: mm, __PtsDisp: peso, __PtsBruto: pts };
+      __ResultadoBruto: res, __Meta: meta, __MenorMelhor: mm, __PtsDisp: peso, __PtsBruto: pts,
+      // mes anterior: um pouco abaixo do atual, variando por indicador (ou sem dados)
+      __PtsMesAnt: pts === null || st.semMesAnt ? null : Math.min(peso * 1.3, pts * (0.95 + 0.05 * ruido('M1' + cor + (at || '') + chave))) };
   });
   const marcados = st.marcados && st.marcados.length ? st.marcados : CHAVES;
   const m = {
@@ -85,7 +90,10 @@ function mocksProjecao(e) {
     _cenarioSel: st.cenario || 'Atingimento esperado (meta)',
     _atingEsperado: (st.ating === undefined || st.ating === null ? 100 : st.ating) / 100,
     _indMarcados: marcados.map((c) => ({ Chave: c })),
-    _niveisMarcados: Object.keys(st.niveis || {}).map((c) => ({ 'Chave Nível': c, 'Atingimento Nível': st.niveis[c] / 100 })),
+    // arvore "Indicador & %": { chave: 70 } marca so o 70%; { chave: 'tudo' } marca o indicador inteiro
+    _niveisMarcados: [].concat(...Object.keys(st.niveis || {}).map((c) => (st.niveis[c] === 'tudo' ? NIVEIS : [st.niveis[c]]).map((n) => ({ 'Chave Nível': c, 'Atingimento Nível': n / 100 })))),
+    _qtdNiveis: NIVEIS.length,
+    _filtroMesAnterior: [],
     _totalPontosDisponiveis: IND.reduce((s, r) => s + r[9], 0),
     _tabIndBase: tab,
   };
@@ -99,5 +107,5 @@ function mocksMenu(e) {
   return Object.assign({ _paginaAtual: 'Projeção BSC', _corSelecionada: st.cor || 'GERAL', _areaSelecionada: st.at || null, _temAreaSelecionada: !!st.at }, QTD);
 }
 
-const API = { IND, CHAVES, ATS, CORES, mocksProjecao, mocksMenu };
+const API = { IND, CHAVES, NIVEIS, ATS, CORES, mocksProjecao, mocksMenu };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

@@ -71,6 +71,7 @@ for (const tema of ['OCEANO', 'AURORA']) corpo(ESTADOS.todos, tema);
 let combos = 0;
 for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null].concat(P.ATS.map((a) => a[0]))) for (const cen of [REAL, ESPERADO]) for (const ating of [100, 80, 0]) { corpo({ cor, at, cenario: cen, ating }); combos++; }
 corpo({ niveis: { 'INSTALAÇÃO 3D': 0, 'IRT': 100 }, ating: 50 });
+for (const cor of ['GERAL'].concat(P.CORES)) for (const at of [null, 'RP', 'PL']) for (const semMesAnt of [false, true]) corpo({ cor, at, semMesAnt, niveis: { 'INSTALAÇÃO 3D': 70, 'IFI 7 DIAS': 'tudo' } });
 console.log('\ncorpo  : ' + combos + ' combinacoes de cor x AT x cenario x % avaliadas sem erro');
 for (const pg of ['BSC', 'Projeção BSC', 'IFI', 'Abertura Hierarquia']) menu(MENU, Object.assign(P.mocksMenu({}), { _paginaAtual: pg }));
 console.log('menu   : sintaxe ok');
@@ -80,13 +81,11 @@ console.log('menu   : sintaxe ok');
 const L = {
   page: { w: 1280, h: 720 },
   menu: { x: 20, y: 6, w: 238, h: 700 },
-  cor: { x: 275, y: 6, w: 246, h: 114 },
-  at: { x: 530, y: 6, w: 100, h: 114 },
-  mes: { x: 639, y: 6, w: 112, h: 114 },
-  cen: { x: 760, y: 6, w: 190, h: 114 },
-  ati: { x: 959, y: 6, w: 140, h: 114 },
-  ind: { x: 1108, y: 6, w: 154, h: 54 },
-  niv: { x: 1108, y: 66, w: 154, h: 54 },
+  cor: { x: 264, y: 6, w: 331, h: 114 },
+  at: { x: 601, y: 6, w: 90, h: 114 },
+  mes: { x: 697, y: 6, w: 98, h: 114 },
+  cen: { x: 801, y: 6, w: 165, h: 114 },
+  niv: { x: 972, y: 6, w: 290, h: 114 },
   corpo: { x: 275, y: 130, w: 987, h: 576 },
 };
 const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
@@ -112,16 +111,14 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 '.op{display:flex;align-items:center;gap:7px;height:25px;font-size:11px;color:#344054;cursor:pointer;white-space:nowrap}' +
 '.op i{flex:none;width:12px;height:12px;border-radius:50%;border:1.5px solid #98A2B3;box-sizing:border-box}' +
 '.op.sel i{border-color:#334155;background:radial-gradient(#334155 0 3px,#fff 3.6px)}.op.sel{font-weight:600;color:#111827}' +
-'.pop{position:absolute;z-index:9;left:' + (L.ind.x) + 'px;top:' + (L.ind.y + 50) + 'px;width:' + L.ind.w + 'px;box-sizing:border-box;padding:5px 0;background:#fff;border:1px solid #D0D7E2;box-shadow:0 10px 24px rgba(16,24,40,.22);font-size:11px;color:#344054;display:none}' +
+'.pop{position:absolute;z-index:9;left:' + L.niv.x + 'px;top:' + (L.niv.y + 76) + 'px;width:' + L.niv.w + 'px;max-height:330px;overflow-y:auto;box-sizing:border-box;padding:4px 0;background:#fff;border:1px solid #D0D7E2;box-shadow:0 10px 24px rgba(16,24,40,.22);font-size:11.5px;color:#344054;display:none}' +
 '.pop.on{display:block}' +
-'.sl.mini{padding:5px 9px}.sl.mini>b{margin-bottom:4px;font-size:11px}.sl.mini:before{bottom:auto;top:6px}' +
-'.tr{display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;cursor:pointer;white-space:nowrap}.tr:hover,.lv:hover{background:#F3F7FC}.tr:before{content:"›";width:8px;color:#667085}.tr.ab:before{content:"⌄"}.tr em{margin-left:auto;font-style:normal;font-weight:700;color:#334155}' +
-'.lv{display:inline-flex;align-items:center;justify-content:center;width:38px;height:20px;margin:2px 0 2px 4px;border:1px solid #E3EAF3;font-size:10.5px;cursor:pointer}.lv.sel{background:#334155;border-color:#334155;color:#fff}.lvs{padding:2px 6px 5px 20px;border-bottom:1px solid #EEF1F6}' +
-'.vl{width:52px;height:22px;display:flex;align-items:center;padding:0 7px;border:1px solid #E3EAF3;background:#fff;font-size:11.5px;font-weight:600;color:#111827;box-sizing:border-box}' +
-'#ati{display:block;width:100%;margin:9px 0 0;accent-color:#334155;cursor:pointer}' +
-'.ck{display:flex;align-items:center;gap:7px;height:22px;padding:0 9px;cursor:pointer;white-space:nowrap}.ck:hover{background:#F3F7FC}' +
-'.ck i{flex:none;width:12px;height:12px;border:1.5px solid #98A2B3;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:9px;line-height:1;color:#fff}' +
-'.ck.sel i{background:#334155;border-color:#334155}.ck.sel i:before{content:"✓"}.ck.all{border-bottom:1px solid #EEF1F6;margin-bottom:3px;padding-bottom:3px;font-weight:600}' +
+// arvore: seta + caixa (cheia = indicador inteiro, quadrado = so um %), como a segmentacao do Power BI
+'.tr,.lv{display:flex;align-items:center;gap:7px;height:24px;padding:0 10px;cursor:pointer;white-space:nowrap}.tr:hover,.lv:hover{background:#F3F7FC}' +
+'.tr u{width:12px;text-decoration:none;color:#667085;font-size:11px}.lv{padding-left:42px}' +
+'.cb{flex:none;width:13px;height:13px;border:1.5px solid #98A2B3;box-sizing:border-box;display:flex;align-items:center;justify-content:center}' +
+'.cb.on{background:#1F2937;border-color:#1F2937}.cb.pa:before{content:"";width:7px;height:7px;background:#1F2937}' +
+'.tr.all{border-bottom:1px solid #EEF1F6;padding-left:29px}' +
 '.bar{box-sizing:border-box;width:' + L.page.w + 'px;margin:0 auto;padding:9px 20px 11px;background:#0C1016;color:#CBD5E1;font-size:12px;line-height:1.5}' +
 '.bar b{color:#fff}.bar a{color:#7DD3FC;margin-left:10px;cursor:pointer;text-decoration:underline}.bar a.sel{color:#fff;font-weight:700;text-decoration:none}' +
 '</style></head><body><div id="esc">' +
@@ -131,14 +128,11 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 '<div class="sl" style="' + box(L.at) + '"><b>Selecione a AT</b><div class="dd"><span id="atTxt">Todos</span><select id="at"></select></div></div>' +
 '<div class="sl" style="' + box(L.mes) + '"><b>Selecione o Mês</b><div class="dd">Nov/2026</div></div>' +
 '<div class="sl novo" style="' + box(L.cen) + '"><b>Cenário</b><div id="cen"></div></div>' +
-'<div class="sl novo" style="' + box(L.ati) + '"><b>Atingimento da meta</b><div class="vl" id="atiTxt">100%</div><input type="range" id="ati" min="0" max="100" step="1" value="100"></div>' +
-'<div class="sl novo mini" style="' + box(L.ind) + '"><b>Indicadores</b><div class="dd" id="indDd"><span id="indTxt">Todos</span></div></div>' +
-'<div class="sl novo mini" style="' + box(L.niv) + '"><b>% por indicador</b><div class="dd" id="nivDd"><span id="nivTxt">Todos</span></div></div>' +
-'<div class="pop" id="indPop"></div>' +
-'<div class="pop" id="nivPop" style="top:' + (L.niv.y + 50) + 'px;left:' + (L.niv.x - 40) + 'px;width:' + (L.niv.w + 40) + 'px"></div>' +
+'<div class="sl novo" style="' + box(L.niv) + '"><b>Indicador &amp; % Atingimento</b><div class="dd" id="nivDd"><span id="nivTxt">Todos</span></div></div>' +
+'<div class="pop" id="nivPop"></div>' +
 '<iframe name="corpo" title="Corpo: projeção e diagnóstico" style="' + box(L.corpo) + '"></iframe>' +
 '</div>' +
-'<div class="bar"><b>Prévia interativa.</b> Os filtros acima imitam os seletores nativos do Power BI: clique na cor, na AT, no cenário, nos indicadores e no % por indicador, e arraste o atingimento. ' +
+'<div class="bar"><b>Prévia interativa.</b> Os filtros acima imitam os seletores nativos do Power BI: clique na cor, na AT, no cenário e na árvore Indicador &amp; % (abra o indicador pela seta para escolher o %). ' +
 'A cada clique a própria medida DAX é reavaliada aqui no navegador, com dados fictícios.<br>Dados: ' +
 '<a data-d="print">do print</a><a data-d="semDados">2 indicadores sem resultado</a><a data-d="bom">resultado bom</a><a data-d="vazio">mês sem dados</a></div>' +
 '</div><script>\n' +
@@ -148,7 +142,7 @@ const paginaInterativa = '<!doctype html><html lang="pt-BR"><head><meta charset=
 'var REAL=' + embed(REAL) + ',ESPERADO=' + embed(ESPERADO) + ';\n' +
 `
 // estado dos "seletores nativos". marcados: null = nada marcado (o Power BI trata como todos)
-var st = { cor: 'GERAL', at: null, cenario: ESPERADO, marcados: null, ating: 100, niveis: {}, nivAberto: null, dados: 'print', aberto: false };
+var st = { cor: 'GERAL', at: null, cenario: ESPERADO, marcados: null, ating: 100, niveis: {}, nivAberto: null, dados: 'print', aberto: false, semMesAnt: false };
 try { if (location.hash.length > 1) Object.assign(st, JSON.parse(decodeURIComponent(location.hash.slice(1)))); } catch (e) {}
 
 function wrap(html) {
@@ -167,53 +161,48 @@ function desenhar() {
   q('at').innerHTML = '<option value="">Todos</option>' + ats.map(function (a) { return '<option' + (st.at === a ? ' selected' : '') + '>' + a + '</option>'; }).join('');
   q('atTxt').textContent = st.at || 'Todos';
   // ---- cenario (lista com selecao unica)
-  q('cen').innerHTML = [REAL, ESPERADO].map(function (c) { return '<div class="op' + (st.cenario === c ? ' sel' : '') + '" data-c="' + c + '"><i></i>' + c + '</div>'; }).join('');
-  // ---- indicadores (lista suspensa com varias selecoes + Selecionar tudo)
-  var m = st.marcados, todos = !m || m.length === P.CHAVES.length;
-  q('indTxt').textContent = !m || !m.length ? 'Todos' : todos ? 'Todos' : m.length === 1 ? nomeDe(m[0]) : 'Seleções múltiplas';
-  q('indPop').className = 'pop' + (st.aberto === true || st.aberto === 'ind' ? ' on' : '');
-  // ---- % por indicador (seletor em arvore: indicador > nivel)
-  var nk = Object.keys(st.niveis);
-  q('nivTxt').textContent = !nk.length ? 'Todos' : nk.length === 1 ? st.niveis[nk[0]] + '%' : 'Seleções múltiplas';
+  q('cen').innerHTML = [ESPERADO, REAL].map(function (c) { return '<div class="op' + (st.cenario === c ? ' sel' : '') + '" data-c="' + c + '"><i></i>' + c + '</div>'; }).join('');
+  // ---- arvore Indicador & %: indicador inteiro ou um % dele
+  var nk = Object.keys(st.niveis), nome = function (k) { return nomeDe(k) + (st.niveis[k] === 'tudo' ? '' : ' · ' + st.niveis[k] + '%'); };
+  q('nivTxt').textContent = !nk.length ? 'Todos' : nk.length === 1 ? nome(nk[0]) : 'Seleções múltiplas';
   q('nivPop').className = 'pop' + (st.aberto === 'niv' ? ' on' : '');
-  q('nivPop').innerHTML = P.IND.map(function (r) {
+  var tudo = nk.length === P.CHAVES.length && nk.every(function (k) { return st.niveis[k] === 'tudo'; });
+  q('nivPop').innerHTML = '<div class="tr all" data-n="*"><i class="cb' + (tudo ? ' on' : nk.length ? ' pa' : '') + '"></i>Selecionar tudo</div>' + P.IND.map(function (r) {
     var v = st.niveis[r[0]], ab = st.nivAberto === r[0];
-    return '<div class="tr' + (ab ? ' ab' : '') + '" data-n="' + r[0] + '">' + r[1] + (v === undefined ? '' : '<em>' + v + '%</em>') + '</div>' +
-      (ab ? '<div class="lvs">' + [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(function (l) { return '<span class="lv' + (v === l ? ' sel' : '') + '" data-l="' + l + '">' + l + '%</span>'; }).join('') + '</div>' : '');
+    return '<div class="tr" data-n="' + r[0] + '"><u data-x="' + r[0] + '">' + (ab ? '⌄' : '›') + '</u><i class="cb' + (v === 'tudo' ? ' on' : v !== undefined ? ' pa' : '') + '"></i>' + r[1] + '</div>' +
+      (ab ? P.NIVEIS.map(function (l) { return '<div class="lv" data-l="' + l + '"><i class="cb' + (v === 'tudo' || v === l ? ' on' : '') + '"></i>' + l + '%</div>'; }).join('') : '');
   }).join('');
-  q('indPop').innerHTML = '<div class="ck all' + (m && todos ? ' sel' : '') + '" data-k="*"><i></i>Selecionar tudo</div>' +
-    P.IND.map(function (r) { return '<div class="ck' + (m && m.indexOf(r[0]) >= 0 ? ' sel' : '') + '" data-k="' + r[0] + '"><i></i>' + r[1] + '</div>'; }).join('');
   [].forEach.call(document.querySelectorAll('.bar a'), function (a) { a.className = a.getAttribute('data-d') === st.dados ? 'sel' : ''; });
   // ---- visuais HTML: a medida e reavaliada com o estado dos filtros
-  q('ati').value = st.ating; q('atiTxt').textContent = st.ating + '%';
-  var e = { cor: st.cor, at: st.at, cenario: st.cenario, marcados: st.marcados, ating: st.ating, niveis: st.niveis, dados: st.dados };
+  var e = { cor: st.cor, at: st.at, cenario: st.cenario, marcados: st.marcados, ating: st.ating, niveis: st.niveis, dados: st.dados, semMesAnt: st.semMesAnt };
   window.frames.corpo.document.open(); window.frames.corpo.document.write(wrap(DAX.evaluateSource(SRC.corpo, P.mocksProjecao(e), {}).html)); window.frames.corpo.document.close();
   var mn = wrap(DAX.evaluateSource(SRC.menu, P.mocksMenu(e), {}).html);
   if (mn !== desenhar.menu) { desenhar.menu = mn; window.frames.menu.document.open(); window.frames.menu.document.write(mn); window.frames.menu.document.close(); }
 }
 
 document.addEventListener('click', function (ev) {
-  var t = ev.target.closest('[data-c],[data-k],[data-d],[data-n],[data-l],#indDd,#nivDd');
-  var dentro = ev.target.closest('#indPop,#indDd,#nivPop,#nivDd');
+  var t = ev.target.closest('[data-x],[data-c],[data-d],[data-n],[data-l],#nivDd');
+  var dentro = ev.target.closest('#nivPop,#nivDd');
   if (!dentro && st.aberto) { st.aberto = false; if (!t) return desenhar(); }
   if (!t) return;
-  if (t.id === 'indDd') st.aberto = st.aberto === 'ind' || st.aberto === true ? false : 'ind';
-  else if (t.id === 'nivDd') st.aberto = st.aberto === 'niv' ? false : 'niv';
-  else if (t.hasAttribute('data-n')) st.nivAberto = st.nivAberto === t.getAttribute('data-n') ? null : t.getAttribute('data-n');
-  else if (t.hasAttribute('data-l')) { var l = +t.getAttribute('data-l'); if (st.niveis[st.nivAberto] === l) delete st.niveis[st.nivAberto]; else st.niveis[st.nivAberto] = l; }
+  if (t.id === 'nivDd') st.aberto = st.aberto === 'niv' ? false : 'niv';
+  else if (t.hasAttribute('data-x')) st.nivAberto = st.nivAberto === t.getAttribute('data-x') ? null : t.getAttribute('data-x');
+  else if (t.hasAttribute('data-n')) {
+    // caixa do indicador: marca/desmarca o indicador inteiro (todos os %)
+    var n = t.getAttribute('data-n');
+    if (n === '*') { var cheio = Object.keys(st.niveis).length === P.CHAVES.length; st.niveis = {}; if (!cheio) P.CHAVES.forEach(function (k) { st.niveis[k] = 'tudo'; }); }
+    else if (st.niveis[n] !== undefined) delete st.niveis[n]; else st.niveis[n] = 'tudo';
+  } else if (t.hasAttribute('data-l')) {
+    // um % do indicador aberto (selecao multipla com CTRL desativada: soma aos outros indicadores)
+    var l = +t.getAttribute('data-l'), k = st.nivAberto;
+    if (st.niveis[k] === l) delete st.niveis[k]; else st.niveis[k] = l;
+  }
   else if (t.parentNode.id === 'cor') st.cor = st.cor === t.getAttribute('data-c') ? 'GERAL' : t.getAttribute('data-c');
   else if (t.parentNode.id === 'cen') st.cenario = t.getAttribute('data-c');
   else if (t.hasAttribute('data-d')) st.dados = t.getAttribute('data-d');
-  else if (t.hasAttribute('data-k')) {
-    var k = t.getAttribute('data-k'), m = st.marcados ? st.marcados.slice() : [];
-    if (k === '*') m = m.length === P.CHAVES.length ? [] : P.CHAVES.slice();
-    else if (m.indexOf(k) >= 0) m.splice(m.indexOf(k), 1); else m.push(k);
-    st.marcados = m.length ? P.CHAVES.filter(function (c) { return m.indexOf(c) >= 0; }) : null;
-  }
   desenhar();
 });
 q('at').addEventListener('change', function () { st.at = this.value || null; desenhar(); });
-q('ati').addEventListener('input', function () { st.ating = +this.value; desenhar(); });
 function escala() { var k = Math.min(1, document.documentElement.clientWidth / ${L.page.w}); q('esc').style.transform = k < 1 ? 'scale(' + k + ')' : ''; q('esc').style.height = k < 1 ? q('esc').scrollHeight * k + 'px' : ''; }
 window.addEventListener('resize', escala);
 desenhar(); escala();
@@ -230,20 +219,19 @@ function pagina(nome, estado, antes) {
   jobs.push({ file: interativa, hash: hash(estado), out: path.join(out, nome + '.png'), w: L.page.w, h: L.page.h + 70, scale: 2, clip, before: antes, wait: 1900 });
 }
 const tudoMarcado = P.CHAVES.slice();
+const D3_70 = { niveis: { 'INSTALAÇÃO 3D': 70 } };
+const TUDO = {}; P.CHAVES.forEach((k) => { TUDO[k] = 'tudo'; });
 pagina('1-todos-os-indicadores-na-meta', {});
-pagina('2-so-instalacao-D3-na-meta', ESTADOS.soD3);
-pagina('3-tirando-4-indicadores', ESTADOS.parcial);
-pagina('4-cenario-real-so-diagnostico', ESTADOS.real);
-pagina('5-seletor-de-indicadores-aberto', Object.assign({ aberto: true }, ESTADOS.parcial));
-pagina('6-cor-e-AT-selecionadas', ESTADOS.corAT);
-pagina('7-indicadores-sem-resultado', Object.assign({ marcados: tudoMarcado }, ESTADOS.semDados));
-pagina('8-resultado-bom', ESTADOS.bom);
-pagina('10-atingimento-de-80-por-cento', { ating: 80 });
-pagina('11-atingimento-de-80-so-instalacao-D3', { ating: 80, marcados: ['INSTALAÇÃO 3D'] });
-const MISTO = { niveis: { 'INSTALAÇÃO 3D': 80, 'IRR 7 DIAS': 60 }, marcados: ['INSTALAÇÃO 3D', 'IRR 7 DIAS'] };
-pagina('12-percentual-por-indicador-D3-80-e-repetidas-60', MISTO);
-pagina('13-seletor-de-percentual-por-indicador-aberto', Object.assign({ aberto: 'niv', nivAberto: 'INSTALAÇÃO 3D' }, MISTO));
-pagina('14-percentual-proprio-em-dois-e-geral-nos-demais', { niveis: MISTO.niveis });
+pagina('2-so-instalacao-D3-na-meta', { niveis: { 'INSTALAÇÃO 3D': 'tudo' } });
+pagina('3-so-instalacao-D3-a-70-por-cento', D3_70);
+pagina('4-arvore-aberta-D3-70', Object.assign({ aberto: 'niv', nivAberto: 'INSTALAÇÃO 3D' }, D3_70));
+pagina('5-D3-80-e-repetidas-60', { niveis: { 'INSTALAÇÃO 3D': 80, 'IRR 7 DIAS': 60 } });
+pagina('6-D3-80-repetidas-60-e-IFI-inteiro', { niveis: { 'INSTALAÇÃO 3D': 80, 'IRR 7 DIAS': 60, 'IFI 7 DIAS': 'tudo' } });
+pagina('7-cenario-real-so-diagnostico', ESTADOS.real);
+pagina('8-cor-e-AT-selecionadas', { cor: 'BRONZE', at: 'RP', niveis: { 'INSTALAÇÃO 3D': 80, '1 AGENDA': 'tudo', 'IRR 7 DIAS': 70 } });
+pagina('10-indicadores-sem-resultado', ESTADOS.semDados);
+pagina('11-resultado-bom', ESTADOS.bom);
+pagina('12-sem-dados-no-mes-anterior', Object.assign({ semMesAnt: true }, D3_70));
 
 // menu: antes (v7 recebido) x depois (v8), com a posicao dos botoes nativos
 {
@@ -322,18 +310,17 @@ pagina('14-percentual-proprio-em-dois-e-geral-nos-demais', { niveis: MISTO.nivei
     await page.waitForTimeout(600);
     const nota = async () => (await page.frames().find((f) => f.name() === 'corpo').locator('.g-v b').textContent());
     const a = await nota();
-    await page.click('#cen .op:first-child');
+    await page.click('#cen .op:last-child');
     await page.waitForTimeout(300);
     const b = await nota();
-    await page.click('#indDd'); await page.click('#cen .op:last-child'); await page.click('#indDd');
-    await page.click('#indPop .ck[data-k="INSTALAÇÃO 3D"]');
+    await page.click('#cen .op:first-child'); await page.waitForTimeout(200);
+    await page.click('#nivDd'); await page.click('#nivPop u[data-x="INSTALAÇÃO 3D"]'); await page.click('#nivPop .lv[data-l="70"]');
     await page.waitForTimeout(300);
     const c = await nota();
-    await page.fill('#ati', '80'); await page.waitForTimeout(300);
+    await page.click('#nivPop u[data-x="INSTALAÇÃO 3D"]'); await page.click('#nivPop .tr[data-n="IRR 7 DIAS"]');
+    await page.waitForTimeout(300);
     const d = await nota();
-    await page.click('#atiTxt'); await page.click('#nivDd'); await page.click('#nivPop .tr[data-n="INSTALAÇÃO 3D"]'); await page.click('#nivPop .lv[data-l="60"]'); await page.waitForTimeout(300);
-    const f = await nota();
-    console.log('previa interativa: todos na meta = ' + a + ' | cenario real = ' + b + ' | so Instalacao D3 = ' + c + ' | D3 a 80% = ' + d + ' | D3 com % proprio de 60 = ' + f);
+    console.log('previa interativa: nada marcado = ' + a + ' | cenario real = ' + b + ' | so D3 a 70% = ' + c + ' | + Repetidas inteira = ' + d);
     await page.close();
   }
   await browser.close();

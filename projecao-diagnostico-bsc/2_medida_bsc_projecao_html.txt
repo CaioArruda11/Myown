@@ -90,6 +90,16 @@ VAR _corEhFaixa =
     _corSelecionada = "OURO" || _corSelecionada = "BRONZE"
         || _corSelecionada = "PRATA 1" || _corSelecionada = "PRATA 2"
 
+// MES ANTERIOR: o mesmo calculo da nota, um mes antes do mes filtrado.
+// Usa a dCalendario (a mesma das paginas IFI e IRR). Se o seletor de mes
+// filtrar outra tabela, troque dCalendario por ela aqui e nos
+// REMOVEFILTERS( dCalendario ) da coluna __PtsMesAnt.
+// REMOVEFILTERS tira o filtro do mes atual (ex.: coluna Mês e Ano); DATEADD
+// devolve as datas do mes anterior. Sem dados no mes anterior = a linha
+// "mês anterior" some do visual.
+VAR _filtroMesAnterior =
+    DATEADD( dCalendario[Data], -1, MONTH )
+
 // cor da AT selecionada: a nota por AT so vale se a AT for da cor filtrada
 VAR _corDaAT =
     IF(
@@ -130,11 +140,14 @@ VAR _atingEsperado =
         100
     ) / 100
 
-// % POR INDICADOR ('Seletor Nível BSC', seletor em arvore: indicador > %).
-// Uma linha para cada % marcado. O indicador que tiver % marcado ali usa esse
-// % no lugar do geral acima; os outros seguem o geral. Se marcarem mais de um
-// % no mesmo indicador (ou o indicador inteiro), vale o maior.
-// Nada marcado nesse seletor = todos seguem o % geral.
+// INDICADOR & % ('Seletor Nível BSC', seletor em arvore: indicador > %).
+// Quando ha algo marcado na arvore, ELA decide a projecao:
+//   - so os indicadores marcados na arvore entram na projecao;
+//   - indicador marcado inteiro (o pai, todos os %) = atingimento geral
+//     acima (100% = meta, se a barra geral nao estiver na pagina);
+//   - indicador com um % marcado = esse %. Mais de um % = vale o maior.
+// Nada marcado na arvore (ou "Selecionar tudo") = todos os indicadores, com o
+// atingimento geral, e vale o seletor 'Seletor Projeção BSC' se estiver na pagina.
 VAR _temNivel = ISCROSSFILTERED( 'Seletor Nível BSC'[Chave Nível] )
 VAR _niveisMarcados =
     FILTER(
@@ -146,6 +159,8 @@ VAR _niveisMarcados =
         _temNivel
     )
 VAR _porIndicador = NOT ISEMPTY( _niveisMarcados )
+// quantos % cada indicador tem na arvore (indicador marcado inteiro = todos)
+VAR _qtdNiveis = COUNTROWS( ALL( 'Seletor Nível BSC'[Atingimento Nível] ) )
 
 // textos que acompanham o nivel escolhido
 VAR _pctEsperado = FORMAT( _atingEsperado, "0%", _loc )
@@ -304,6 +319,102 @@ VAR _tabIndBase =
                         REMOVEFILTERS( dAT[AREA ] ),
                         TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
                     )
+                ),
+        // ---- mes anterior: mesmos filtros, um mes antes (regra do IFI 7 dias inclusa)
+        "__PtsMesAnt",
+            VAR _ind = [Indicador]
+            VAR _ptsAnt =
+                SWITCH(
+                    _modo,
+                    "AT",
+                        IF(
+                            [AnaliticoAT] = 1,
+                            CALCULATE(
+                                [BSC Pontos Reais],
+                                REMOVEFILTERS( 'Seletor Cor' ),
+                                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                                REMOVEFILTERS( dAT[AREA ] ),
+                                TREATAS( { _areaSelecionada }, dAT[AREA ] ),
+                                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                                REMOVEFILTERS( dCalendario ),
+                                _filtroMesAnterior
+                            )
+                        ),
+                    "COR",
+                        CALCULATE(
+                            [BSC Pontos Reais],
+                            REMOVEFILTERS( 'Seletor Cor' ),
+                            REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                            REMOVEFILTERS( dAT[AREA ] ),
+                            REMOVEFILTERS( dAT[COR_AREA ] ),
+                            TREATAS( { _corSelecionada }, dAT[COR_AREA ] ),
+                            TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                            REMOVEFILTERS( dCalendario ),
+                            _filtroMesAnterior
+                        ),
+                    CALCULATE(
+                        [BSC Pontos Reais],
+                        REMOVEFILTERS( 'Seletor Cor' ),
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        REMOVEFILTERS( dAT[COR_AREA ] ),
+                        REMOVEFILTERS( dAT[AREA ] ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                        REMOVEFILTERS( dCalendario ),
+                        _filtroMesAnterior
+                    )
+                )
+            VAR _resIFIAnt =
+                IF(
+                    _ind = "IFI 7 DIAS",
+                    SWITCH(
+                        _modo,
+                        "AT",
+                            IF(
+                                [AnaliticoAT] = 1,
+                                CALCULATE(
+                                    [BSC Resultado Selecionado],
+                                    REMOVEFILTERS( 'Seletor Cor' ),
+                                    REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                                    REMOVEFILTERS( dAT[AREA ] ),
+                                    TREATAS( { _areaSelecionada }, dAT[AREA ] ),
+                                    TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                                    REMOVEFILTERS( dCalendario ),
+                                    _filtroMesAnterior
+                                )
+                            ),
+                        "COR",
+                            CALCULATE(
+                                [BSC Resultado Selecionado],
+                                REMOVEFILTERS( 'Seletor Cor' ),
+                                REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                                REMOVEFILTERS( dAT[AREA ] ),
+                                REMOVEFILTERS( dAT[COR_AREA ] ),
+                                TREATAS( { _corSelecionada }, dAT[COR_AREA ] ),
+                                TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                                REMOVEFILTERS( dCalendario ),
+                                _filtroMesAnterior
+                            ),
+                        CALCULATE(
+                            [BSC Resultado Selecionado],
+                            REMOVEFILTERS( 'Seletor Cor' ),
+                            REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                            REMOVEFILTERS( dAT[COR_AREA ] ),
+                            REMOVEFILTERS( dAT[AREA ] ),
+                            TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] ),
+                            REMOVEFILTERS( dCalendario ),
+                            _filtroMesAnterior
+                        )
+                    )
+                )
+            RETURN
+                IF(
+                    _ind = "IFI 7 DIAS" && ( NOT ISBLANK( _resIFIAnt ) ) && _resIFIAnt = 0,
+                    CALCULATE(
+                        [BSC Pontos Disponíveis],
+                        REMOVEFILTERS( 'Seletor Indicador BSC' ),
+                        TREATAS( { _ind }, 'Seletor Indicador BSC'[Indicador] )
+                    ) * 1.30,
+                    _ptsAnt
                 )
     )
 
@@ -367,18 +478,21 @@ VAR _tabIndPts =
         // atingimento esperado deste indicador: o % proprio, se houver; senao o geral
         "__AtingAlvo",
             VAR _ind = [Indicador]
-            VAR _nivel =
-                MAXX(
-                    FILTER( _niveisMarcados, 'Seletor Nível BSC'[Chave Nível] = _ind ),
-                    'Seletor Nível BSC'[Atingimento Nível]
-                )
+            VAR _linhasNivel = FILTER( _niveisMarcados, 'Seletor Nível BSC'[Chave Nível] = _ind )
+            VAR _qtdMarcada = COUNTROWS( _linhasNivel ) + 0
+            VAR _nivel = MAXX( _linhasNivel, 'Seletor Nível BSC'[Atingimento Nível] )
             RETURN
-                IF( ISBLANK( _nivel ), _atingEsperado, _nivel ),
-        // 1 = esta marcado no seletor de indicadores
+                IF( _qtdMarcada = 0 || _qtdMarcada >= _qtdNiveis, _atingEsperado, _nivel ),
+        // 1 = entra na projecao: marcado na arvore (se ela tiver algo marcado)
+        //     ou no seletor de indicadores (nada marcado nele = todos)
         "__Marcado",
             VAR _ind = [Indicador]
             RETURN
-                IF( ISEMPTY( FILTER( _indMarcados, 'Seletor Projeção BSC'[Chave] = _ind ) ), 0, 1 )
+                IF(
+                    _porIndicador,
+                    IF( ISEMPTY( FILTER( _niveisMarcados, 'Seletor Nível BSC'[Chave Nível] = _ind ) ), 0, 1 ),
+                    IF( ISEMPTY( FILTER( _indMarcados, 'Seletor Projeção BSC'[Chave] = _ind ) ), 0, 1 )
+                )
     )
 
 // Oportunidade = pontos que faltam para o indicador entregar o esperado.
@@ -405,11 +519,19 @@ VAR _tabIndGanho =
         "__Ganho", IF( _simular && [__Marcado] = 1, [__Potencial], 0 )
     )
 VAR _ganhoSim = COALESCE( SUMX( _tabIndGanho, [__Ganho] ), 0 )
+// nota do mes anterior (mesmo filtro de Geral/cor/AT)
+VAR _ptsMesAnt = SUMX( FILTER( _tabIndPot, [__NaNota] = 1 ), [__PtsMesAnt] )
+VAR _temMesAnt = NOT ISBLANK( _ptsMesAnt )
 VAR _potencialTotal = COALESCE( SUMX( _tabIndGanho, [__Potencial] ), 0 )
 VAR _ptsProj = COALESCE( _ptsAtual, 0 ) + _ganhoSim
 // teto = nota se TODOS os indicadores entregassem o esperado
 VAR _ptsTeto = COALESCE( _ptsAtual, 0 ) + _potencialTotal
 VAR _temGanho = _ganhoSim >= 0.005
+// aumento da nota em % (projetada sobre a atual)
+VAR _pctGanho = DIVIDE( _ganhoSim, _ptsAtual )
+// diferenca em relacao ao mes anterior: da nota atual e da projetada
+VAR _difMesAntAtual = IF( _temMesAnt, COALESCE( _ptsAtual, 0 ) - _ptsMesAnt )
+VAR _difMesAntProj = IF( _temMesAnt, _ptsProj - _ptsMesAnt )
 
 VAR _atingAtual = DIVIDE( _ptsAtual, _totalPontosDisponiveis )
 VAR _atingProj = IF( _temNota, DIVIDE( _ptsProj, _totalPontosDisponiveis ) )
@@ -544,7 +666,8 @@ VAR _heroNota =
     "<div class='hz gz d-" & _faixaProj & "'>" &
         "<div class='gauge' title='" & _tituloSel & ": nota atual " & FORMAT( _ptsAtual, "0.00", _loc ) & " de " & FORMAT( _totalPontosDisponiveis, "0", _loc ) &
             " pts (" & FORMAT( _atingAtual, "0.0%", _loc ) & ")" &
-            IF( _temGanho, " · projetada " & FORMAT( _ptsProj, "0.00", _loc ) & " pts (" & FORMAT( _atingProj, "0.0%", _loc ) & ")", "" ) &
+            IF( _temGanho, " · projetada " & FORMAT( _ptsProj, "0.00", _loc ) & " pts (" & FORMAT( _atingProj, "0.0%", _loc ) & "), +" & FORMAT( _ganhoSim, "0.00", _loc ) & " pts = +" & FORMAT( _pctGanho, "0.0%", _loc ), "" ) &
+            IF( _temMesAnt, " · mês anterior " & FORMAT( _ptsMesAnt, "0.00", _loc ) & " pts", "" ) &
             ". Arco cheio = nota atual; arco claro = nota projetada; traço branco = meta de 100%.'>" &
             "<svg viewBox='0 0 200 112' aria-hidden='true'>" &
                 "<path class='g-z g-z1' d='M5 100A95 95 0 0 1 195 100'></path>" &
@@ -564,20 +687,26 @@ VAR _heroNota =
             IF(
                 NOT _temNota,
                 "<span class='chip'>sem pontuação neste filtro</span>",
-                "<span class='gt-s'>nota atual <b>" & FORMAT( _ptsAtual, "0.00", _loc ) & "</b> · " & FORMAT( _atingAtual, "0.0%", _loc ) & "</span>" &
+                "<span class='gt-s'>nota atual <b>" & FORMAT( _ptsAtual, "0.00", _loc ) & "</b>" &
+                    IF( _temGanho, " → <b>" & FORMAT( _ptsProj, "0.00", _loc ) & "</b>", " · " & FORMAT( _atingAtual, "0.0%", _loc ) ) & "</span>" &
                 "<span class='chip'>" &
                     SWITCH(
                         TRUE(),
-                        _temGanho, "▲ +" & FORMAT( _ganhoSim, "0.00", _loc ) & " pts na projeção",
+                        _temGanho, "▲ +" & FORMAT( _ganhoSim, "0.00", _loc ) & " pts · +" & FORMAT( _pctGanho, "0.0%", _loc ),
                         _simular, "sem ganho nos indicadores marcados",
                         "cenário real · sem projeção"
                     ) & "</span>" &
                 "<span class='gt-l'><b>" & FORMAT( _atingProj, "0.0%", _loc ) & "</b> da meta · <b>" & FORMAT( ABS( _faltaProj ), "0.00", _loc ) & "</b> " &
                     IF( _faltaProj > 0, "abaixo", "acima" ) & "</span>" &
                 "<span class='gt-l'>" &
-                    IF(
-                        _simular,
-                        "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b> de " & FORMAT( _qtdNaNota, "0", _loc ) & " levados " & _levar,
+                    SWITCH(
+                        TRUE(),
+                        _temMesAnt,
+                            "mês ant. <b>" & FORMAT( _ptsMesAnt, "0.00", _loc ) & "</b> · " &
+                                IF( _temGanho, "projeção ", "atual " ) &
+                                "<b class='" & IF( IF( _temGanho, _difMesAntProj, _difMesAntAtual ) >= 0, "up", "down" ) & "'>" &
+                                FORMAT( IF( _temGanho, _difMesAntProj, _difMesAntAtual ), "+0.00;-0.00;0.00", _loc ) & "</b>",
+                        _simular, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b> de " & FORMAT( _qtdNaNota, "0", _loc ) & " levados " & _levar,
                         "potencial: <b>+" & FORMAT( _potencialTotal, "0.00", _loc ) & " pts</b>"
                     ) & "</span>"
             ) &
@@ -877,7 +1006,8 @@ VAR _linhaTotal =
             SWITCH(
                 TRUE(),
                 NOT _temNota, "sem pontuação neste filtro",
-                _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador levado ", " indicadores levados " ) & _levar,
+                _temGanho, "<b>" & FORMAT( _qtdSim, "0", _loc ) & "</b>" & IF( _qtdSim = 1, " indicador", " indicadores" ) &
+                    " na projeção · nota <b>+" & FORMAT( _pctGanho, "0.0%", _loc ) & "</b>",
                 _simular, "nenhum ganho nos indicadores marcados",
                 "cenário real · sem projeção"
             ) & "</div>" &
@@ -993,6 +1123,7 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .chip{display:inline-flex;align-items:center;height:20px;margin:2px 0 1px;padding:0 9px;border-radius:99px;font-size:10.5px;font-weight:700;color:var(--d0);background:var(--s);white-space:nowrap}
 .gt-l{font-size:10.5px;color:rgba(255,255,255,.80);white-space:nowrap}
 .gt-l b{color:#FFFFFF;font-weight:700}
+.gt-l .up{color:#6EE7B7}.gt-l .down{color:#FCA5A5}
 
 /* ---- onde estao os pontos perdidos ---- */
 .ls{display:flex;gap:2px;height:26px;margin-top:2px}
