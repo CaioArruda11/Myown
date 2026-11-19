@@ -36,8 +36,9 @@ Painel Efetividade 1 Agenda HTML =
 //     status de campo, fuso, quantos meses/semanas;
 //   - VARs marcadas com "<<< MODELO": sao as UNICAS que leem tabelas, colunas
 //     e medidas. Todo o resto usa so o que essas VARs devolvem;
-//   - em _backlogModelo, a linha marcada com "<<< CONFIRME" (coluna com a AT
-//     do backlog);
+//   - em _backlogModelo, a linha marcada com "<<< TROCAR" (coluna com a sigla
+//     da AT no backlog; a mesma troca vai na medida 1AG No Filtro). Passo a
+//     passo no GUIA.md, passo 2;
 //   - medidas usadas: [1_AGENDA NO PRAZO] e [1_AGENDA TOTAL]
 //     (arquivo medidas_de_apoio_1agenda_v1.txt).
 //
@@ -178,7 +179,11 @@ VAR _calModelo =
 //     O filtro de cor/AT e aplicado mais abaixo pela coluna AT, entao nao
 //     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
 //     mesmos da dAT[AREA ]).
-//         "AT"       = coluna com a sigla da AT                  <<< CONFIRME
+//         "AT"       = coluna com a sigla da AT, a mesma da dAT[AREA ]
+//                      (como a 'ETA DIRECT D-0'[AT] da Instalacao 3D)  <<< TROCAR
+//                      CENTRAL_OFFICE nao e a sigla (so a LP bateu). Se poucas
+//                      ATs tiverem ordens, o painel mostra uma faixa amarela com
+//                      os valores que a coluna trouxe. Veja o GUIA.md, passo 2.
 //         "Agenda"   = [DATA_PRIMEIRA_AGENDA]: data e hora da 1a agenda
 //         "Abertura" = [DATA_ABERTURA]: idade da ordem no card Backlog
 //         "Campo"    = [ETA DIRECT D-0.Status]: em branco = fora de campo hoje
@@ -191,7 +196,7 @@ VAR _backlogModelo =
     CALCULATETABLE(
         SELECTCOLUMNS(
             'BACKLOG_INSTALACAO',
-            "AT", TRIM( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ),         // <<< CONFIRME: coluna com a sigla da AT
+            "AT", TRIM( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ),         // <<< TROCAR: coluna com a sigla da AT (GUIA.md, passo 2)
             "Agenda", 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA],
             "Abertura", 'BACKLOG_INSTALACAO'[DATA_ABERTURA],
             "Campo", UPPER( TRIM( 'BACKLOG_INSTALACAO'[ETA DIRECT D-0.Status] ) ),
@@ -808,6 +813,24 @@ VAR _views =
 VAR _qCarga = COUNTROWS( _backlogModelo ) + 0
 // so as ordens das ATs do filtro (vale mesmo sem relacionamento com a dAT)
 VAR _bk0 = FILTER( _backlogModelo, CONTAINSROW( _atsCtx, [AT] ) )
+// Diagnostico da coluna AT: se poucas ATs do filtro tem ordens, a coluna
+// escolhida para a AT provavelmente nao e a sigla da AT. O painel mostra os
+// valores que ela trouxe (com a marca nos que existem na dAT).
+VAR _listaATs = SELECTCOLUMNS( _atsTodas, "A", [AT] )
+VAR _atGrp = GROUPBY( _backlogModelo, [AT], "Qa", SUMX( CURRENTGROUP(), 1 ) )
+VAR _nValAT = COUNTROWS( _atGrp ) + 0
+VAR _atTop = TOPN( 6, _atGrp, [Qa], DESC, [AT], ASC )
+VAR _txtValAT =
+    CONCATENATEX(
+        _atTop,
+        IF( [AT] = "", "(vazio)", [AT] ) & " <b>" & FORMAT( [Qa], "#,0", _loc ) & "</b>" & IF( CONTAINSROW( _listaATs, [AT] ), " ✓", "" ),
+        " · ",
+        [Qa], DESC,
+        [AT], ASC
+    ) &
+    IF( _nValAT > 6, " · mais " & ( _nValAT - 6 ) & " valores", "" )
+VAR _nATsComOrdem = COUNTROWS( GROUPBY( _bk0, [AT] ) ) + 0
+VAR _colunaSuspeita = _qCarga > 0 && _qtdVis >= 4 && _nATsComOrdem * 2 < _qtdVis
 VAR _bk1 =
     ADDCOLUMNS(
         _bk0,
@@ -1414,6 +1437,9 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
    ===================================================================== */
 .rc{min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
 .d0{flex:1 1 auto;min-height:90px;padding:0}
+/* aviso de coluna da AT errada (so aparece quando poucas ATs tem ordens) */
+.wat{flex:none;padding:6px 12px 6px 14px;background:#FFF1D6;border-bottom:1px solid #F6DDB0;color:#8A4B00;font-size:9px;line-height:12px}
+.wat b{font-weight:700;color:#7A3E00}
 /* ---- quadro por cor e AT ---- */
 .qh0,.qr{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(6,minmax(0,1fr));align-items:center;column-gap:4px;padding:0 12px 0 14px;text-align:center;white-space:nowrap}
 .qh0{flex:none;height:26px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.02em;line-height:9px;text-transform:uppercase}
@@ -1486,6 +1512,8 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 .bkp .pr{color:#A3161A}
 .empty{margin:auto;padding:24px 16px;text-align:center;color:var(--mut);font-size:10.5px;line-height:1.4}
 .empty b{display:block;margin-bottom:4px;color:var(--ink);font-size:12px;font-weight:700}
+.empty .ev{display:block;margin-top:6px;color:#8A4B00}
+.empty .ev b{display:inline;margin:0;font-size:inherit;color:inherit}
 /* ---------- ANIMACOES (so na entrada) ---------- */
 @keyframes grow{from{transform:scaleX(0)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(52,211,153,.22)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.06)}}
@@ -1520,7 +1548,8 @@ VAR _avisoHoje =
         _qCarga = 0,
         "<b>Nenhuma ordem no backlog</b>A tabela BACKLOG_INSTALACAO não tem linhas. Confira se a carga de hoje entrou.",
         "<b>Nenhuma ordem nas ATs do filtro</b>O backlog tem " & FORMAT( _qCarga, "#,0", _loc ) &
-            " ordens, mas nenhuma com a AT igual às da dAT no filtro. Confira a coluna AT na VAR _backlogModelo: os valores têm que ser os mesmos da dAT[AREA ]."
+            " ordens, mas nenhuma com a AT igual às da dAT no filtro. Confira a coluna AT na VAR _backlogModelo: os valores têm que ser os mesmos da dAT[AREA ]." &
+            "<span class='ev'>Valores da coluna AT (✓ = existe na dAT): " & _txtValAT & "</span>"
     )
 
 // Coluna da direita, embaixo da faixa de hoje: quadro por cor e AT em cima e,
@@ -1531,6 +1560,12 @@ VAR _painelHoje =
             IF(
                 _qBk = 0,
                 "<div class='empty'>" & _avisoHoje & "</div>",
+                IF(
+                    _colunaSuspeita,
+                    "<div class='wat'><b>⚠ Só " & _nATsComOrdem & " de " & _qtdVis & " ATs têm ordens.</b> Valores da coluna AT do backlog (✓ = existe na dAT): " &
+                        _txtValAT & ". Troque a coluna na VAR _backlogModelo (GUIA.md, passo 2).</div>",
+                    ""
+                ) &
                 "<div class='qh0'><span>Cor / AT</span><span title='Ordens do backlog'>Carteira</span><span title='1ª agenda já passou'>Perdidas</span>" &
                     "<span title='1ª agenda hoje'>Hoje</span><span title='Vencem hoje e não estão na ETA DIRECT D-0 de hoje'>Fora de campo</span>" &
                     "<span title='1ª agenda amanhã'>Amanhã</span><span title='Vencem amanhã com o STATUS_OFICIAL diferente de agendada'>Sem agendar</span></div>" &

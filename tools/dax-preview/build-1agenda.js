@@ -117,7 +117,8 @@ const CEN = [
   { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades (quadro e card Backlog) mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
   { id: 'at', rotulo: 'AT MA · carga de ontem', nota: 'Uma AT selecionada. No topo direito, o aviso de que a carga do backlog é de ontem (coluna DATA_CARGA).', cen: { ats: ['MA'], carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
   { id: 'out', rotulo: 'Mês fechado · out/26', nota: 'Trocar o mês muda só o lado esquerdo. O lado direito continua no dia de hoje, e a conta “salvando / perdendo” continua sendo a do mês atual.', cen: { fimSel: dax.serial(2026, 10, 31) }, pg: { mes: 'Outubro/2026' } },
-  { id: 'atnb', rotulo: 'AT do backlog não bate', nota: 'Se a coluna escolhida para a AT não tiver as mesmas siglas da dAT[AREA ], o lado direito diz isso em vez de mostrar zeros.', cen: { atNaoBate: true }, pg: { mes: 'Novembro/2026' } },
+  { id: 'atnb', rotulo: 'AT do backlog não bate', nota: 'Se a coluna escolhida para a AT não tiver as mesmas siglas da dAT[AREA ], o lado direito diz isso em vez de mostrar zeros, e lista os valores que a coluna trouxe.', cen: { atNaoBate: true }, pg: { mes: 'Novembro/2026' } },
+  { id: 'atuma', rotulo: 'Coluna da AT errada', nota: 'A coluna escolhida para a AT traz outro código e só uma AT coincide com a dAT (o caso “só aparece LP”). A faixa amarela mostra os valores da coluna; ✓ = existe na dAT.', cen: { atSoUma: 'PL' }, pg: { mes: 'Novembro/2026' } },
 ];
 for (const c of CEN) {
   c.html = painel(c.cen);
@@ -312,7 +313,7 @@ const arq = (nome, html) => { const f = path.join(tmp, nome + '.html'); fs.write
 function print(nome, c, before) {
   jobs.push({ file: arq(nome, c.pagina), out: path.join(out, nome + '.png'), w: 1280, h: 720, scale: 2, before: before && noFrame('e1', before) });
 }
-const [GERAL, BRONZE, AT, OUT, ATNB] = CEN;
+const [GERAL, BRONZE, AT, OUT, ATNB, ATUMA] = CEN;
 print('1-visao-geral', GERAL);
 // o card Backlog de perto: so a coluna da direita do painel de referencia (1264 x 638)
 // no tamanho em que o painel fica na pagina (1032 x 630, ao lado do menu): coluna da direita com 420 px
@@ -331,6 +332,7 @@ jobs.push({
   out: path.join(out, '8-analitico-tabela-para-baixar.png'), w: 1280, h: 720, scale: 2,
 });
 print('9-AT-do-backlog-nao-bate', ATNB);
+print('12-coluna-da-AT-errada', ATUMA);
 
 // posicao das segmentacoes e do botao nativo sobre a barra (e conferencia da geometria documentada)
 {

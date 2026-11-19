@@ -11,7 +11,8 @@
 //
 // O QUE TROCAR
 //   - so a medida "1AG No Filtro" le a coluna da AT do backlog: use a MESMA
-//     coluna da VAR _backlogModelo do painel (hoje esta CENTRAL_OFFICE);
+//     coluna da VAR _backlogModelo do painel. CENTRAL_OFFICE nao e a sigla da
+//     AT (so a LP bateu): troque nos dois lugares, como no GUIA.md, passo 2;
 //   - _statusAgendado em "1AG Agendamento" e a lista de status em
 //     "1AG Situação em Campo" sao os mesmos do painel: mudou la, mude aqui.
 //
@@ -233,7 +234,7 @@ RETURN
 VAR _sit = [1AG Situação]
 VAR _temSelecao = ISFILTERED( 'Seletor Situacao 1AG'[Situação 1AG] )
 VAR _selecao = VALUES( 'Seletor Situacao 1AG'[Situação 1AG] )
-VAR _at = TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ) )    // <<< CONFIRME: mesma coluna da AT do painel
+VAR _at = TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ) )    // <<< TROCAR: mesma coluna da AT do painel (GUIA.md, passo 2)
 VAR _atsFiltro = VALUES( dAT[AREA ] )
 VAR _sitOk = NOT _temSelecao || CONTAINSROW( _selecao, _sit )
 VAR _atOk = CONTAINSROW( _atsFiltro, _at )

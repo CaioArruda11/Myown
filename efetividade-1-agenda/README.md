@@ -1,5 +1,7 @@
 # Painel · Efetividade 1ª agenda
 
+> **Comece pelo [GUIA.md](GUIA.md)**: lista tudo o que criar (tabela, medidas, páginas, botões), na ordem, e como corrigir a coluna da AT do backlog.
+
 Página nova do painel de instalação, no mesmo modelo da **Instalação em até 3 dias**: um visual **HTML Content** gerado por uma medida DAX, a barra de cima com a **data da atualização** e o botão **Baixar CSV**, a página do **analítico** (oculta, uma tabela para baixar as ordens) e o **menu v2** com o item novo.
 
 O indicador: a instalação vendida tem de ser feita até a data que o cliente pediu na 1ª agenda (vendeu 19/11, cliente pediu 20/11 08:30 → instalar até 20/11). Resultado = `'f1AGENDA_PRAZO'[num_Total]` ÷ `'f1AGENDA_TOTAL'[num_Total]`, a mesma conta da sua `% 1_AGENDA`.
@@ -22,7 +24,8 @@ O indicador: a instalação vendida tem de ser feita até a data que o cliente p
 | [`analitico_1agenda_v1.txt`](analitico_1agenda_v1.txt) | tabela `Seletor Situacao 1AG` + 10 medidas `1AG …` da tabela para baixar | Nova tabela + Nova medida |
 | [`barra_filtros_analitico_1agenda_html_v1.txt`](barra_filtros_analitico_1agenda_html_v1.txt) | barra da página do analítico: dica de como baixar e botão Voltar | Nova medida |
 | [`menu_lateral_instalacao_html_v2.txt`](menu_lateral_instalacao_html_v2.txt) | menu com **EFETIVIDADE 1 AGENDA** (substitui o v1) | nas medidas de menu das 5 páginas e do analítico |
-| `1-…png` a `11-…png` | prints da prévia com dados fictícios (hoje = quinta, 19/11) | — |
+| [`GUIA.md`](GUIA.md) | **guia de montagem**: o que criar, na ordem, com as posições e a correção da coluna da AT | — |
+| `1-…png` a `12-…png` | prints da prévia com dados fictícios (hoje = quinta, 19/11) | — |
 
 ## O que trocar no seu modelo
 
@@ -30,7 +33,7 @@ Tudo que a medida principal lê do modelo está nas VARs marcadas com `<<< MODEL
 
 | O que | Onde | Como está | O que fazer |
 |---|---|---|---|
-| **AT do backlog** | `_backlogModelo` → `"AT"` **e** a medida `1AG No Filtro` | `[CENTRAL_OFFICE]` | **Confirmar.** Tem que trazer as mesmas siglas da `dAT[AREA ]`. Se não bater, o painel avisa (print 9). Troque nos dois lugares. |
+| **AT do backlog** | `_backlogModelo` → `"AT"` **e** a medida `1AG No Filtro` | `[CENTRAL_OFFICE]` | **Trocar.** Tem que trazer as mesmas siglas da `dAT[AREA ]`, como a `'ETA DIRECT D-0'[AT]` da 3D. A `CENTRAL_OFFICE` não é: só a LP bateu. O painel lista os valores que a coluna trouxe (prints 9 e 12). Veja o passo 2 do [GUIA.md](GUIA.md). |
 | Abertura da ordem | `_backlogModelo` → `"Abertura"` e a medida `1AG Idade` | `[DATA_ABERTURA]` | Usada só na idade do card. Se a data da venda estiver em outra coluna, troque nos dois lugares. |
 | Atualização | `_atualizacao` nas duas barras | `MAX( [DATA_CARGA] )` | Se tiver uma coluna com a hora da carga da Zeus, use ela (aparece data e hora). Sem hora, mostra só a data. |
 | Meta | `_meta` | `0.732` | É a meta do 1 AGENDA no BSC. Confira. |
@@ -121,6 +124,7 @@ Cada ordem do backlog, comparando a **data** da `DATA_PRIMEIRA_AGENDA` com hoje 
 | Uma AT, com aviso de carga de ontem | ![](5-AT-selecionada-carga-de-ontem.png) |
 | Mês fechado: só o lado esquerdo muda | ![](6-mes-fechado-o-lado-direito-nao-muda.png) |
 | Coluna da AT do backlog não bate com a dAT | ![](9-AT-do-backlog-nao-bate.png) |
+| Coluna da AT errada: só uma AT bate (faixa amarela com os valores da coluna) | ![](12-coluna-da-AT-errada.png) |
 
 ## Regerar a prévia
 

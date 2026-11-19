@@ -148,6 +148,7 @@ function janela(fimSel, qtdMeses, qtdSemanas) {
  *   carga       data da carga do backlog (serial) | padrao: hoje 07:10 | null = coluna nao ligada
  *   semAgenda   true = DATA_PRIMEIRA_AGENDA vazia
  *   atNaoBate   true = a coluna AT do backlog tem outros nomes (nao bate com a dAT)
+ *   atSoUma     'PL' = a coluna AT traz outro codigo e so essa AT coincide com a dAT
  *   semBacklog  true = backlog vazio
  *   semDados    true = nenhuma baixada na janela
  */
@@ -165,7 +166,7 @@ function cenario(o) {
     _calModelo: CALENDARIO.filter((d) => d >= j.mesIni && d <= j.mesFim).map((d) => ({ Data: d })),
     // o backlog nao tem relacionamento com a dAT: vem inteiro e a medida filtra pela coluna AT
     _backlogModelo: opt.semBacklog ? [] : BACKLOG.map((b) => ({
-      AT: opt.atNaoBate ? 'SPO-' + b.AT : b.AT,
+      AT: opt.atNaoBate ? 'SPO-' + b.AT : opt.atSoUma ? (b.AT === opt.atSoUma ? b.AT : 'CO' + b.AT.charAt(0)) : b.AT,
       Agenda: opt.semAgenda ? null : b.Agenda,
       Abertura: b.Abertura,
       Campo: b.Campo,
