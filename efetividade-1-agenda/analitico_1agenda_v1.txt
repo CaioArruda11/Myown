@@ -1,0 +1,225 @@
+// ============================================================================
+// ANALITICO - EFETIVIDADE 1a AGENDA  (v1)
+// Pagina com UMA tabela nativa: as ordens do BACKLOG_INSTALACAO, para o
+// usuario baixar (Mais opcoes ... > Exportar dados). As medidas abaixo fazem,
+// ordem a ordem, a mesma conta do lado direito do painel, com a data de hoje:
+// os numeros da tabela batem com os do painel.
+//
+// O QUE TEM AQUI (cole na ordem)
+//   1. tabela solta "Seletor Situacao 1AG"   (Modelagem > Nova tabela)
+//   2. medidas "1AG ..."                      (Nova medida, uma por vez)
+//
+// O QUE TROCAR
+//   - so a medida "1AG No Filtro" le a coluna da AT do backlog: use a MESMA
+//     coluna da VAR _backlogModelo do painel (hoje esta CENTRAL_OFFICE);
+//   - _statusAgendado em "1AG Agendamento" e a lista de status em
+//     "1AG Situação em Campo" sao os mesmos do painel: mudou la, mude aqui.
+//
+// A TABELA PRECISA TER A COLUNA DO NUMERO DA ORDEM: e ela que faz cada linha
+// ser uma ordem. Sem ela, ordens com os mesmos valores viram uma linha so.
+// Desligue os totais da tabela (Formatar > Totais > desativado).
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// 1) TABELA DO SELETOR DE SITUACAO  (Modelagem > Nova tabela)
+//    NAO criar relacionamento: e uma tabela solta, usada so no seletor.
+//    Depois de criar: selecione a coluna Situação 1AG > Classificar por
+//    coluna > Ordem Situação 1AG.
+//    Os textos tem que ser iguais aos da medida "1AG Situação".
+// ----------------------------------------------------------------------------
+Seletor Situacao 1AG =
+DATATABLE(
+    "Situação 1AG", STRING,
+    "Ordem Situação 1AG", INTEGER,
+    {
+        { "Vence hoje", 1 },
+        { "Vence amanhã", 2 },
+        { "Perdida", 3 },
+        { "No prazo", 4 },
+        { "Sem 1ª agenda", 5 }
+    }
+)
+
+
+// ----------------------------------------------------------------------------
+// 2) DIAS ATE A 1a AGENDA
+//    0 = hoje | 1 = amanha | negativo = dias desde que a 1a agenda venceu
+//    (-3 = venceu ha 3 dias). Vazio na ordem sem 1a agenda.
+//    Formato sugerido: Numero inteiro.
+// ----------------------------------------------------------------------------
+1AG Dias até a 1ª Agenda =
+VAR _fuso = -3
+VAR _hoje = INT( UTCNOW() + _fuso / 24 )
+VAR _agenda = SELECTEDVALUE( 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA] )
+RETURN
+    IF( ISBLANK( _agenda ), BLANK(), INT( _agenda ) - _hoje )
+
+
+// ----------------------------------------------------------------------------
+// 3) SITUACAO NA 1a AGENDA (a mesma do painel)
+//    Perdida | Vence hoje | Vence amanhã | No prazo | Sem 1ª agenda
+//    Vazio na linha de total.
+// ----------------------------------------------------------------------------
+1AG Situação =
+VAR _umaOrdem = HASONEVALUE( 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA] )
+VAR _dias = [1AG Dias até a 1ª Agenda]
+RETURN
+    IF(
+        _umaOrdem,
+        SWITCH(
+            TRUE(),
+            ISBLANK( _dias ), "Sem 1ª agenda",
+            _dias < 0, "Perdida",
+            _dias = 0, "Vence hoje",
+            _dias = 1, "Vence amanhã",
+            "No prazo"
+        )
+    )
+
+
+// ----------------------------------------------------------------------------
+// 4) SITUACAO EM CAMPO HOJE (coluna [ETA DIRECT D-0.Status] do backlog)
+//    em branco = Fora de campo | Concluída | Em execução (em rota, iniciada)
+//    | Não iniciada | Insucesso (não concluída, suspensa, cancelada)
+//    Status que nao estiver na lista conta como "Não iniciada", como no painel.
+// ----------------------------------------------------------------------------
+1AG Situação em Campo =
+VAR _umaOrdem = HASONEVALUE( 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA] )
+VAR _st = UPPER( TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[ETA DIRECT D-0.Status] ) ) )
+RETURN
+    IF(
+        _umaOrdem,
+        SWITCH(
+            TRUE(),
+            _st = "", "Fora de campo",
+            _st = "CONCLUÍDA", "Concluída",
+            _st = "EM ROTA" || _st = "INICIADA", "Em execução",
+            _st = "NÃO CONCLUÍDA" || _st = "SUSPENSA" || _st = "CANCELADA", "Insucesso",
+            "Não iniciada"
+        )
+    )
+
+
+// ----------------------------------------------------------------------------
+// 5) AGENDAMENTO (coluna [STATUS_OFICIAL])
+//    Agendada = STATUS_OFICIAL igual a _statusAgendado | Sem agendar = o resto
+// ----------------------------------------------------------------------------
+1AG Agendamento =
+VAR _statusAgendado = "AGENDADO"
+VAR _umaOrdem = HASONEVALUE( 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA] )
+VAR _st = UPPER( TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[STATUS_OFICIAL] ) ) )
+RETURN
+    IF( _umaOrdem, IF( _st = _statusAgendado, "Agendada", "Sem agendar" ) )
+
+
+// ----------------------------------------------------------------------------
+// 6) PRIORIDADE (classifique a tabela por esta coluna, do menor para o maior)
+//     1 vence hoje, fora de campo         7 perdida, fora de campo
+//     2 vence hoje, insucesso             8 perdida, em campo hoje
+//     3 vence hoje, não iniciada          9 sem 1ª agenda
+//     4 vence hoje, em execução          10 no prazo, sem agendar
+//     5 vence amanhã, sem agendar        11 já concluída hoje (no prazo ou não)
+//     6 vence amanhã, agendada           12 no prazo, agendada
+// ----------------------------------------------------------------------------
+1AG Prioridade =
+VAR _sit = [1AG Situação]
+VAR _campo = [1AG Situação em Campo]
+VAR _agd = [1AG Agendamento]
+RETURN
+    IF(
+        NOT ISBLANK( _sit ),
+        SWITCH(
+            TRUE(),
+            _sit = "Vence hoje" && _campo = "Fora de campo", 1,
+            _sit = "Vence hoje" && _campo = "Insucesso", 2,
+            _sit = "Vence hoje" && _campo = "Não iniciada", 3,
+            _sit = "Vence hoje" && _campo = "Em execução", 4,
+            _sit = "Vence hoje", 11,
+            _sit = "Vence amanhã" && _agd = "Sem agendar", 5,
+            _sit = "Vence amanhã", 6,
+            _sit = "Perdida" && _campo = "Fora de campo", 7,
+            _sit = "Perdida" && _campo = "Concluída", 11,
+            _sit = "Perdida", 8,
+            _sit = "Sem 1ª agenda", 9,
+            _agd = "Sem agendar", 10,
+            12
+        )
+    )
+
+
+// ----------------------------------------------------------------------------
+// 7) ACAO SUGERIDA (texto curto, sai junto na exportacao)
+// ----------------------------------------------------------------------------
+1AG Ação =
+VAR _sit = [1AG Situação]
+VAR _campo = [1AG Situação em Campo]
+VAR _agd = [1AG Agendamento]
+RETURN
+    IF(
+        NOT ISBLANK( _sit ),
+        SWITCH(
+            TRUE(),
+            _sit = "Vence hoje" && _campo = "Fora de campo", "Colocar em campo hoje",
+            _sit = "Vence hoje" && _campo = "Insucesso", "Tratar o insucesso hoje",
+            _sit = "Vence hoje" && _campo = "Concluída", "Concluída hoje",
+            _sit = "Vence hoje", "Acompanhar em campo",
+            _sit = "Vence amanhã" && _agd = "Sem agendar", "Agendar para amanhã",
+            _sit = "Vence amanhã", "Confirmar a agenda de amanhã",
+            _sit = "Perdida" && _campo = "Fora de campo", "Instalar o quanto antes",
+            _sit = "Perdida" && _campo = "Concluída", "Instalada hoje, fora da 1ª agenda",
+            _sit = "Perdida", "Em campo hoje",
+            _sit = "Sem 1ª agenda", "Sem data de 1ª agenda",
+            _agd = "Sem agendar", "Agendar até a 1ª agenda",
+            "Sem ação"
+        )
+    )
+
+
+// ----------------------------------------------------------------------------
+// 8) CORES DA COLUNA SITUACAO (formatacao condicional > Valor do campo)
+//    Mesma escala do painel: vermelho perdida, laranja hoje, amarelo amanha,
+//    verde no prazo, cinza sem 1a agenda.
+// ----------------------------------------------------------------------------
+1AG Cor Fundo =
+VAR _sit = [1AG Situação]
+RETURN
+    SWITCH(
+        _sit,
+        "Perdida", "#FBC6C6",
+        "Vence hoje", "#FFD9BC",
+        "Vence amanhã", "#FFF1C7",
+        "No prazo", "#DDF5EA",
+        "Sem 1ª agenda", "#EEF2F6"
+    )
+
+1AG Cor Texto =
+VAR _sit = [1AG Situação]
+RETURN
+    SWITCH(
+        _sit,
+        "Perdida", "#A3161A",
+        "Vence hoje", "#8A3404",
+        "Vence amanhã", "#7A5600",
+        "No prazo", "#04704B",
+        "Sem 1ª agenda", "#3F4C6B"
+    )
+
+
+// ----------------------------------------------------------------------------
+// 9) FILTRO DA TABELA (coloque em "Filtros neste visual" > mostrar itens
+//    quando o valor e 1)
+//    - segue o seletor de situacao (nada marcado = todas);
+//    - segue o filtro de cor e de AT da dAT, mesmo sem relacionamento entre o
+//      backlog e a dAT (compara a sigla da AT, como o painel).
+// ----------------------------------------------------------------------------
+1AG No Filtro =
+VAR _sit = [1AG Situação]
+VAR _temSelecao = ISFILTERED( 'Seletor Situacao 1AG'[Situação 1AG] )
+VAR _selecao = VALUES( 'Seletor Situacao 1AG'[Situação 1AG] )
+VAR _at = TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ) )    // <<< CONFIRME: mesma coluna da AT do painel
+VAR _atsFiltro = VALUES( dAT[AREA ] )
+VAR _sitOk = NOT _temSelecao || CONTAINSROW( _selecao, _sit )
+VAR _atOk = CONTAINSROW( _atsFiltro, _at )
+RETURN
+    IF( NOT ISBLANK( _sit ) && _sitOk && _atOk, 1, 0 )

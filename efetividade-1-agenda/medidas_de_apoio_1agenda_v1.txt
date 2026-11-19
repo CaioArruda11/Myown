@@ -1,0 +1,40 @@
+// ============================================================================
+// MEDIDAS DE APOIO - PAINEL "EFETIVIDADE 1a AGENDA"  (v1)
+//
+// Sao o numerador e o denominador da sua medida "% 1_AGENDA", cada um em uma
+// medida propria. O painel monta uma grade "AT x dia" com as duas contagens e
+// soma tudo a partir dela (semana, mes, cor, geral); por isso ele precisa das
+// duas separadas, e nao so do percentual pronto. Mesmo esquema do painel da
+// Instalacao 3D.
+//
+// Crie as duas primeiras ANTES da medida "Painel Efetividade 1 Agenda HTML".
+// Sugestao: guardar na dMedidas, na pasta "Medidas 1AGENDA".
+//
+// As duas tabelas precisam estar relacionadas com a dCalendario (pela data) e
+// com a dAT (pela AT). Se a sua % 1_AGENDA ja responde aos filtros de mes e de
+// AT, os relacionamentos ja existem.
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// 1) NUMERADOR: instalacoes baixadas dentro da 1a agenda
+// ----------------------------------------------------------------------------
+1_AGENDA NO PRAZO =
+SUM( 'f1AGENDA_PRAZO'[num_Total] )
+
+
+// ----------------------------------------------------------------------------
+// 2) DENOMINADOR: todas as instalacoes baixadas (no prazo ou nao)
+// ----------------------------------------------------------------------------
+1_AGENDA TOTAL =
+SUM( 'f1AGENDA_TOTAL'[num_Total] )
+
+
+// ----------------------------------------------------------------------------
+// 3) INDICADOR - a sua medida, reescrita em cima das duas acima (OPCIONAL)
+//    Da o mesmo numero de hoje. A diferenca e o DIVIDE: quando o total e zero
+//    (um dia ou uma AT sem instalacao baixada) ele devolve vazio, e a barra
+//    "/" devolve erro ou "NaN" na tela.
+// ----------------------------------------------------------------------------
+% 1_AGENDA =
+DIVIDE( [1_AGENDA NO PRAZO], [1_AGENDA TOTAL] )

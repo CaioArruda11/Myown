@@ -489,6 +489,8 @@ Object.assign(FN, {
   YEAR: A((s) => fromSerial(Math.floor(num(s))).getUTCFullYear()),
   MONTH: A((s) => fromSerial(Math.floor(num(s))).getUTCMonth() + 1),
   DAY: A((s) => fromSerial(Math.floor(num(s))).getUTCDate()),
+  HOUR: A((s) => (s === null ? null : fromSerial(num(s)).getUTCHours())),
+  MINUTE: A((s) => (s === null ? null : fromSerial(num(s)).getUTCMinutes())),
   EOMONTH: A((s, m) => { const d = fromSerial(Math.floor(num(s))); return serial(d.getUTCFullYear(), d.getUTCMonth() + num(m) + 2, 0); }),
   EDATE: A((s, m) => {
     const d = fromSerial(Math.floor(num(s)));

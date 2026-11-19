@@ -136,4 +136,41 @@ async function shots(jobs) {
   await browser.close();
 }
 
-module.exports = { wrap, compose, composeRanking, composeInstalacao, composeInstalacaoMenu, shots, LAYOUT, LAYOUT_RK, LAYOUT_I3 };
+/**
+ * Pagina "titulo + filtros nativos simulados + um unico visual HTML" (1264 x 638),
+ * como a da Instalacao 3D, com titulo e nome do iframe escolhidos.
+ * opts: { titulo, nome, title, mes, cor, at }
+ */
+function composeCorpo(html, opts) {
+  const o = opts || {};
+  return composeInstalacao(html, o)
+    .replace('<b>Instalação em até 3 dias</b>', '<b>' + (o.titulo || 'Prévia') + '</b>')
+    .replace('<iframe name="i3" title="Painel Instalação 3D"', '<iframe name="' + (o.nome || 'corpo') + '" title="' + (o.titulo || 'Prévia') + '"');
+}
+
+/**
+ * Menu lateral (200 x 700) + barra de filtros HTML (1032 x 62) com as segmentacoes
+ * nativas simuladas por cima das caixas + corpo (1032 x 630).
+ * corpo.html = visual HTML (vai em iframe) | corpo.nativo = HTML de um visual nativo simulado.
+ * opts: { title, valores: [3 textos das segmentacoes], nome }
+ */
+function composeMenuBarra(menu, barra, corpo, opts) {
+  const o = opts || {};
+  const L = { menu: { x: 20, y: 6, w: 200, h: 700 }, barra: { x: 236, y: 6, w: 1032, h: 62 }, vis: { x: 236, y: 80, w: 1032, h: 630 } };
+  const box = (r) => 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
+  const frame = (r, h, id) => '<iframe name="' + id + '" title="' + id + '" style="' + box(r) + '" srcdoc="' + esc(wrap(h)) + '"></iframe>';
+  const vals = o.valores || ['Novembro/2026', 'Todos', 'Todos'];
+  const sl = frame(L.barra, barra, 'barra') +
+    vals.map((v, k) => '<div class="sl" style="left:' + (L.barra.x + L.barra.w - [536, 358, 180][k]) + 'px;top:' + (L.barra.y + 24) + 'px">' + v + '</div>').join('');
+  const meio = corpo.html !== undefined ? frame(L.vis, corpo.html, o.nome || 'corpo') : '<div class="nat" style="' + box(L.vis) + '">' + corpo.nativo + '</div>';
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
+    'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +
+    '.pg{position:relative;width:1280px;height:720px;margin:0 auto;background:linear-gradient(180deg,#EEF3FA,#E3EBF6);overflow:hidden}' +
+    'iframe{position:absolute;border:0;background:transparent}' +
+    '.sl{position:absolute;z-index:2;width:160px;height:26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:11px;color:#fff}' +
+    '.sl:after{content:"⌄";font-size:13px;margin-top:-5px;color:rgba(255,255,255,.75)}' +
+    '.nat{position:absolute;box-sizing:border-box;overflow:hidden}' + (o.cssNativo || '') +
+    '</style></head><body><div class="pg">' + frame(L.menu, menu, 'menu') + sl + meio + (o.extra || '') + '</div></body></html>';
+}
+
+module.exports = { wrap, compose, composeRanking, composeInstalacao, composeInstalacaoMenu, composeCorpo, composeMenuBarra, shots, LAYOUT, LAYOUT_RK, LAYOUT_I3 };
