@@ -24,6 +24,7 @@ O indicador: a instalação vendida tem de ser feita até a data que o cliente p
 | [`analitico_1agenda_v1.txt`](analitico_1agenda_v1.txt) | tabela `Seletor Situacao 1AG` + 10 medidas `1AG …` da tabela para baixar | Nova tabela + Nova medida |
 | [`tela_analitico_1agenda_html_v1.txt`](tela_analitico_1agenda_html_v1.txt) | medida **Tela Analitico 1 Agenda HTML**: a página do analítico inteira (cabeçalho, seta de voltar, dica do CSV e o cartão onde fica a tabela) | Nova medida |
 | [`menu_lateral_instalacao_html_v2.txt`](menu_lateral_instalacao_html_v2.txt) | menu com **EFETIVIDADE 1 AGENDA** (substitui o v1) | nas medidas de menu das 5 páginas |
+| [`menu_lateral_1agenda_html_v2.txt`](menu_lateral_1agenda_html_v2.txt) | o mesmo menu, pronto para a página nova: medida **Menu Lateral 1 Agenda HTML**, com EFETIVIDADE 1 AGENDA aceso | Nova medida, no menu da página EFETIVIDADE 1 AGENDA |
 | [`GUIA.md`](GUIA.md) | **guia de montagem**: o que criar, na ordem, com as posições e a correção da coluna da AT | — |
 | `1-…png` a `13-…png` | prints da prévia com dados fictícios (hoje = quinta, 19/11) | — |
 

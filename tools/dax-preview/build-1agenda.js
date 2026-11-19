@@ -32,6 +32,7 @@ const ARQ = {
   apoio: 'medidas_de_apoio_1agenda_v1.txt',
   painel: 'painel_efetividade_1agenda_html_v1.txt',
   menu: 'menu_lateral_instalacao_html_v2.txt',
+  menu1ag: 'menu_lateral_1agenda_html_v2.txt',
   barra: 'barra_filtros_1agenda_html_v1.txt',
   tela: 'tela_analitico_1agenda_html_v1.txt',
   analitico: 'analitico_1agenda_v1.txt',
@@ -82,6 +83,14 @@ function menuDaPagina(pg) {
 }
 const MENUS = Object.fromEntries(PAGINAS.map((p) => [p, menuDaPagina(p)]));
 console.log('menu v2    : sintaxe ok | ' + PAGINAS.length + ' páginas, uma marcada em cada, sem o analítico | HTML ' + MENUS['EFETIVIDADE 1 AGENDA'].length);
+// copia pronta da pagina da 1a agenda: tem que desenhar exatamente o mesmo menu, com o item da 1a agenda aceso
+{
+  const r = dax.evaluate(caminho('menu1ag'), MENU_MOCKS.geral, { utcNow: M.UTC_NOW });
+  if (r.unusedMocks.length) throw new Error('menu 1ª agenda: ' + r.unusedMocks.join('; '));
+  if (r.html !== MENUS['EFETIVIDADE 1 AGENDA']) throw new Error('menu 1ª agenda: a cópia pronta não é igual ao menu v2 com _paginaAtual = "EFETIVIDADE 1 AGENDA"');
+  if (!/^Menu Lateral 1 Agenda HTML =/.test(ler('menu1ag'))) throw new Error('menu 1ª agenda: nome da medida mudou');
+  console.log('menu 1AG   : sintaxe ok | cópia pronta = menu v2 com EFETIVIDADE 1 AGENDA aceso');
+}
 
 function barra(k, mocks) {
   const r = dax.evaluate(caminho(k), mocks, { utcNow: M.UTC_NOW });
@@ -590,7 +599,8 @@ const pagina = fs.readFileSync(path.join(__dirname, 'pagina-1agenda.html'), 'utf
   .replace('%%CODIGO%%', () => [
     ...apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · numerador da sua % 1_AGENDA' : i === 1 ? 'medida de apoio · denominador da sua % 1_AGENDA' : 'opcional · a sua medida reescrita com DIVIDE', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)),
     bloco('mp', '4 · Painel Efetividade 1 Agenda HTML', 'medida principal · ' + linhasPrincipal + ' linhas · vai no visual HTML Content', principalTxt, false),
-    bloco('mn', '5 · Menu Lateral Instalacao HTML (v2)', 'cole nas 5 páginas do menu (e no analítico) e troque só _paginaAtual · substitui o v1', ler('menu'), false),
+    bloco('mn', '5 · Menu Lateral Instalacao HTML (v2)', 'cole nas páginas do menu e troque só _paginaAtual · substitui o v1', ler('menu'), false),
+    bloco('m1', '5b · Menu Lateral 1 Agenda HTML (v2)', 'cópia pronta para a página EFETIVIDADE 1 AGENDA: o item já vem aceso', ler('menu1ag'), false),
     bloco('bf', '6 · Barra Filtros 1 Agenda HTML', 'página do painel · 62 px · filtros, atualização e Baixar CSV', ler('barra'), false),
     bloco('ta', '7 · Tela Analitico 1 Agenda HTML', 'página do analítico · visual de 1280 × 720 · como a tela do INST3D', ler('tela'), false),
     bloco('an', '8 · Analítico: tabela do seletor + medidas 1AG', 'uma tabela e ' + (analitico.length - 1) + ' medidas · cole cada uma separadamente', ler('analitico'), false),
@@ -598,7 +608,7 @@ const pagina = fs.readFileSync(path.join(__dirname, 'pagina-1agenda.html'), 'utf
   .replace('%%CENARIOS%%', () => json(CEN.map((c) => ({ nota: c.nota, html: c.pagina }))));
 if (/%%[A-Z_]+%%/.test(pagina)) throw new Error('index.html: marcador sem trocar ' + pagina.match(/%%[A-Z_]+%%/)[0]);
 fs.writeFileSync(path.join(out, 'index.html'), pagina);
-console.log('página     : index.html com ' + CEN.length + ' cenários + ' + (apoio.length + analitico.length + 4) + ' blocos de código | ' + Math.round(pagina.length / 1024) + ' KB | tabela do analítico: ' + TAB.total + ' ordens no filtro');
+console.log('página     : index.html com ' + CEN.length + ' cenários + ' + (apoio.length + analitico.length + 5) + ' blocos de código | ' + Math.round(pagina.length / 1024) + ' KB | tabela do analítico: ' + TAB.total + ' ordens no filtro');
 
 // a propria pagina: prova que abre, escala a previa e troca de cenario
 jobs.push({

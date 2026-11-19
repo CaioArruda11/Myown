@@ -36,7 +36,8 @@ Marque conforme for fazendo.
 - [ ] **Tabela** `Seletor Situacao 1AG` · 1º bloco de `analitico_1agenda_v1.txt` (Modelagem › Nova tabela)
 - [ ] 10 medidas do analítico, mesmo arquivo, uma por vez: `1AG Dias até a 1ª Agenda`, `1AG Situação`, `1AG Situação em Campo`, `1AG Agendamento`, `1AG Idade`, `1AG Prioridade`, `1AG Ação`, `1AG Cor Fundo`, `1AG Cor Texto`, `1AG No Filtro`
 - [ ] `Tela Analitico 1 Agenda HTML` · `tela_analitico_1agenda_html_v1.txt`
-- [ ] Menu: troque o código das medidas de menu que você já usa pelo `menu_lateral_instalacao_html_v2.txt`
+- [ ] Menu da página nova: `Menu Lateral 1 Agenda HTML` · `menu_lateral_1agenda_html_v2.txt` (já vem com EFETIVIDADE 1 AGENDA aceso)
+- [ ] Menu das outras páginas: troque o código das medidas de menu que você já usa pelo `menu_lateral_instalacao_html_v2.txt`
 
 ### Ajustes no código
 - [ ] Coluna da AT do backlog (**passo 2**), em 2 lugares
@@ -119,7 +120,7 @@ Quando a coluna estiver certa, a faixa amarela some e as ordens se espalham pela
 4. **Tabela do seletor.** Modelagem › Nova tabela › cole o bloco `Seletor Situacao 1AG`. Selecione a coluna `Situação 1AG` › Ferramentas de coluna › **Classificar por coluna** › `Ordem Situação 1AG`. Não crie relacionamento.
 5. **Medidas do analítico.** Nova medida para cada bloco `1AG …`, uma por vez. Formatos: `1AG Dias até a 1ª Agenda`, `1AG Idade` e `1AG Prioridade` como número inteiro.
 6. **Tela do analítico.** Nova medida › cole o arquivo da tela do analítico.
-7. **Menu.** Em cada medida de menu que você já tem (uma por página), troque o código pelo do `menu_lateral_instalacao_html_v2.txt` e ajuste só `_paginaAtual` para o nome da página. O menu da página nova usa `"EFETIVIDADE 1 AGENDA"`. O analítico não tem menu.
+7. **Menu.** Para a página nova, crie a medida `Menu Lateral 1 Agenda HTML` com o arquivo `menu_lateral_1agenda_html_v2.txt`: o item EFETIVIDADE 1 AGENDA já vem aceso. Nas outras páginas, troque o código das medidas de menu que você já tem pelo `menu_lateral_instalacao_html_v2.txt` e ajuste só `_paginaAtual` para o nome da página. O analítico não tem menu.
 
 > Se aparecer **"Não é possível localizar a coluna f1AGENDA_TOTAL"**: o código está pedindo `[f1AGENDA_TOTAL]`, que é o nome da tabela. Crie as medidas do item 1 e use `[1_AGENDA NO PRAZO]` e `[1_AGENDA TOTAL]`.
 
@@ -133,7 +134,7 @@ Posições (página 1280 × 720; em Formatar › Geral › Propriedades › Tama
 
 | Visual | Campo / medida | X | Y | Largura | Altura |
 |---|---|---|---|---|---|
-| Menu (HTML) | medida de menu com `_paginaAtual = "EFETIVIDADE 1 AGENDA"` | 20 | 6 | 200 | 700 |
+| Menu (HTML) | `Menu Lateral 1 Agenda HTML` (item já aceso) | 20 | 6 | 200 | 700 |
 | Barra (HTML) | `Barra Filtros 1 Agenda HTML` | 236 | 6 | 1032 | 62 |
 | Segmentação Mês | o mesmo campo de mês da página da 3D | 480 | 30 | 160 | 26 |
 | Segmentação Cor | `dAT[COR_AREA ]` | 658 | 30 | 160 | 26 |
