@@ -1,0 +1,162 @@
+Tela Analitico 1 Agenda HTML =
+// ============================================================================
+// TELA DO ANALITICO - EFETIVIDADE 1a AGENDA  (v1)
+// Mesmo modelo da tela do Analitico INST3D: um visual HTML do tamanho da
+// pagina desenha o cabecalho (titulo, seta de voltar e a dica do CSV) e o
+// cartao da tabela. Por cima dele ficam a tabela nativa (a que exporta o CSV)
+// e um botao nativo transparente sobre a seta. A propria tela escreve, na area
+// tracejada, a posicao exata de cada um (X, Y, largura e altura).
+//
+// COMO MONTAR (pagina 1280 x 720, SEM o menu lateral, como o INST3D)
+//   1. Visual HTML com esta medida em X 0, Y 0, 1280 x 720; sem titulo e com a
+//      tela de fundo desligada. Se usar outra posicao ou outro tamanho, troque
+//      _visX, _visY, _visL e _visA: as posicoes escritas na tela se ajustam.
+//   2. Tabela nativa por cima da area tracejada (posicao escrita no meio dela).
+//   3. Botao nativo (Inserir > Botoes > Em branco) por cima da seta. Acao >
+//      Tipo: Voltar. Preenchimento transparente.
+//   4. (opcional) Segmentacao da situacao por cima da caixa SITUACAO do
+//      cartao, com o campo 'Seletor Situacao 1AG'[Situação 1AG]. Para nao
+//      usar, deixe _caixaSituacao = 0.
+//   As posicoes e o passo a passo completo estao no GUIA.md, passo 5.
+//
+// O cartao mostra o filtro de cor/AT que chegou da pagina do painel (as
+// segmentacoes de cor e AT sincronizadas) e a hora da ultima carga do backlog.
+//
+// PALETA: troque so a palavra em _tema ->  "GRAFITE" | "OCEANO" | "AURORA"
+// O bloco de CSS fica dentro da div principal e nao tem o sinal de menor.
+// Nao usar aspas duplas dentro do CSS/HTML (quebram a string DAX).
+// ============================================================================
+VAR _tema = "GRAFITE"
+VAR _tokens =
+    SWITCH(
+        _tema,
+        "AURORA",
+            "--d0:#140A2E;--d1:#22114F;--a1:#F472B6;--g1:rgba(244,114,182,.24);--g2:rgba(167,139,250,.30)",
+        "OCEANO",
+            "--d0:#050E26;--d1:#0A1A42;--a1:#22D3EE;--g1:rgba(34,211,238,.22);--g2:rgba(59,130,246,.30)",
+        "--d0:#0C1016;--d1:#161C26;--a1:#7DD3FC;--g1:rgba(125,211,252,.14);--g2:rgba(148,163,184,.20)"
+    )
+
+// ---------------------------------------------------------------- CONFIGURACAO
+// Onde o visual HTML esta na pagina (Formatar > Geral > Propriedades).
+VAR _visX = 0
+VAR _visY = 0
+VAR _visL = 1280
+VAR _visA = 720
+VAR _titulo = "Analítico · 1ª agenda"
+VAR _subtitulo = "Perus / Butantã"
+VAR _tituloCartao = "Analítico Ordens Backlog"
+VAR _dica = "Para baixar em CSV: passe o mouse na tabela, clique em <b>⋯</b> e em <b>Exportar dados</b>"
+// 1 = desenha a caixa da segmentacao de situacao no cartao | 0 = sem caixa
+VAR _caixaSituacao = 1
+
+// ---------------------------------------------------------------- MODELO
+// <<< MODELO: ATs e cores no filtro (cor e AT sincronizadas com o painel).
+VAR _atsCtx = VALUES( dAT[AREA ] )
+VAR _coresCtx = VALUES( dAT[COR_AREA ] )
+VAR _qtdAtsTodas = CALCULATE( DISTINCTCOUNT( dAT[AREA ] ), REMOVEFILTERS( dAT ) )
+// <<< MODELO: data (e hora) da ultima carga do backlog, para o selo do cartao.
+VAR _carga = CALCULATE( MAX( 'BACKLOG_INSTALACAO'[DATA_CARGA] ), REMOVEFILTERS() )
+
+// ---------------------------------------------------------------- GEOMETRIA
+// Tudo em unidades da pagina, contando do canto do visual. A tela inteira
+// escala com o visual (CSS em fracoes da largura e da altura), entao a area
+// da tabela fica no mesmo lugar em qualquer zoom.
+VAR _tabX = 20
+VAR _tabY = 112
+VAR _tabL = _visL - 40
+VAR _tabA = _visA - 128
+VAR _btX = 236
+VAR _btY = 17
+VAR _btT = 34
+VAR _sitX = _visL - 380
+VAR _sitY = 79
+
+// ---------------------------------------------------------------- TEXTOS
+VAR _qtdAts = COUNTROWS( _atsCtx ) + 0
+VAR _qtdCores = COUNTROWS( _coresCtx ) + 0
+VAR _ctxTxt =
+    SWITCH(
+        TRUE(),
+        _qtdAts = 0, "nenhuma AT no filtro",
+        _qtdAts >= _qtdAtsTodas, "Geral · " & _qtdAts & " ATs",
+        _qtdAts = 1, "AT " & MAXX( _atsCtx, dAT[AREA ] ),
+        _qtdCores = 1, MAXX( _coresCtx, dAT[COR_AREA ] ) & " · " & _qtdAts & " ATs",
+        _qtdAts & " ATs"
+    )
+VAR _temHora = NOT ISBLANK( _carga ) && _carga - INT( _carga ) > 0
+VAR _tag =
+    "D-0 · " &
+        IF(
+            ISBLANK( _carga ),
+            "carga do dia",
+            "carga de " & FORMAT( _carga, IF( _temHora, "dd/MM hh:nn", "dd/MM" ), "pt-BR" )
+        )
+VAR _posTabela = "X " & ( _visX + _tabX ) & " · Y " & ( _visY + _tabY ) & " · Largura " & _tabL & " · Altura " & _tabA
+VAR _posBotao = "X " & ( _visX + _btX ) & " · Y " & ( _visY + _btY ) & " · Largura " & _btT & " · Altura " & _btT
+VAR _posSituacao = "X " & ( _visX + _sitX ) & " · Y " & ( _visY + _sitY ) & " · Largura 160 · Altura 26"
+VAR _iconeVoltar = "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M19 12H6M11 6.5 5.5 12l5.5 5.5'></path></svg>"
+
+// ---------------------------------------------------------------- CSS
+VAR _css =
+"<style>
+html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
+.ta,.ta *{box-sizing:border-box}
+.ta i,.ta em{font-style:normal}
+.ta{" & _tokens & ";--u:calc(100vw / " & FORMAT( _visL, "0", "en-US" ) & ");--v:calc(100vh / " & FORMAT( _visA, "0", "en-US" ) & ");position:relative;width:100vw;height:100vh;overflow:hidden;
+font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;color:#0B1533;text-align:left;-webkit-font-smoothing:antialiased}
+/* GEOMETRIA: tudo em unidades da pagina (u na horizontal, v na vertical) */
+.th{position:absolute;left:calc(var(--u) * 10);top:calc(var(--v) * 6);width:calc(var(--u) * " & FORMAT( _visL - 20, "0", "en-US" ) & ");height:calc(var(--v) * 56);border-radius:16px;color:#FFFFFF;
+background:radial-gradient(60% 200% at 0% 0%,var(--g2),transparent 62%),radial-gradient(40% 200% at 100% 100%,var(--g1),transparent 60%),linear-gradient(115deg,var(--d1),var(--d0));
+box-shadow:0 8px 20px rgba(5,14,38,.20),inset 0 0 0 1px rgba(255,255,255,.08)}
+.tt{position:absolute;left:calc(var(--u) * 28);top:calc(var(--v) * 6);width:calc(var(--u) * 196);height:calc(var(--v) * 56);display:flex;flex-direction:column;justify-content:center;color:#FFFFFF}
+.tt b{display:block;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:20px;white-space:nowrap}
+.tt small{display:block;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;font-weight:700;letter-spacing:.14em;line-height:13px;text-transform:uppercase;color:var(--a1);white-space:nowrap}
+.tv{position:absolute;left:calc(var(--u) * " & FORMAT( _btX, "0", "en-US" ) & ");top:calc(var(--v) * " & FORMAT( _btY, "0", "en-US" ) & ");width:calc(var(--u) * " & FORMAT( _btT, "0", "en-US" ) & ");height:calc(var(--u) * " & FORMAT( _btT, "0", "en-US" ) & ");
+display:flex;align-items:center;justify-content:center;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.92)}
+.tv svg{width:58%;height:58%;fill:none;stroke:#FFFFFF;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.td{position:absolute;right:calc(var(--u) * 28);top:calc(var(--v) * 6);height:calc(var(--v) * 56);max-width:calc(var(--u) * " & FORMAT( _visL - 320, "0", "en-US" ) & ");margin:0;display:flex;align-items:center;
+overflow:hidden;font-size:9.5px;color:rgba(255,255,255,.72);white-space:nowrap}
+.td b{margin:0 2px;color:#FFFFFF;font-weight:700}
+.tc{position:absolute;left:calc(var(--u) * 10);top:calc(var(--v) * 72);width:calc(var(--u) * " & FORMAT( _visL - 20, "0", "en-US" ) & ");height:calc(var(--v) * " & FORMAT( _visA - 78, "0", "en-US" ) & ");overflow:hidden;
+border-radius:16px;background:#FFFFFF;box-shadow:0 1px 2px rgba(11,21,51,.04),0 6px 16px rgba(11,21,51,.06),inset 0 0 0 1px #E1E6EF}
+.tc::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--d0),#3B4A63 45%,#C9D3E3)}
+.tch{position:absolute;left:calc(var(--u) * 24);top:calc(var(--v) * 72);height:calc(var(--v) * 40);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.tch i{flex:none;width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+.tch b{font-size:13px;font-weight:700;color:#0B1533}
+.tch span{display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:99px;background:#EEF2F8;color:#3F4C6B;font-size:9.5px;font-weight:700}
+.tg{position:absolute;right:calc(var(--u) * 24);top:calc(var(--v) * 72);height:calc(var(--v) * 40);display:flex;align-items:center;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#63708B;white-space:nowrap}
+.ts{position:absolute;left:calc(var(--u) * " & FORMAT( _sitX, "0", "en-US" ) & ");top:calc(var(--v) * " & FORMAT( _sitY, "0", "en-US" ) & ");width:calc(var(--u) * 160);height:calc(var(--v) * 26);border-radius:8px;background:#F5F7FB;box-shadow:inset 0 0 0 1px #D5DCE8}
+.tsl{position:absolute;right:calc(var(--u) * " & FORMAT( _visL - _sitX + 8, "0", "en-US" ) & ");top:calc(var(--v) * " & FORMAT( _sitY, "0", "en-US" ) & ");height:calc(var(--v) * 26);display:flex;align-items:center;font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#63708B}
+.tz{position:absolute;left:calc(var(--u) * " & FORMAT( _tabX, "0", "en-US" ) & ");top:calc(var(--v) * " & FORMAT( _tabY, "0", "en-US" ) & ");width:calc(var(--u) * " & FORMAT( _tabL, "0", "en-US" ) & ");height:calc(var(--v) * " & FORMAT( _tabA, "0", "en-US" ) & ");
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:1.5px dashed #C5CEDD;border-radius:12px;background:#F5F7FB;color:#63708B;text-align:center}
+.tz b{font-size:12.5px;font-weight:700;color:#3F4C6B}
+.tz small{font-size:9.5px}
+.tz em{display:inline-flex;align-items:center;height:22px;margin:3px 0;padding:0 12px;border-radius:99px;background:#FFFFFF;box-shadow:0 1px 3px rgba(11,21,51,.12);color:#0B1533;font-size:10.5px;font-weight:700}
+.tz p{margin:0;font-size:9.5px}
+.tz p b{font-size:9.5px;color:#0B1533}
+</style>"
+
+// ---------------------------------------------------------------- HTML
+VAR _html =
+"<div class='ta'>" &
+    _css &
+    "<div class='th'></div>" &
+    "<div class='tt'><b>" & _titulo & "</b><small>" & _subtitulo & "</small></div>" &
+    "<div class='tv'>" & _iconeVoltar & "</div>" &
+    "<p class='td'>" & _dica & "</p>" &
+    "<section class='tc'></section>" &
+    "<div class='tch'><i></i><b>" & _tituloCartao & "</b><span>" & _ctxTxt & "</span></div>" &
+    IF( _caixaSituacao = 1, "<div class='tsl'>Situação</div><div class='ts'></div>", "" ) &
+    "<div class='tg'>" & _tag & "</div>" &
+    "<div class='tz'>" &
+        "<b>Tabela nativa por cima desta área</b>" &
+        "<small>digite em Formatar › Geral › Propriedades</small>" &
+        "<em>" & _posTabela & "</em>" &
+        "<p>Botão nativo sobre a seta: <b>" & _posBotao & "</b> · Ação › Voltar</p>" &
+        IF( _caixaSituacao = 1, "<p>Segmentação da situação: <b>" & _posSituacao & "</b></p>", "" ) &
+    "</div>" &
+"</div>"
+
+RETURN
+    _html

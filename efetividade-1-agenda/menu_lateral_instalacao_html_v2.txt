@@ -10,8 +10,8 @@ Menu Lateral Instalacao HTML =
 // lugar): "EFETIVIDADE 1 AGENDA". Nome com mais de 16 letras quebra em duas
 // linhas no primeiro espaco ("EFETIVIDADE" / "1 AGENDA"), sem cortar o texto.
 // O analitico (tabela para baixar) NAO entra no menu: e uma pagina oculta,
-// aberta pelo botao Baixar CSV da barra do painel. Nela, use o menu com
-// _paginaAtual = "EFETIVIDADE 1 AGENDA" (o item continua aceso).
+// aberta pelo botao Baixar CSV da barra do painel, e nao tem menu (como a do
+// INST3D): volta pela seta da propria tela.
 // Tambem corrige o til cortado em INSTALAÇÃO e ROTEIRIZAÇÃO (altura da linha
 // do nome era 1; agora 1.35, sem mudar a posicao dos itens).
 //

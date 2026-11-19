@@ -18,16 +18,18 @@ Painel Efetividade 1 Agenda HTML =
 //        meta, volumes, variacao contra o mes anterior) e as 4 CORES;
 //     2. CURVA do indicador: 12 meses, 12 semanas ou os dias do mes;
 //     3. ABERTURA por COR e por AT alinhada com a curva (mapa de calor).
-//   DIREITA - FIXA NO DIA DE HOJE (D-0), ignora o filtro de mes. Le a carteira
-//   do 'BACKLOG_INSTALACAO':
-//     4. o que ainda da para salvar e o que ja perdemos (1a agenda vencida),
-//        quantas vencem hoje e quantas vencem amanha;
+//   DIREITA - FIXA NO DIA DE HOJE (D-0), ignora o filtro de mes. Le o backlog
+//   ('BACKLOG_INSTALACAO'):
+//     4. backlog, a vencer (1a agenda hoje ou depois), perdidas (1a agenda
+//        vencida), quantas vencem hoje e quantas vencem amanha;
 //     5. a mesma conta por COR e por AT: hoje fora de campo (coluna
 //        [ETA DIRECT D-0.Status] em branco) e amanha sem agendar;
 //     6. card BACKLOG: vence hoje (em campo x fora de campo), vence amanha
-//        (agendada x sem agendar), idade desde a abertura, em campo por status
-//        da ETA DIRECT D-0, fora de campo por STATUS_OFICIAL, e quanto o mes
-//        fica se salvar ou se perder as pendentes de hoje.
+//        (agendada x sem agendar), idade desde a abertura; EM CAMPO = as que
+//        vencem hoje e estao em campo, por status da ETA DIRECT D-0; FORA DE
+//        CAMPO = o que precisa de acao (vence hoje fora de campo + vence amanha
+//        e agenda futura sem STATUS_OFICIAL agendada), por STATUS_OFICIAL; e
+//        quanto o mes fica se salvar ou se perder as pendentes de hoje.
 //   As ordens, uma a uma, ficam na pagina do analitico (botao Baixar CSV).
 //   As duas metades respeitam os filtros de COR e de AT.
 //
@@ -80,7 +82,7 @@ VAR _visaoInicial = "Mês"     // curva que abre primeiro: "Mês" | "Semana" | "
 // "AGENDAD" valem AGENDADA e AGENDADO (no print do backlog aparece "Agendada").
 // As de amanha com qualquer outro valor (ou vazio) aparecem como "sem agendar".
 VAR _statusAgendado = "AGENDAD"
-VAR _maxStatus = 14           // status oficiais listados no card (o resto vira "Outros")
+VAR _maxStatus = 10           // status oficiais listados em "Fora de campo" (o resto vira "Outros")
 VAR _maxCampo = 7             // status da ETA listados em "Em campo" (o resto vira "Outros")
 // Status da 'ETA DIRECT D-0' (coluna [ETA DIRECT D-0.Status] do backlog) e o
 // grupo de cada um. Em branco = fora de campo (a ordem nao esta na carga de
@@ -175,7 +177,7 @@ VAR _calModelo =
         dCalendario[Data] >= _mesIni && dCalendario[Data] <= _mesFim
     )
 
-// <<< MODELO: carteira de hoje = 'BACKLOG_INSTALACAO'. IGNORA o filtro de mes.
+// <<< MODELO: backlog de hoje = 'BACKLOG_INSTALACAO'. IGNORA o filtro de mes.
 //     O filtro de cor/AT e aplicado mais abaixo pela coluna AT, entao nao
 //     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
 //     mesmos da dAT[AREA ]).
@@ -409,8 +411,8 @@ VAR _chipMes =
     SWITCH(
         TRUE(),
         ISBLANK( _mesP ), "sem dados",
-        _mesP >= _meta, "▲ " & FORMAT( ( _mesP - _meta ) * 100, "0.0", _loc ) & " p.p. acima da meta",
-        "▼ " & FORMAT( ( _meta - _mesP ) * 100, "0.0", _loc ) & " p.p. abaixo da meta"
+        _mesP >= _meta, "▲ " & FORMAT( ( _mesP - _meta ) * 100, "0.0", _loc ) & " p.p.<span class='xc'> acima da meta</span>",
+        "▼ " & FORMAT( ( _meta - _mesP ) * 100, "0.0", _loc ) & " p.p.<span class='xc'> abaixo da meta</span>"
     )
 // Quantas instalacoes na 1a agenda sobraram (+) ou faltaram (-) para a meta do mes.
 VAR _saldoMeta = IF( ISBLANK( _mesD ), BLANK(), _mesN - _meta * _mesD )
@@ -419,15 +421,15 @@ VAR _heroResultado =
     "<div class='hz hk " & _tierMes & "'>" &
         "<span class='kk'>Efetividade 1ª agenda</span>" &
         "<div class='kv'><b>" & IF( ISBLANK( _mesP ), "—", FORMAT( _mesP, "0.0%", _loc ) ) & "</b><span class='chip'>" & _chipMes & "</span></div>" &
-        "<span class='ks km'><b>" & _mesRot & "</b>" &
+        "<span class='ks km'><b><span class='nm'>" & _mesRot & "</span><span class='ns'>" & FORMAT( _mesIni, "MMM/yy", _loc ) & "</span></b>" &
             IF( _mesEmAndamento && NOT ISBLANK( _ultDia ), " · parcial até " & FORMAT( _ultDia, "dd/MM", _loc ), "" ) &
             " · meta ≥ " & FORMAT( _meta, "0.0%", _loc ) & "</span>" &
         "<span class='ks'>" &
             SWITCH(
                 TRUE(),
                 ISBLANK( _saldoMeta ), "sem instalações baixadas no mês",
-                _saldoMeta >= 0, "folga de <b>" & FORMAT( ROUNDDOWN( _saldoMeta, 0 ), "#,0", _loc ) & "</b> instalações na 1ª agenda sobre a meta",
-                "faltam <b>" & FORMAT( ROUNDUP( - _saldoMeta, 0 ), "#,0", _loc ) & "</b> instalações na 1ª agenda para a meta"
+                _saldoMeta >= 0, "folga de <b>" & FORMAT( ROUNDDOWN( _saldoMeta, 0 ), "#,0", _loc ) & "</b><span class='xc'> instalações</span> na 1ª agenda sobre a meta",
+                "faltam <b>" & FORMAT( ROUNDUP( - _saldoMeta, 0 ), "#,0", _loc ) & "</b><span class='xc'> instalações</span> na 1ª agenda para a meta"
             ) & "</span>" &
     "</div>"
 
@@ -797,7 +799,7 @@ VAR _views =
     )
 
 // ============================================================================
-// 8. HOJE (D-0): CARTEIRA DO BACKLOG ('BACKLOG_INSTALACAO')
+// 8. HOJE (D-0): BACKLOG ('BACKLOG_INSTALACAO')
 // Cada ordem e classificada pela data da 1a agenda, comparada com hoje:
 //   P = perdida (1a agenda antes de hoje)     H = vence hoje (1a agenda hoje)
 //   A = vence amanha (1a agenda amanha)       N = no prazo (depois de amanha)
@@ -870,6 +872,7 @@ VAR _qHF = SUMX( FILTER( _bkAgg, [Sit] = "H" && [Grp] = "F" ), [Q] ) + 0
 VAR _qHC = SUMX( FILTER( _bkAgg, [Sit] = "H" && [Grp] = "C" ), [Q] ) + 0
 VAR _qHpend = _qH - _qHC
 VAR _qAsem = SUMX( FILTER( _bkAgg, [Sit] = "A" && [Agd] = 0 ), [Q] ) + 0
+VAR _qNsem = SUMX( FILTER( _bkAgg, [Sit] = "N" && [Agd] = 0 ), [Q] ) + 0
 VAR _qPcampo = SUMX( FILTER( _bkAgg, [Sit] = "P" && [Grp] <> "F" ), [Q] ) + 0
 VAR _semAgenda = _qBk > 0 && _qS = _qBk
 VAR _txtPctSalv = IF( _qBk = 0, "", FORMAT( DIVIDE( _qSalv, _qBk ), "0%", _loc ) )
@@ -878,7 +881,7 @@ VAR _txtPctPerd = IF( _qBk = 0, "", FORMAT( DIVIDE( _qP, _qBk ), "0%", _loc ) )
 // ---- quanto o MES ATUAL fica se salvar ou se perder as de hoje ----
 // Mes de hoje (nao o do filtro), na selecao de cor/AT. Pendentes = vencem hoje
 // e ainda nao foram concluidas. Salvar = entram no prazo e no total; perder =
-// entram so no total. Estimativa: novas baixadas fora da carteira nao entram.
+// entram so no total. Estimativa: novas baixadas fora do backlog nao entram.
 VAR _gradeMesAtual = FILTER( _grade, [Dia] >= _mesAtualIni && [Dia] <= _hojeN && CONTAINSROW( _atsCtx, [AT] ) )
 VAR _curN = SUMX( _gradeMesAtual, [N] ) + 0
 VAR _curD = SUMX( _gradeMesAtual, [D] ) + 0
@@ -912,33 +915,33 @@ VAR _heroHoje =
             "<span class='live'><i></i>Hoje · D-0</span>" &
             "<b>" & FORMAT( _hoje, "ddd, dd/MM", _loc ) & "</b>" &
             "<small>não muda com o filtro de mês</small>" &
-            IF( _qBk > 0, "<span class='dc'>carteira <b>" & FORMAT( _qBk, "#,0", _loc ) & "</b></span>", "" ) &
+            IF( _qBk > 0, "<span class='dc'>backlog <b>" & FORMAT( _qBk, "#,0", _loc ) & "</b></span>", "" ) &
             _chipCarga &
         "</div>" &
         "<div class='ds'>" &
             IF(
                 _qBk = 0 || _semAgenda,
-                "<div class='st'><small>Carteira</small><b>" & IF( _qBk = 0, "—", FORMAT( _qBk, "#,0", _loc ) ) & "</b><em>" & IF( _qBk = 0, "nenhuma no filtro", "ordens no backlog" ) & "</em></div>" &
-                "<div class='st tG'><small><i></i>Salváveis</small><b>—</b><em>" & _semTxt & "</em></div>" &
+                "<div class='st'><small>Backlog</small><b>" & IF( _qBk = 0, "—", FORMAT( _qBk, "#,0", _loc ) ) & "</b><em>" & IF( _qBk = 0, "nenhuma no filtro", "ordens no backlog" ) & "</em></div>" &
+                "<div class='st tG'><small><i></i>A vencer</small><b>—</b><em>" & _semTxt & "</em></div>" &
                 "<div class='st tR'><small><i></i>Perdidas</small><b>—</b><em>" & _semTxt & "</em></div>" &
                 "<div class='st tO'><small><i></i>Vencem hoje</small><b>—</b><em>" & _semTxt & "</em></div>" &
                 "<div class='st tY'><small><i></i>Amanhã</small><b>—</b><em>" & _semTxt & "</em></div>",
-                "<div class='st' title='Ordens do backlog nas ATs do filtro.'><small>Carteira</small><b>" & FORMAT( _qBk, "#,0", _loc ) & "</b><em>" &
+                "<div class='st' title='Ordens do backlog nas ATs do filtro.'><small>Backlog</small><b>" & FORMAT( _qBk, "#,0", _loc ) & "</b><em>" &
                     IF( _qS > 0, FORMAT( _qS, "#,0", _loc ) & " sem 1ª agenda", "ordens no backlog" ) & "</em></div>" &
-                "<div class='st tG' title='Ainda dá para salvar: 1ª agenda hoje ou depois. Instalando até a data da 1ª agenda, conta a favor do indicador.'><small><i></i>Salváveis</small><b>" &
-                    FORMAT( _qSalv, "#,0", _loc ) & "</b><em>" & _txtPctSalv & " da carteira</em></div>" &
+                "<div class='st tG' title='1ª agenda hoje, amanhã ou depois: ainda dá para instalar no prazo. Instalando até a data da 1ª agenda, conta a favor do indicador.'><small><i></i>A vencer</small><b>" &
+                    FORMAT( _qSalv, "#,0", _loc ) & "</b><em>" & _txtPctSalv & " do backlog</em></div>" &
                 "<div class='st tR' title='A data da 1ª agenda já passou: quando forem instaladas, contam contra o indicador. Em campo hoje (na ETA DIRECT D-0): " & FORMAT( _qPcampo, "#,0", _loc ) & ".'><small><i></i>Perdidas</small><b>" &
-                    FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctPerd & " da carteira</em></div>" &
+                    FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctPerd & " do backlog</em></div>" &
                 "<div class='st tO' title='1ª agenda hoje. Fora de campo = não está na ETA DIRECT D-0 de hoje.'><small><i></i>Vencem hoje</small><b>" &
                     FORMAT( _qH, "#,0", _loc ) & "</b><em>" & FORMAT( _qHF, "#,0", _loc ) & " fora de campo</em></div>" &
                 "<div class='st tY' title='1ª agenda amanhã. Sem agendar = STATUS_OFICIAL diferente de agendada.'><small><i></i>Amanhã</small><b>" &
                     FORMAT( _qA, "#,0", _loc ) & "</b><em>" & FORMAT( _qAsem, "#,0", _loc ) & " sem agendar</em></div>"
             ) &
         "</div>" &
-        "<div class='cb' title='Composição da carteira: perdidas, vencem hoje, vencem amanhã, no prazo e sem 1ª agenda.'>" & _barraCarteira & "</div>" &
+        "<div class='cb' title='Composição do backlog: perdidas, vencem hoje, vencem amanhã, agenda futura e sem 1ª agenda.'>" & _barraCarteira & "</div>" &
     "</section>"
 
-// ---- por cor e AT: carteira, perdidas, hoje (fora de campo), amanha (sem agendar) ----
+// ---- por cor e AT: backlog, perdidas, hoje (fora de campo), amanha (sem agendar) ----
 VAR _atsHoje =
     ADDCOLUMNS(
         _atsVis,
@@ -994,17 +997,18 @@ VAR _tabHoje =
         [Nome], ASC
     )
 
-// ---- card BACKLOG: o retrato da carteira de hoje ----
+// ---- card BACKLOG: o retrato do backlog de hoje ----
 //   cabecalho: ordens e quantas ja estao fora do indicador (perdidas)
 //   vence hoje: em campo x fora de campo | vence amanha: agendada x sem agendar
-//   idade: dias desde a abertura | em campo: status da ETA DIRECT D-0 |
-//   fora de campo: STATUS_OFICIAL (o motivo de nao estar em campo)
-VAR _qCampo = SUMX( FILTER( _bkAgg, [Grp] <> "F" ), [Q] ) + 0
-VAR _qFora = _qBk - _qCampo
+//   idade: dias desde a abertura
+//   em campo: as que vencem hoje e estao na ETA DIRECT D-0, por status da ETA
+//   fora de campo: o que precisa de acao, por STATUS_OFICIAL =
+//     vence hoje e nao esta em campo + vence amanha ou depois sem agendada
 VAR _qHcampo = _qH - _qHF
 VAR _qAagd = _qA - _qAsem
-VAR _pctCampo = IF( _qBk = 0, "", FORMAT( DIVIDE( _qCampo, _qBk ), "0%", _loc ) )
-VAR _pctFora = IF( _qBk = 0, "", FORMAT( DIVIDE( _qFora, _qBk ), "0%", _loc ) )
+VAR _qCampo = _qHcampo
+VAR _qFora = _qHF + _qAsem + _qNsem
+VAR _pctCampo = IF( _qH = 0, "", FORMAT( DIVIDE( _qHcampo, _qH ), "0%", _loc ) )
 
 // idade = dias corridos desde a DATA_ABERTURA, nas mesmas faixas do painel da 3D
 VAR _faixas =
@@ -1066,7 +1070,7 @@ VAR _boxIdade =
 
 // em campo: status da ETA DIRECT D-0, do maior para o menor.
 // Mais de _maxCampo status: os menores viram "Outros N status".
-VAR _campoLista = GROUPBY( FILTER( _bk, [Grp] <> "F" ), [Campo], "Qc", SUMX( CURRENTGROUP(), 1 ) )
+VAR _campoLista = GROUPBY( FILTER( _bk, [Sit] = "H" && [Grp] <> "F" ), [Campo], "Qc", SUMX( CURRENTGROUP(), 1 ) )
 VAR _nCampo = COUNTROWS( _campoLista ) + 0
 VAR _campoRank =
     ADDCOLUMNS(
@@ -1088,9 +1092,15 @@ VAR _linhasCampo =
         [Rk], ASC
     ) &
     IF( _nCampoOutros > 0, "<div class='bl ot'><span>Outros " & _nCampoOutros & " status</span><b>" & FORMAT( _qCampoOutros, "#,0", _loc ) & "</b></div>", "" )
-// fora de campo: STATUS_OFICIAL, do maior para o menor; o maior fica destacado.
-// Mais de _maxStatus status: os menores viram "Outros N status".
-VAR _foraLista = GROUPBY( FILTER( _bk, [Grp] = "F" ), [StOf], "Qs", SUMX( CURRENTGROUP(), 1 ) )
+// fora de campo (o que precisa de acao): STATUS_OFICIAL, do maior para o
+// menor; o maior fica destacado. Mais de _maxStatus status: os menores viram
+// "Outros N status".
+VAR _focoBase =
+    FILTER(
+        _bk,
+        ( [Sit] = "H" && [Grp] = "F" ) || ( ( [Sit] = "A" || [Sit] = "N" ) && [Agd] = 0 )
+    )
+VAR _foraLista = GROUPBY( _focoBase, [StOf], "Qs", SUMX( CURRENTGROUP(), 1 ) )
 VAR _nStatus = COUNTROWS( _foraLista ) + 0
 VAR _foraRank =
     ADDCOLUMNS(
@@ -1131,15 +1141,26 @@ VAR _cardBacklog =
         "<div class='bka'>" & _boxHoje & _boxAmanha & _boxIdade & "</div>" &
         "<div class='bkb'>" &
             "<div class='bc'><div class='bch'><i></i>Em campo<b>" & FORMAT( _qCampo, "#,0", _loc ) & "</b><small>" & _pctCampo & "</small></div>" &
-                IF( _qCampo = 0, "<p class='b0'>Nenhuma ordem na ETA DIRECT D-0 de hoje.</p>", _linhasCampo ) & "</div>" &
-            "<div class='bo'><div class='bch'>⚠ Fora de campo<b>" & FORMAT( _qFora, "#,0", _loc ) & "</b><small>" & _pctFora & "</small></div>" &
-                "<div class='v' style='--r:" & MAX( 1, ROUNDUP( _linhasForaQtd / 2, 0 ) ) & "'><div class='bft'>" & _linhasFora & "</div></div></div>" &
+                "<p class='bcs'>das que vencem hoje</p>" &
+                IF( _qCampo = 0, "<p class='b0'>Nenhuma das que vencem hoje está na ETA DIRECT D-0.</p>", _linhasCampo ) & "</div>" &
+            "<div class='bo'><div class='bch'>⚠ Fora de campo<b>" & FORMAT( _qFora, "#,0", _loc ) & "</b><small>de " & FORMAT( _qSalv, "#,0", _loc ) & " a vencer</small></div>" &
+                "<div class='bfs'>" &
+                    "<div class='bf'><span>Hoje<b>" & FORMAT( _qHF, "#,0", _loc ) & "</b></span><small>fora de campo</small></div>" &
+                    "<div class='bf'><span>Amanhã<b>" & FORMAT( _qAsem, "#,0", _loc ) & "</b></span><small>sem agendar</small></div>" &
+                    "<div class='bf'><span>Futura<b>" & FORMAT( _qNsem, "#,0", _loc ) & "</b></span><small>sem agendar</small></div>" &
+                "</div>" &
+                IF(
+                    _qFora = 0,
+                    "<p class='b0'>Nada a fazer: as de hoje estão em campo e as próximas estão agendadas.</p>",
+                    "<div class='v' style='--r:" & MAX( 1, ROUNDUP( _linhasForaQtd / 2, 0 ) ) & "'><div class='bft'>" & _linhasFora & "</div></div>"
+                ) &
+            "</div>" &
         "</div>" &
         IF(
             _txtProj = "",
             "",
             "<p class='bkp' title='" & _rotMesAtual & " até agora: " & IF( ISBLANK( _pAtual ), "sem baixas", FORMAT( _pAtual, "0.0%", _loc ) ) &
-                ". Pendentes = vencem hoje e ainda não foram concluídas. Estimativa: baixas fora da carteira não entram.'>" & _txtProj & "</p>"
+                ". Pendentes = vencem hoje e ainda não foram concluídas. Estimativa: baixas fora do backlog não entram.'>" & _txtProj & "</p>"
         ) &
     "</article>"
 
@@ -1205,7 +1226,7 @@ VAR _ajuda =
             "<b>Como ler</b>" &
             "<p><i class='k'>Indicador</i>instalações baixadas até a data da 1ª agenda pedida pelo cliente ÷ todas as instalações baixadas. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
             "<p><i class='k'>Lado esquerdo</i>segue o filtro de mês. Os botões Mês, Semana e Dia trocam a curva e as colunas da tabela. Cada linha é uma cor ou uma AT; passe o mouse em uma célula para ver os volumes.</p>" &
-            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: a carteira do backlog. Perdida = a 1ª agenda já passou (fora do indicador); vence hoje = 1ª agenda hoje. Em campo = está na ETA DIRECT D-0 de hoje. Sem agendar = vence amanhã e o status oficial não é agendada. As ordens, uma a uma, estão em Baixar CSV.</p>" &
+            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: o backlog. A vencer = 1ª agenda hoje, amanhã ou depois (ainda dá para instalar no prazo). Perdida = a 1ª agenda já passou (fora do indicador). Em campo = está na ETA DIRECT D-0 de hoje. No card, Fora de campo junta o que precisa de ação: vence hoje e não está em campo, e vence amanhã ou depois sem o status oficial agendada. As ordens, uma a uma, estão em Baixar CSV.</p>" &
             "<p class='help-esc'><i class='e tG'>na meta</i><i class='e tY'>até −10%</i><i class='e tO'>até −20%</i><i class='e tR'>abaixo</i></p>" &
         "</div>" &
     "</div>"
@@ -1262,6 +1283,8 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .kv{display:flex;align-items:center;gap:10px;min-width:0}
 .kv b{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:normal;white-space:nowrap}
 .chip{display:inline-flex;align-items:center;height:20px;padding:0 9px;border-radius:99px;font-size:10px;font-weight:700;color:var(--d0);background:var(--s);white-space:nowrap}
+/* textos com versao curta, para a faixa de 1180 a 1259 px (veja o fim do CSS) */
+.ns{display:none}
 .ks{overflow:hidden;text-overflow:ellipsis;font-size:10px;color:rgba(255,255,255,.70);white-space:nowrap}
 .ks b{color:#FFFFFF;font-weight:700}
 .km b{text-transform:capitalize}
@@ -1506,6 +1529,14 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 .bl.ot span{font-style:italic;color:var(--mut)}
 .bft{display:grid;grid-auto-flow:column;grid-template-rows:repeat(var(--r,7),auto);grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:10px}
 .b0{margin:2px 0 0 3px;color:var(--mut);font-size:9px}
+/* em campo: legenda | fora de campo: hoje, amanha e futura (o que precisa de acao) */
+.bcs{margin:-2px 0 3px 2px;overflow:hidden;text-overflow:ellipsis;font-size:7.5px;line-height:9px;color:var(--mut);white-space:nowrap}
+.bfs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 4px}
+.bf{min-width:0;padding:3px 5px;border-radius:6px;background:#FDE7C2;color:#8A4B00}
+.bf:first-child{background:#FCDAD5;color:#A3161A}
+.bf span{display:flex;align-items:baseline;justify-content:space-between;gap:4px;font-size:7px;font-weight:700;letter-spacing:.04em;line-height:14px;text-transform:uppercase;white-space:nowrap}
+.bf span b{font-size:12px;letter-spacing:0;color:var(--ink)}
+.bf small{display:block;overflow:hidden;text-overflow:ellipsis;font-size:7.5px;line-height:9px;white-space:nowrap}
 .bkp{margin:6px 0 0;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;line-height:12px;color:var(--mut);white-space:nowrap}
 .bkp b{font-weight:700;color:var(--ink)}
 .bkp .pg{color:#04704B}
@@ -1519,6 +1550,10 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(52,211,153,.22)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.06)}}
 
 /* ---------- OUTROS TAMANHOS / ACESSIBILIDADE ---------- */
+/* 1180 a 1259 px: os 3 blocos da faixa do mes ficam compactos para o vs. meta das cores caber */
+@media (min-width:1180px) and (max-width:1259px){.hp{grid-template-columns:minmax(0,262fr) minmax(0,236fr) minmax(0,262fr)}.hz{padding:0 11px}.kv{gap:8px}.kv b{font-size:30px}.xc,.nm{display:none}.ns{display:inline}.kp small{gap:3px;font-size:7px;letter-spacing:0}.cr{grid-template-columns:7px 46px 30px minmax(12px,1fr) 38px 34px;column-gap:5px}.crh{column-gap:5px;font-size:7px;letter-spacing:0}.crh span{width:38px}.crh span:last-child{width:34px}}
+/* ate 1179 px: a faixa do mes fica com 2 blocos (resultado e cores) */
+@media (max-width:1179px){.hp{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}.hv{display:none}.ins{display:none!important}}
 @media (max-width:1120px){.e1{grid-template-columns:minmax(0,1fr) 420px;--gl:92px;--gr:46px}.hp{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}.hv{display:none}.ins{display:none!important}.lg{visibility:hidden}.dk small{display:none}.sg{margin-left:auto}.ds{grid-template-columns:repeat(4,minmax(0,1fr))}.ds .st:first-child{display:none}.ds .st:nth-child(2){padding-left:0;border-left:none}.dc{display:inline-flex}.st small{gap:3px}.bk{padding:9px 8px 8px}.bka{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 180px;gap:5px}.bh{padding:6px 4px 4px}.bv{padding:6px 5px 6px}.bvh span{font-size:7px;letter-spacing:.02em}.bvh b{font-size:14px}.br{padding:0 4px;font-size:8.5px}.bkb{gap:5px}.bft{column-gap:8px}.bl{font-size:9px}.bkp{font-size:9px}}
 @media (max-width:900px){.e1{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.hd,.rc{display:none}}
 @media (max-height:560px){.hero{padding-top:8px;padding-bottom:8px}.kv b{font-size:30px}.bkb,.bkp{display:none}.rw{height:13px}}
@@ -1566,7 +1601,7 @@ VAR _painelHoje =
                         _txtValAT & ". Troque a coluna na VAR _backlogModelo (GUIA.md, passo 2).</div>",
                     ""
                 ) &
-                "<div class='qh0'><span>Cor / AT</span><span title='Ordens do backlog'>Carteira</span><span title='1ª agenda já passou'>Perdidas</span>" &
+                "<div class='qh0'><span>Cor / AT</span><span title='Ordens do backlog'>Backlog</span><span title='1ª agenda já passou'>Perdidas</span>" &
                     "<span title='1ª agenda hoje'>Hoje</span><span title='Vencem hoje e não estão na ETA DIRECT D-0 de hoje'>Fora de campo</span>" &
                     "<span title='1ª agenda amanhã'>Amanhã</span><span title='Vencem amanhã com o STATUS_OFICIAL diferente de agendada'>Sem agendar</span></div>" &
                 "<div class='qt'>" & _tabHoje & "</div>"

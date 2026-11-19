@@ -2,7 +2,7 @@
 
 Tudo o que você precisa criar no Power BI, na ordem. Os códigos estão nos arquivos `.txt` desta pasta; cada um começa com o nome que a medida (ou tabela) vai ter.
 
-**No fim você terá:** 1 tabela nova, 15 medidas novas, o menu atualizado e 2 páginas (o painel e o analítico oculto).
+**No fim você terá:** 1 tabela nova, 15 medidas novas, o menu atualizado e 2 páginas: o painel e o analítico oculto, no mesmo modelo da tela do Analítico INST3D.
 
 ---
 
@@ -35,7 +35,7 @@ Marque conforme for fazendo.
 - [ ] `Barra Filtros 1 Agenda HTML` · `barra_filtros_1agenda_html_v1.txt`
 - [ ] **Tabela** `Seletor Situacao 1AG` · 1º bloco de `analitico_1agenda_v1.txt` (Modelagem › Nova tabela)
 - [ ] 10 medidas do analítico, mesmo arquivo, uma por vez: `1AG Dias até a 1ª Agenda`, `1AG Situação`, `1AG Situação em Campo`, `1AG Agendamento`, `1AG Idade`, `1AG Prioridade`, `1AG Ação`, `1AG Cor Fundo`, `1AG Cor Texto`, `1AG No Filtro`
-- [ ] `Barra Filtros Analitico 1 Agenda HTML` · `barra_filtros_analitico_1agenda_html_v1.txt`
+- [ ] `Tela Analitico 1 Agenda HTML` · `tela_analitico_1agenda_html_v1.txt`
 - [ ] Menu: troque o código das medidas de menu que você já usa pelo `menu_lateral_instalacao_html_v2.txt`
 
 ### Ajustes no código
@@ -46,7 +46,7 @@ Marque conforme for fazendo.
 - [ ] Página `EFETIVIDADE 1 AGENDA` (passo 4)
 - [ ] Página `ANALÍTICO 1 AGENDA`, oculta (passo 5)
 - [ ] Botão novo no menu de todas as páginas (passo 6)
-- [ ] Conferência (passo 7)
+- [ ] Conferência (passo 8)
 
 ---
 
@@ -118,8 +118,8 @@ Quando a coluna estiver certa, a faixa amarela some e as ordens se espalham pela
 3. **Barra.** Nova medida › cole o arquivo da barra.
 4. **Tabela do seletor.** Modelagem › Nova tabela › cole o bloco `Seletor Situacao 1AG`. Selecione a coluna `Situação 1AG` › Ferramentas de coluna › **Classificar por coluna** › `Ordem Situação 1AG`. Não crie relacionamento.
 5. **Medidas do analítico.** Nova medida para cada bloco `1AG …`, uma por vez. Formatos: `1AG Dias até a 1ª Agenda`, `1AG Idade` e `1AG Prioridade` como número inteiro.
-6. **Barra do analítico.** Nova medida › cole o arquivo da barra do analítico.
-7. **Menu.** Em cada medida de menu que você já tem (uma por página), troque o código pelo do `menu_lateral_instalacao_html_v2.txt` e ajuste só `_paginaAtual` para o nome da página. O menu da página nova e o do analítico usam `"EFETIVIDADE 1 AGENDA"`.
+6. **Tela do analítico.** Nova medida › cole o arquivo da tela do analítico.
+7. **Menu.** Em cada medida de menu que você já tem (uma por página), troque o código pelo do `menu_lateral_instalacao_html_v2.txt` e ajuste só `_paginaAtual` para o nome da página. O menu da página nova usa `"EFETIVIDADE 1 AGENDA"`. O analítico não tem menu.
 
 > Se aparecer **"Não é possível localizar a coluna f1AGENDA_TOTAL"**: o código está pedindo `[f1AGENDA_TOTAL]`, que é o nome da tabela. Crie as medidas do item 1 e use `[1_AGENDA NO PRAZO]` e `[1_AGENDA TOTAL]`.
 
@@ -159,11 +159,18 @@ Traga as segmentações e o botão para a frente (Formatar › Organizar › Tra
 
 ## 5. Página ANALÍTICO 1 AGENDA (oculta)
 
-Esta página é uma **tabela nativa** do Power BI. O visual HTML não exporta dados, então ela não pode ser um visual HTML. Eu não consigo montar visuais dentro do seu relatório; os passos abaixo fazem isso em poucos minutos.
+Mesmo modelo da tela do **Analítico INST3D**: página sem menu. Um visual HTML do tamanho da página desenha o cabeçalho, a seta de voltar e o cartão. Por cima dele ficam:
+- a **tabela nativa**, que é a que exporta o CSV (o visual HTML não exporta dados);
+- um **botão nativo** sobre a seta.
 
-1. Duplique a página `EFETIVIDADE 1 AGENDA` e renomeie para `ANALÍTICO 1 AGENDA`.
-2. Apague o visual do painel. No lugar dele, insira um visual **Tabela** em X 236, Y 80, 1032 × 630.
-3. Arraste para **Colunas**, nesta ordem:
+A própria tela escreve, na área tracejada, a posição de cada peça.
+
+![Tela do analítico](13-tela-do-analitico.png)
+
+1. Crie uma página nova, `ANALÍTICO 1 AGENDA`. Não ponha o menu nela.
+2. Visual **HTML** com a medida `Tela Analitico 1 Agenda HTML`, em X 0, Y 0, 1280 × 720. Deixe sem título e com a tela de fundo desligada. Se o visual ficar em outra posição ou tamanho, troque `_visX`, `_visY`, `_visL` e `_visA` na medida: as posições escritas na tela se ajustam sozinhas.
+3. Visual **Tabela** por cima da área tracejada, em **X 20, Y 112, 1240 × 592**.
+4. Arraste para **Colunas**, nesta ordem:
    1. `1AG Prioridade`
    2. a coluna do **número da ordem** do backlog (obrigatória: é ela que faz cada linha ser uma ordem)
    3. PON (se o backlog tiver)
@@ -176,22 +183,26 @@ Esta página é uma **tabela nativa** do Power BI. O visual HTML não exporta da
    10. `ETA DIRECT D-0.Status`
    11. `STATUS_OFICIAL`
    12. `1AG Ação`
-   
+
    Opcionais: `DATA_ABERTURA`, `DATA_AGENDADA`, `CIDADE`, `CONTRACTOR`.
-4. Ordene a tabela por `1AG Prioridade`, crescente (clique no cabeçalho).
-5. Painel **Filtros** › Filtros neste visual › arraste `1AG No Filtro` › "Mostrar itens quando o valor" **é** `1` › Aplicar filtro.
-6. **Formatação condicional** em `1AG Situação` (Formatar › Elementos de célula, escolha a série `1AG Situação`):
+5. Ordene a tabela por `1AG Prioridade`, crescente (clique no cabeçalho).
+6. Painel **Filtros** › Filtros neste visual › arraste `1AG No Filtro` › "Mostrar itens quando o valor" **é** `1` › Aplicar filtro.
+7. **Formatação condicional** em `1AG Situação` (Formatar › Elementos de célula, escolha a série `1AG Situação`):
    - Cor da tela de fundo › fx › Estilo de formatação **Valor do campo** › `1AG Cor Fundo`;
    - Cor da fonte › fx › Valor do campo › `1AG Cor Texto`.
-7. Formatar › Totais: **desligado**.
-8. **Barra:** troque a medida do visual da barra por `Barra Filtros Analitico 1 Agenda HTML`.
-9. **Segmentações** (mesmas posições do passo 4):
-   - a do Mês vira Situação, com o campo `'Seletor Situacao 1AG'[Situação 1AG]`;
-   - Cor (`dAT[COR_AREA ]`) e AT (`dAT[AREA ]`) continuam.
-10. **Botão do canto** (o mesmo do Baixar CSV): Ação › Tipo **Voltar**.
-11. **Menu:** `_paginaAtual = "EFETIVIDADE 1 AGENDA"`.
-12. Exibir › **Sincronizar segmentações**: nas segmentações de Cor e AT, marque as duas páginas. Assim o analítico abre com o mesmo filtro do painel.
-13. Botão direito na aba da página › **Ocultar página**.
+8. Formatar › Totais: **desligado**. Tela de fundo da tabela: branca.
+9. **Botão Voltar:** Inserir › Botões › Em branco, por cima da seta.
+   - Posição: **X 236, Y 17, 34 × 34**.
+   - Ação: Tipo **Voltar**.
+   - Preenchimento: 100% transparente.
+10. **(opcional) Situação:** segmentação (Lista suspensa) com `'Seletor Situacao 1AG'[Situação 1AG]` por cima da caixa SITUAÇÃO.
+    - Posição: **X 900, Y 79, 160 × 26**.
+    - Formatação: cabeçalho desligado, valores em Segoe UI 10 com cor **escura**, sem tela de fundo e sem borda.
+    - Para não usar, deixe `_caixaSituacao = 0` na medida da tela.
+11. **Cor e AT do painel:** Exibir › **Sincronizar segmentações**. Selecione a segmentação de Cor da página do painel e, na linha `ANALÍTICO 1 AGENDA`, marque **sincronizar** sem marcar **visível**. Faça o mesmo com a de AT.
+    - O analítico abre com o mesmo filtro do painel.
+    - O cartão mostra que filtro chegou, por exemplo "Geral · 17 ATs" ou "BRONZE · 5 ATs".
+12. Botão direito na aba da página › **Ocultar página**. Ela abre pelo botão **Baixar CSV** do painel.
 
 **Para baixar:** passe o mouse na tabela › **⋯** › **Exportar dados**. No Desktop já sai em .csv; no serviço, escolha **Dados resumidos** › **.csv**. No serviço, a exportação precisa estar liberada no relatório e pelo administrador.
 
@@ -215,19 +226,35 @@ O item novo entra no fim, então os 4 botões que já existem não mudam de luga
 
 ---
 
-## 7. Conferência
+## 7. O que cada número do lado direito quer dizer
+
+| Número | O que conta |
+|---|---|
+| **Backlog** | ordens da `BACKLOG_INSTALACAO` nas ATs do filtro |
+| **A vencer** | 1ª agenda hoje, amanhã ou depois: ainda dá para instalar no prazo (é o que antes se chamava "salváveis") |
+| **Perdidas** | 1ª agenda já passou: quando forem instaladas, contam contra o indicador |
+| **Vencem hoje / Amanhã** | 1ª agenda hoje / amanhã |
+| **Sem 1ª agenda** | `DATA_PRIMEIRA_AGENDA` vazia (não entra em nenhum dos de cima) |
+| Card · **Em campo** | das que vencem hoje, as que estão na ETA DIRECT D-0, por status da ETA |
+| Card · **Fora de campo** | o que precisa de ação: **hoje** = vence hoje e não está na ETA · **amanhã** = vence amanhã sem STATUS_OFICIAL agendada · **futura** = 1ª agenda depois de amanhã sem agendada. Embaixo, o motivo pelo STATUS_OFICIAL |
+
+Backlog = a vencer + perdidas + sem 1ª agenda.
+
+---
+
+## 8. Conferência
 
 | Confira | Tem que bater com |
 |---|---|
 | Número grande do mês (esquerda) | sua `% 1_AGENDA` no mesmo mês, cor e AT |
-| Carteira (Geral) | linhas do backlog nas 17 ATs |
+| Backlog (Geral) | linhas da BACKLOG_INSTALACAO nas 17 ATs |
 | Soma das ATs de uma cor | linha da cor no quadro |
 | Analítico com Situação = Vence hoje | "Vencem hoje" do painel |
 | Atualização Zeus | `MAX( BACKLOG_INSTALACAO[DATA_CARGA] )` |
 
 ---
 
-## 8. Se algo der errado
+## 9. Se algo der errado
 
 | Sintoma | Causa | O que fazer |
 |---|---|---|
@@ -236,5 +263,5 @@ O item novo entra no fim, então os 4 botões que já existem não mudam de luga
 | "Nenhuma ordem nas ATs do filtro" | nenhum valor da coluna bate com a `dAT` | passo 2 (o aviso lista os valores) |
 | Moldura branca nas caixas da barra | formatação das segmentações | passo 4, Segmentações |
 | Aparece só texto, sem formatação | o visual descartou o CSS | copie um visual HTML de outra página e troque só a medida |
-| Carteira grande demais, muita ordem antiga ou "sem 1ª agenda" | o backlog traz ordens que não deveriam contar (canceladas, outros clusters) | quando a AT estiver certa, ordens de outros clusters saem sozinhas; para canceladas, use o `FILTER` com `DATA_CANCELAMENTO` que está comentado na `_backlogModelo` |
-| Analítico vazio | `1AG No Filtro` com a coluna da AT errada, ou sem a coluna do número da ordem na tabela | passo 2 e passo 5, item 3 |
+| Backlog grande demais, muita ordem antiga ou "sem 1ª agenda" | o backlog traz ordens que não deveriam contar (canceladas, outros clusters) | quando a AT estiver certa, ordens de outros clusters saem sozinhas; para canceladas, use o `FILTER` com `DATA_CANCELAMENTO` que está comentado na `_backlogModelo` |
+| Analítico vazio | `1AG No Filtro` com a coluna da AT errada, ou sem a coluna do número da ordem na tabela | passo 2 e passo 5, item 4 |
