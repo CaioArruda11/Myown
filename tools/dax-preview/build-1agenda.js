@@ -9,7 +9,7 @@
 // (2) avaliacao do painel com os dados ficticios de mocks-1agenda.js,
 // (3) checagem do HTML contra as regras do visual HTML Content, (4) as medidas
 // do analitico, ordem a ordem, tem que dar os mesmos numeros do painel,
-// (5) menu: botoes nas posicoes certas e nenhum nome cortado, (6) botoes
+// (5) menu e barra: botoes nativos nas posicoes documentadas, nada cortado, (6) botoes
 // clicaveis e tamanhos de referencia no Chromium, (7) prints e index.html.
 // Qualquer erro interrompe a geracao.
 // ============================================================================
@@ -66,11 +66,12 @@ const analitico = medidasDoArquivo('analitico');
 const AN = Object.fromEntries(analitico.map((m) => [m.nome, m]));
 console.log('analítico  : sintaxe ok | ' + analitico.map((m) => m.nome).join(', '));
 
-// ------------------------------------------------------------ menu lateral (6 paginas)
-const PAGINAS = ['INSTALAÇÃO 3D', 'CHEGADA NO SLOT', 'ROTEIRIZAÇÃO', 'TMR', 'EFETIVIDADE 1 AGENDA', 'ANALÍTICO 1 AGENDA'];
+// ------------------------------------------------------------ menu lateral (5 paginas)
+const PAGINAS = ['INSTALAÇÃO 3D', 'CHEGADA NO SLOT', 'ROTEIRIZAÇÃO', 'TMR', 'EFETIVIDADE 1 AGENDA'];
 function menuDaPagina(pg) {
   const txt = fs.readFileSync(caminho('menu'), 'utf8');
   if (!txt.includes('VAR _paginaAtual =\n    "INSTALAÇÃO 3D"\n')) throw new Error('menu: _paginaAtual mudou de formato');
+  if (/ANAL[IÍ]TICO 1 AGENDA", \d/.test(txt)) throw new Error('menu: o analitico nao deve estar no menu');
   const f = path.join(tmp, 'menu-' + PAGINAS.indexOf(pg) + '.txt');
   fs.writeFileSync(f, txt.replace('VAR _paginaAtual =\n    "INSTALAÇÃO 3D"\n', 'VAR _paginaAtual =\n    ' + JSON.stringify(pg) + '\n'));
   const r = dax.evaluate(f, MENU_MOCKS.geral, { utcNow: M.UTC_NOW });
@@ -80,17 +81,22 @@ function menuDaPagina(pg) {
   return r.html;
 }
 const MENUS = Object.fromEntries(PAGINAS.map((p) => [p, menuDaPagina(p)]));
-console.log('menu v2    : sintaxe ok | 6 páginas, uma marcada em cada | HTML ' + MENUS['EFETIVIDADE 1 AGENDA'].length);
+console.log('menu v2    : sintaxe ok | ' + PAGINAS.length + ' páginas, uma marcada em cada, sem o analítico | HTML ' + MENUS['EFETIVIDADE 1 AGENDA'].length);
 
-function barra(k) {
-  const r = dax.evaluate(caminho(k), {}, { utcNow: M.UTC_NOW });
+function barra(k, mocks) {
+  const r = dax.evaluate(caminho(k), mocks, { utcNow: M.UTC_NOW });
   const c = compat(r.html, { estrito: true });
-  if (c.problems.length) throw new Error(ARQ[k] + ': ' + c.problems.join('; '));
+  if (r.unusedMocks.length || c.problems.length) throw new Error(ARQ[k] + ': ' + r.unusedMocks.concat(c.problems).join('; '));
   return r.html;
 }
-const BARRA = barra('barra');
-const BARRA_AN = barra('barraAn');
-console.log('barras     : sintaxe ok | painel ' + BARRA.length + ' | analítico ' + BARRA_AN.length);
+// geometria documentada na barra: borda esquerda das segmentacoes e do botao nativo, contando da borda direita
+const GEO_BARRA = { caixas: [788, 610, 432], botao: 132, topoCaixa: 24, topoBotao: 15, alturaBotao: 32, larguraBotao: 116 };
+const BARRA = barra('barra', M.barra.hoje);
+const BARRA_ONTEM = barra('barra', M.barra.ontem);
+barra('barra', M.barra.semData);
+const BARRA_AN = barra('barraAn', M.barra.hoje);
+if (!/Baixar CSV/.test(BARRA) || !/Voltar/.test(BARRA_AN) || !/19\/11\/2026 07:12/.test(BARRA) || !/18\/11\/2026 14:28/.test(BARRA_ONTEM)) throw new Error('barras: botão ou data da atualização fora do esperado');
+console.log('barras     : sintaxe ok | painel ' + BARRA.length + ' (Baixar CSV, atualização 19/11/2026 07:12) | analítico ' + BARRA_AN.length + ' (Voltar)');
 
 // ------------------------------------------------------------ 2 e 3. painel
 let primeiro = true;
@@ -107,11 +113,10 @@ function painel(cen) {
 }
 
 const CEN = [
-  { id: 'geral', rotulo: 'Geral · nov/26', nota: 'Sem filtro de cor ou AT, mês em andamento. O lado direito aparece como fica depois de ligar as colunas Ordem e PON.', cen: {}, pg: { mes: 'Novembro/2026' } },
-  { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
+  { id: 'geral', rotulo: 'Geral · nov/26', nota: 'Sem filtro de cor ou AT, mês em andamento. Embaixo, à direita, o card Backlog no lugar da lista de ordens.', cen: {}, pg: { mes: 'Novembro/2026' } },
+  { id: 'bronze', rotulo: 'Cor BRONZE', nota: 'Filtro de cor: a curva vira a da cor e as duas metades (quadro e card Backlog) mostram só as ATs dela.', cen: { ats: M.daCor('BRONZE') }, pg: { mes: 'Novembro/2026', cor: 'BRONZE' } },
   { id: 'at', rotulo: 'AT MA · carga de ontem', nota: 'Uma AT selecionada. No topo direito, o aviso de que a carga do backlog é de ontem (coluna DATA_CARGA).', cen: { ats: ['MA'], carga: M.HOJE - 1 + 9.4 / 24 }, pg: { mes: 'Novembro/2026', at: 'MA' } },
   { id: 'out', rotulo: 'Mês fechado · out/26', nota: 'Trocar o mês muda só o lado esquerdo. O lado direito continua no dia de hoje, e a conta “salvando / perdendo” continua sendo a do mês atual.', cen: { fimSel: dax.serial(2026, 10, 31) }, pg: { mes: 'Outubro/2026' } },
-  { id: 'cola', rotulo: 'Como vem ao colar', nota: 'Ordem e PON vêm como BLANK() na VAR _backlogModelo: os números já aparecem, e a lista avisa que falta ligar as duas colunas.', cen: { semNumero: true }, pg: { mes: 'Novembro/2026' } },
   { id: 'atnb', rotulo: 'AT do backlog não bate', nota: 'Se a coluna escolhida para a AT não tiver as mesmas siglas da dAT[AREA ], o lado direito diz isso em vez de mostrar zeros.', cen: { atNaoBate: true }, pg: { mes: 'Novembro/2026' } },
 ];
 for (const c of CEN) {
@@ -129,6 +134,7 @@ painel({ ats: ['PL', 'SA', 'BS', 'MA'] });
 
 // ------------------------------------------------------------ 4. analitico x painel
 function avalia(nome, mocks) {
+  if (!AN[nome]) throw new Error('medida do analítico não encontrada: ' + nome);
   const r = dax.evaluate(AN[nome].arquivo, mocks, { utcNow: M.UTC_NOW });
   if (r.unusedMocks.length) throw new Error(nome + ': mocks sem VAR ' + r.unusedMocks.join(','));
   return r.html;
@@ -136,12 +142,13 @@ function avalia(nome, mocks) {
 function ordemNoAnalitico(b, atsFiltro, selecao) {
   const dias = avalia('1AG Dias até a 1ª Agenda', { _agenda: b.Agenda });
   const diasN = dias === '' ? null : Number(dias);
+  const idade = avalia('1AG Idade', { _abertura: b.Abertura });
   const sit = avalia('1AG Situação', { _umaOrdem: true, _dias: diasN });
   const campo = avalia('1AG Situação em Campo', { _umaOrdem: true, _st: b.Campo });
   const agd = avalia('1AG Agendamento', { _umaOrdem: true, _st: b.StOf });
   const tres = { _sit: sit, _campo: campo, _agd: agd };
   return {
-    b, dias: diasN, sit, campo, agd,
+    b, dias: diasN, idade: idade === '' ? null : Number(idade), sit, campo, agd,
     pri: Number(avalia('1AG Prioridade', tres)),
     acao: avalia('1AG Ação', tres),
     fundo: avalia('1AG Cor Fundo', { _sit: sit }),
@@ -154,25 +161,44 @@ function ordemNoAnalitico(b, atsFiltro, selecao) {
 }
 // linha de total: tudo vazio
 if (avalia('1AG Situação', { _umaOrdem: false, _dias: 3 }) !== '' || avalia('1AG Situação em Campo', { _umaOrdem: false, _st: '' }) !== '' ||
-  avalia('1AG Agendamento', { _umaOrdem: false, _st: 'AGENDADO' }) !== '' || avalia('1AG Prioridade', { _sit: null, _campo: null, _agd: null }) !== '') {
+  avalia('1AG Agendamento', { _umaOrdem: false, _st: 'AGENDADA' }) !== '' || avalia('1AG Prioridade', { _sit: null, _campo: null, _agd: null }) !== '') {
   throw new Error('analítico: a linha de total deveria ficar vazia');
+}
+// "AGENDAD" vale para AGENDADA e AGENDADO, e nao para PENDENTE AGENDAMENTO
+for (const [st, esp] of [['AGENDADA', 'Agendada'], ['AGENDADO', 'Agendada'], ['PENDENTE AGENDAMENTO', 'Sem agendar'], ['REAGENDADA', 'Sem agendar'], ['', 'Sem agendar']]) {
+  const v = avalia('1AG Agendamento', { _umaOrdem: true, _st: st });
+  if (v !== esp) throw new Error('1AG Agendamento(' + st + ') = ' + v + ', esperado ' + esp);
 }
 const situacoesSeletor = (AN['Seletor Situacao 1AG'].corpo.match(/\{ "([^"]+)", \d+ \}/g) || []).map((s) => s.match(/"([^"]+)"/)[1]);
 
 // numeros que o painel mostra (lidos do HTML gerado)
+const frase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '');
 function numerosDoPainel(html) {
   const st = {};
   for (const m of html.matchAll(/<div class='st[^']*'[^>]*><small>(?:<i><\/i>)?([^<]+)<\/small><b>([^<]+)<\/b><em>([^<]*)<\/em><\/div>/g)) st[m[1]] = { v: numBR(m[2]), em: m[3] };
-  const vg = {};
-  for (const m of html.matchAll(/<div class='vg (t[A-Z])[^']*'[^>]*><small><i><\/i>([^<]+)<\/small><b>([^<]+)<\/b>/g)) vg[m[2]] = numBR(m[3]);
   const at = {};
   const re = /<div class='qr ([^']*)'><span class='qn'><i class='cd'><\/i><b>([^<]+)<\/b><\/span><b>([^<]+)<\/b><span class='qf[^']*'>([^<]+)<\/span><span class='qh'>([^<]+)<\/span><span class='qk[^']*'>([^<]+)<\/span><span class='qa'>([^<]+)<\/span><span class='qk[^']*'>([^<]+)<\/span><\/div>/g;
   for (const m of html.matchAll(re)) at[m[2]] = [3, 4, 5, 6, 7, 8].map((i) => numBR(m[i]));
-  const abas = [...html.matchAll(/<span class='o (t[A-Z])'><i><\/i>([^<]+)<b>([^<]+)<\/b><\/span>/g)].map((m) => [m[2], numBR(m[3])]);
-  return { st, vg, at, abas };
+  // card Backlog
+  const card = {};
+  const cab = html.match(/<div class='bkh'><b>Backlog<\/b><span><b>([^<]+)<\/b> ordens · <b class='x'>([^<]+)<\/b> fora do indicador<\/span><\/div>/);
+  if (cab) { card.ordens = numBR(cab[1]); card.foraInd = numBR(cab[2]); }
+  card.caixas = [...html.matchAll(/<div class='bvh'><span>([^<]+)<\/span><b>([^<]+)<\/b><\/div><div class='br ok'[^>]*><span><i><\/i>([^<]+)<\/span><b>([^<]+)<\/b><\/div><div class='br wn'[^>]*><span>⚠ ([^<]+)<\/span><b>([^<]+)<\/b><\/div>/g)]
+    .map((m) => ({ nome: m[1], total: numBR(m[2]), [m[3]]: numBR(m[4]), [m[5]]: numBR(m[6]) }));
+  card.idade = [...html.matchAll(/<div class='bhc[^']*'><b>([^<]*)<\/b><i><\/i><small>([^<]+)<\/small><\/div>/g)].map((m) => [m[2], numBR(m[1])]);
+  const blocoCampo = (html.match(/<div class='bc'>([\s\S]*?)<\/div><div class='bo'>/) || [, ''])[1];
+  const blocoFora = (html.match(/<div class='bo'>([\s\S]*?)(?:<p class='bkp'|<\/article>)/) || [, ''])[1];
+  const totalBox = (b) => numBR((b.match(/<div class='bch'>(?:<i><\/i>|⚠ )[^<]+<b>([^<]+)<\/b>/) || [, 'x'])[1]);
+  const linhas = (b) => [...b.matchAll(/<div class='bl[^']*'><span>([^<]+)<\/span><b>([^<]+)<\/b><\/div>/g)].map((m) => [m[1], numBR(m[2])]);
+  card.campo = { total: totalBox(blocoCampo), linhas: linhas(blocoCampo) };
+  card.fora = { total: totalBox(blocoFora), linhas: linhas(blocoFora) };
+  return { st, at, card };
 }
 function confere(rotulo, cen, atsFiltro) {
-  const rows = M.cenario(cen)._backlogModelo.map((b) => ordemNoAnalitico(b, atsFiltro));
+  const base = M.cenario(cen)._backlogModelo;
+  const rows = base.map((b) => ordemNoAnalitico(b, atsFiltro));
+  // numero da ordem e PON (o painel nao usa; so a tabela do analitico mostra): mesma linha do BACKLOG
+  rows.forEach((r, i) => { r.ordem = (M.BACKLOG[i] || {}).Ordem || ''; r.pon = (M.BACKLOG[i] || {}).PON || ''; });
   const no = rows.filter((r) => r.filtro === 1);
   const q = (f) => no.filter(f).length;
   const esperado = {
@@ -191,31 +217,52 @@ function confere(rotulo, cen, atsFiltro) {
   };
   const dif = Object.keys(esperado).filter((k) => esperado[k] !== lido[k]);
   if (dif.length) throw new Error('analítico x painel (' + rotulo + '): ' + dif.map((k) => k + ' analítico ' + esperado[k] + ' / painel ' + lido[k]).join('; '));
-  // vencem hoje x em campo
-  const grupos = { 'Fora de campo': 'Fora de campo', Insucesso: 'Insucesso', 'Não iniciada': 'Não iniciada', 'Em execução': 'Em execução', 'Concluída': 'Concluída' };
-  for (const [rot, campo] of Object.entries(grupos)) {
-    const e = q((r) => r.sit === 'Vence hoje' && r.campo === campo);
-    if (p.vg[rot] !== e) throw new Error('vencem hoje · ' + rot + ': analítico ' + e + ' / painel ' + p.vg[rot]);
-  }
   // por AT: carteira, perdidas, hoje, fora de campo, amanha, sem agendar
   let nAT = 0;
   for (const [nome, v] of Object.entries(p.at)) {
-    const daAT = no.filter((r) => r.b.AT === nome);
-    if (!daAT.length && !M.ATS.find((a) => a[1] === nome)) continue;
-    const linhasCor = M.ATS.filter((a) => a[1] === nome).map((a) => a[0]);
-    const base = linhasCor.length ? no.filter((r) => linhasCor.includes(r.b.AT)) : daAT;
-    const e = [base.length, base.filter((r) => r.sit === 'Perdida').length, base.filter((r) => r.sit === 'Vence hoje').length,
-      base.filter((r) => r.sit === 'Vence hoje' && r.campo === 'Fora de campo').length, base.filter((r) => r.sit === 'Vence amanhã').length,
-      base.filter((r) => r.sit === 'Vence amanhã' && r.agd === 'Sem agendar').length];
+    const doCor = M.ATS.filter((a) => a[1] === nome).map((a) => a[0]);
+    const b0 = doCor.length ? no.filter((r) => doCor.includes(r.b.AT)) : no.filter((r) => r.b.AT === nome);
+    const e = [b0.length, b0.filter((r) => r.sit === 'Perdida').length, b0.filter((r) => r.sit === 'Vence hoje').length,
+      b0.filter((r) => r.sit === 'Vence hoje' && r.campo === 'Fora de campo').length, b0.filter((r) => r.sit === 'Vence amanhã').length,
+      b0.filter((r) => r.sit === 'Vence amanhã' && r.agd === 'Sem agendar').length];
     if (e.join() !== v.join()) throw new Error('linha ' + nome + ' (' + rotulo + '): analítico ' + e.join('/') + ' / painel ' + v.join('/'));
     nAT++;
   }
-  const abas = Object.fromEntries(p.abas);
-  if (abas.Perdidas !== esperado.perdidas || abas['Vencem hoje'] !== esperado.hoje || abas['Amanhã'] !== esperado.amanha) throw new Error('abas da lista (' + rotulo + ') ' + JSON.stringify(abas));
+  // card Backlog: cada numero conferido contra as medidas do analitico (e o JS, para idade e status oficial)
+  const c = p.card;
+  const cx = Object.fromEntries(c.caixas.map((k) => [k.nome, k]));
+  const emCampo = no.filter((r) => r.campo !== 'Fora de campo');
+  const foraCampo = no.filter((r) => r.campo === 'Fora de campo');
+  const conta = (lista, chave) => { const o = {}; lista.forEach((r) => { const k = chave(r); o[k] = (o[k] || 0) + 1; }); return o; };
+  const espCampo0 = Object.entries(conta(emCampo, (r) => r.b.Campo)).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  const corteCampo = espCampo0.length > 7 ? 6 : 7;
+  const espCampo = espCampo0.slice(0, corteCampo).map(([s, n]) => [frase(s), n]);
+  if (espCampo0.length > corteCampo) espCampo.push(['Outros ' + (espCampo0.length - corteCampo) + ' status', espCampo0.slice(corteCampo).reduce((t, x) => t + x[1], 0)]);
+  const espFora = Object.entries(conta(foraCampo, (r) => r.b.StOf)).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  const corte = espFora.length > 14 ? 13 : 14;
+  const espForaLinhas = espFora.slice(0, corte).map(([s, n]) => [s === '' ? '(sem status)' : frase(s), n]);
+  if (espFora.length > corte) espForaLinhas.push(['Outros ' + (espFora.length - corte) + ' status', espFora.slice(corte).reduce((t, x) => t + x[1], 0)]);
+  const faixa = (d) => (d <= 3 ? 'D' + d : d <= 7 ? '4-7' : d <= 15 ? '8-15' : d <= 30 ? '16-30' : '+30');
+  const espIdade = ['D0', 'D1', 'D2', 'D3', '4-7', '8-15', '16-30', '+30'].map((f) => [f, no.filter((r) => r.idade !== null && faixa(r.idade) === f).length]);
+  const checks = [
+    ['ordens', c.ordens, no.length], ['fora do indicador', c.foraInd, esperado.perdidas],
+    ['vence hoje', cx['Vence hoje'] && cx['Vence hoje'].total, esperado.hoje],
+    ['vence hoje · em campo', cx['Vence hoje'] && cx['Vence hoje']['em campo'], esperado.hoje - esperado.foraHoje],
+    ['vence hoje · fora de campo', cx['Vence hoje'] && cx['Vence hoje']['fora de campo'], esperado.foraHoje],
+    ['vence amanhã', cx['Vence amanhã'] && cx['Vence amanhã'].total, esperado.amanha],
+    ['vence amanhã · agendada', cx['Vence amanhã'] && cx['Vence amanhã'].agendada, esperado.amanha - esperado.amanhaSem],
+    ['vence amanhã · sem agendar', cx['Vence amanhã'] && cx['Vence amanhã']['sem agendar'], esperado.amanhaSem],
+    ['em campo', c.campo.total, emCampo.length], ['fora de campo', c.fora.total, foraCampo.length],
+    ['lista em campo', JSON.stringify(c.campo.linhas), JSON.stringify(espCampo)],
+    ['lista fora de campo', JSON.stringify(c.fora.linhas), JSON.stringify(espForaLinhas)],
+    ['idade', JSON.stringify(c.idade), JSON.stringify(espIdade)],
+  ];
+  const ruins = checks.filter(([, a, b]) => a !== b);
+  if (ruins.length) throw new Error('card Backlog (' + rotulo + '): ' + ruins.map(([k, a, b]) => k + ' painel ' + a + ' / esperado ' + b).join('\n  '));
   // as situacoes que a medida devolve sao as mesmas do seletor
   const sits = [...new Set(rows.map((r) => r.sit))].sort();
   if (sits.join('|') !== [...situacoesSeletor].sort().join('|')) throw new Error('seletor de situação x medida: ' + sits.join(', ') + ' / ' + situacoesSeletor.join(', '));
-  console.log(('analítico = painel · ' + rotulo).padEnd(34) + ': ' + Object.entries(esperado).map(([k, v]) => k + ' ' + v).join(' | ') + ' | ' + nAT + ' linhas de cor/AT iguais');
+  console.log(('analítico = painel · ' + rotulo).padEnd(34) + ': ' + Object.entries(esperado).map(([k, v]) => k + ' ' + v).join(' | ') + ' | ' + nAT + ' linhas de cor/AT | card: ' + checks.length + ' conferências');
   return rows;
 }
 const LINHAS_AN = confere('geral', {}, M.ATS.map((a) => a[0]));
@@ -232,29 +279,29 @@ confere('AT MA', { ats: ['MA'] }, ['MA']);
 
 // ------------------------------------------------------------ tabela nativa simulada (pagina do analitico)
 const fmtData = (s) => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(s * 86400000)); const p2 = (n) => String(n).padStart(2, '0'); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()); };
-const capital = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : '');
 function tabelaNativa(linhas, maxLinhas) {
-  const ord = linhas.filter((r) => r.filtro === 1).sort((x, y) => x.pri - y.pri || (x.b.Agenda || 0) - (y.b.Agenda || 0) || (x.b.Ordem < y.b.Ordem ? -1 : 1));
-  const cols = ['Prior.', 'Ordem', 'PON', 'AT', 'Situação', 'Dias', '1ª agenda', 'Em campo hoje', 'ETA D-0 Status', 'STATUS_OFICIAL', 'Ação'];
+  const ord = linhas.filter((r) => r.filtro === 1).sort((x, y) => x.pri - y.pri || (x.b.Agenda || 0) - (y.b.Agenda || 0) || (x.ordem < y.ordem ? -1 : 1));
+  const cols = ['Prior.', 'Ordem', 'PON', 'AT', 'Situação', 'Dias', '1ª agenda', 'Idade', 'Em campo hoje', 'ETA D-0 Status', 'STATUS_OFICIAL', 'Ação'];
+  const num = [0, 5, 7];
   const td = (v, cls, st) => '<td' + (cls ? ' class="' + cls + '"' : '') + (st ? ' style="' + st + '"' : '') + '>' + v + '</td>';
   // amostra para o print: as primeiras de cada prioridade (na tabela real aparecem todas, na mesma ordem)
   const vistos = {};
   const amostra = ord.filter((r) => { vistos[r.pri] = (vistos[r.pri] || 0) + 1; return vistos[r.pri] <= 2; }).slice(0, maxLinhas);
   const corpo = amostra.map((r) => '<tr>' +
-    td(r.pri, 'n') + td(r.b.Ordem) + td(r.b.PON) + td(r.b.AT) +
+    td(r.pri, 'n') + td(r.ordem) + td(r.pon) + td(r.b.AT) +
     td(r.sit, 'sit', 'background:' + r.fundo + ';color:' + r.texto) + td(r.dias === null ? '' : r.dias, 'n') +
-    td(r.b.Agenda === null ? '' : fmtData(r.b.Agenda)) + td(r.campo) + td(capital(r.b.Campo)) + td(r.b.StOf) + td(r.acao) + '</tr>').join('');
+    td(r.b.Agenda === null ? '' : fmtData(r.b.Agenda)) + td(r.idade === null ? '' : r.idade, 'n') + td(r.campo) + td(frase(r.b.Campo)) + td(r.b.StOf) + td(r.acao) + '</tr>').join('');
   return {
     total: ord.length,
-    html: '<div class="pbi"><div class="pbi-h"><span>⋯</span></div><table><thead><tr>' + cols.map((c, i) => '<th' + (i === 0 || i === 5 ? ' class="n"' : '') + '>' + c + (i === 0 ? ' ▲' : '') + '</th>').join('') + '</tr></thead><tbody>' + corpo + '</tbody></table>' +
+    html: '<div class="pbi"><div class="pbi-h"><span>⋯</span></div><table><thead><tr>' + cols.map((c, i) => '<th' + (num.includes(i) ? ' class="n"' : '') + '>' + c + (i === 0 ? ' ▲' : '') + '</th>').join('') + '</tr></thead><tbody>' + corpo + '</tbody></table>' +
       '<p class="pbi-n">Tabela nativa simulada. Amostra com 2 ordens de cada prioridade; na página aparecem as ' + ord.length.toLocaleString('pt-BR') + ' ordens do filtro, nesta mesma ordem.</p></div>',
   };
 }
 const CSS_NATIVO = '.pbi{position:absolute;inset:0;padding:10px 12px 0;border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(11,21,51,.04),0 6px 16px rgba(11,21,51,.05);font-family:"Segoe UI",Arial,sans-serif;overflow:hidden}' +
   '.pbi-h{position:absolute;right:12px;top:4px;color:#475467;font-size:16px;letter-spacing:1px}' +
-  '.pbi table{width:100%;border-collapse:collapse;font-size:10.5px;color:#252423;white-space:nowrap}' +
-  '.pbi th{padding:6px 6px;border-bottom:1px solid #8A8886;text-align:left;font-weight:700;color:#252423}' +
-  '.pbi td{padding:3px 6px;height:22px;border-bottom:1px solid #EDEBE9}' +
+  '.pbi table{width:100%;border-collapse:collapse;font-size:10px;color:#252423;white-space:nowrap}' +
+  '.pbi th{padding:6px 5px;border-bottom:1px solid #8A8886;text-align:left;font-weight:700;color:#252423}' +
+  '.pbi td{padding:3px 5px;height:22px;border-bottom:1px solid #EDEBE9}' +
   '.pbi .n{text-align:right}.pbi td.sit{font-weight:700}' +
   '.pbi-n{position:absolute;left:0;right:0;bottom:0;margin:0;padding:8px 14px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff 40%);color:#63708B;font-size:11px}';
 
@@ -265,37 +312,71 @@ const arq = (nome, html) => { const f = path.join(tmp, nome + '.html'); fs.write
 function print(nome, c, before) {
   jobs.push({ file: arq(nome, c.pagina), out: path.join(out, nome + '.png'), w: 1280, h: 720, scale: 2, before: before && noFrame('e1', before) });
 }
-const [GERAL, BRONZE, AT, OUT, COLA, ATNB] = CEN;
+const [GERAL, BRONZE, AT, OUT, ATNB] = CEN;
 print('1-visao-geral', GERAL);
-print('2-aba-amanha-sem-agendar', GERAL, async (f) => { await f.click('.c2 summary'); });
-print('3-cor-BRONZE-aba-perdidas', BRONZE, async (f) => { await f.click('.c1 summary'); });
+// o card Backlog de perto: so a coluna da direita do painel de referencia (1264 x 638)
+// no tamanho em que o painel fica na pagina (1032 x 630, ao lado do menu): coluna da direita com 420 px
+jobs.push({ file: arq('card', R.wrap(GERAL.html)), out: path.join(out, '2-card-backlog.png'), w: 1032, h: 630, scale: 2, clip: { x: 604, y: 0, width: 428, height: 630 } });
+print('3-cor-BRONZE', BRONZE);
 print('4-curva-semanal-e-destaque-da-cor', GERAL, async (f) => { await f.click('.b1 summary'); await f.hover('.hc .c-prata2'); });
 print('5-AT-selecionada-carga-de-ontem', AT);
 print('6-mes-fechado-o-lado-direito-nao-muda', OUT, async (f) => { await f.click('.b2 summary'); await f.locator('.v-dia .pt').nth(14).hover(); });
 jobs.push({
-  file: arq('com-menu', R.composeMenuBarra(MENUS['EFETIVIDADE 1 AGENDA'], BARRA, { html: GERAL.html }, { title: 'Efetividade 1ª agenda · com menu', nome: 'e1' })),
+  file: arq('com-menu', R.composeMenuBarra(MENUS['EFETIVIDADE 1 AGENDA'], BARRA, { html: GERAL.html }, { title: 'Efetividade 1ª agenda · com menu', nome: 'e1', caixas: GEO_BARRA.caixas })),
   out: path.join(out, '7-com-o-menu-lateral.png'), w: 1280, h: 720, scale: 2,
 });
 const TAB = tabelaNativa(LINHAS_AN, 24);
 jobs.push({
-  file: arq('analitico', R.composeMenuBarra(MENUS['ANALÍTICO 1 AGENDA'], BARRA_AN, { nativo: TAB.html }, { title: 'Analítico 1ª agenda', valores: ['Todos', 'Todos', 'Todos'], cssNativo: CSS_NATIVO })),
+  file: arq('analitico', R.composeMenuBarra(MENUS['EFETIVIDADE 1 AGENDA'], BARRA_AN, { nativo: TAB.html }, { title: 'Analítico 1ª agenda', valores: ['Todos', 'Todos', 'Todos'], cssNativo: CSS_NATIVO, caixas: GEO_BARRA.caixas })),
   out: path.join(out, '8-analitico-tabela-para-baixar.png'), w: 1280, h: 720, scale: 2,
 });
-print('9-como-vem-ao-colar', COLA);
-print('10-AT-do-backlog-nao-bate', ATNB);
+print('9-AT-do-backlog-nao-bate', ATNB);
+
+// posicao das segmentacoes e do botao nativo sobre a barra (e conferencia da geometria documentada)
+{
+  const W = 1032;
+  const marca = (x, y, w, h, cor, rot) => '<div class="mk" style="left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + h + 'px;border-color:' + cor + '"><span style="background:' + cor + '">' + rot + '</span></div>';
+  const marcas = GEO_BARRA.caixas.map((d, i) => marca(10 + W - d, 60 + GEO_BARRA.topoCaixa, 160, 26, '#F97316', ['Mês', 'Cor', 'AT'][i] + ' · ' + d + ' px da direita')).join('') +
+    marca(10 + W - GEO_BARRA.botao, 60 + GEO_BARRA.topoBotao, GEO_BARRA.larguraBotao, GEO_BARRA.alturaBotao, '#2563EB', 'botão · ' + GEO_BARRA.botao + ' px da direita');
+  const pag = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#E9EEF6;font-family:"Segoe UI",Arial,sans-serif}' +
+    '.pg{position:relative;width:1052px;height:200px}iframe{position:absolute;left:10px;top:60px;width:' + W + 'px;height:62px;border:0}' +
+    '.mk{position:absolute;box-sizing:border-box;border:1.5px dashed;border-radius:7px}.mk span{position:absolute;left:-1px;top:-19px;padding:1px 6px;border-radius:4px;color:#fff;font-size:10.5px;font-weight:600;white-space:nowrap}' +
+    '.nt{position:absolute;left:10px;top:136px;width:1032px;color:#3F4C6B;font-size:12.5px;line-height:1.5}.nt b{color:#0B1533}' +
+    '</style></head><body><div class="pg"><iframe srcdoc="' + R.wrap(BARRA).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"></iframe>' + marcas +
+    '<div class="nt"><b>Laranja:</b> segmentações nativas, 160 × 26 px, a 24 px do topo da barra. <b>Azul:</b> botão nativo, 116 × 32 px, a 15 px do topo, Ação › Navegação de página › ANALÍTICO 1 AGENDA. As distâncias são da borda direita da barra até a borda esquerda de cada um. Na página do analítico é igual: Situação no lugar do Mês, e o botão com Ação › Voltar.</div></div></body></html>';
+  jobs.push({
+    file: arq('barra', pag), out: path.join(out, '10-barra-posicao-dos-botoes.png'), w: 1052, h: 200, scale: 2,
+    before: async (p) => {
+      const fr = p.frames().find((f) => f !== p.mainFrame());
+      const r = await fr.evaluate(() => {
+        const bx = document.querySelector('.bx').getBoundingClientRect();
+        const dir = (e) => Math.round(bx.right + 4 - e.getBoundingClientRect().left); // a barra tem 4 px de margem de cada lado
+        // a segmentacao (160 x 26) fica centralizada na caixa desenhada (168 x 28): 4 px para dentro e 1 px para baixo
+        const caixas = [...document.querySelectorAll('.fx i')].map((e) => [dir(e) - 4, Math.round(e.getBoundingClientRect().top) + 1]);
+        const bt = document.querySelector('.bt').getBoundingClientRect();
+        const corte = [...document.querySelectorAll('.tt b,.tt small,.fx small,.up small,.up b,.bt span')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent);
+        return { caixas, botao: [Math.round(bx.right + 4 - bt.left), Math.round(bt.top), Math.round(bt.width), Math.round(bt.height)], corte };
+      });
+      const ok = r.caixas.map((c) => c[0]).join() === GEO_BARRA.caixas.join() && r.caixas.every((c) => Math.abs(c[1] - GEO_BARRA.topoCaixa) <= 1) &&
+        r.botao.join() === [GEO_BARRA.botao, GEO_BARRA.topoBotao, GEO_BARRA.larguraBotao, GEO_BARRA.alturaBotao].join() && !r.corte.length;
+      console.log('barra 1032x62                 : caixas a ' + r.caixas.map((c) => c[0]).join(' / ') + ' px da direita (topo ' + r.caixas[0][1] + ') | botão ' + r.botao.join(' / ') + ' | textos cortados = ' + r.corte.length);
+      if (!ok) throw new Error('barra fora da geometria documentada ' + JSON.stringify(r));
+    },
+  });
+}
 
 // posicao dos botoes nativos sobre o menu
 {
   const topos = PAGINAS.map((p, i) => [p, 109 + 43 * i]);
-  const caixas = topos.map(([p, t], i) => '<div class="bn" style="top:' + (10 + t) + 'px"></div><div class="rt" style="top:' + (10 + t) + 'px"><b>' + (i + 1) + '</b>' + p + '<small>topo ' + t + ' px' + (i >= 4 ? ' · novo' : '') + '</small></div>').join('');
+  const caixas = topos.map(([p, t], i) => '<div class="bn" style="top:' + (10 + t) + 'px"></div><div class="rt" style="top:' + (10 + t) + 'px"><b>' + (i + 1) + '</b>' + p + '<small>topo ' + t + ' px' + (i === 4 ? ' · novo' : '') + '</small></div>').join('');
   const pag = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#E9EEF6;font-family:"Segoe UI",Arial,sans-serif}' +
     '.pg{position:relative;width:560px;height:720px}iframe{position:absolute;left:20px;top:10px;width:200px;height:700px;border:0}' +
     '.bn{position:absolute;left:34px;width:172px;height:36px;box-sizing:border-box;border:1.5px dashed #F97316;border-radius:11px}' +
     '.rt{position:absolute;left:240px;height:36px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0B1533;white-space:nowrap}' +
     '.rt b{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#F97316;color:#fff;font-size:11px}' +
-    '.rt small{margin-left:6px;color:#63708B;font-weight:500}.nt{position:absolute;left:240px;top:400px;width:300px;color:#3F4C6B;font-size:12px;line-height:1.5}' +
+    '.rt small{margin-left:6px;color:#63708B;font-weight:500}.nt{position:absolute;left:240px;top:360px;width:300px;color:#3F4C6B;font-size:12px;line-height:1.5}' +
     '</style></head><body><div class="pg"><iframe srcdoc="' + R.wrap(MENUS['EFETIVIDADE 1 AGENDA']).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"></iframe>' + caixas +
-    '<div class="nt"><b>Botões nativos</b> transparentes por cima do menu: 172 × 36 px, a 14 px da borda esquerda do visual, um a cada 43 px. Os quatro primeiros não mudam de lugar; os dois últimos são novos.</div></div></body></html>';
+    '<div class="nt"><b>Botões nativos</b> transparentes por cima do menu: 172 × 36 px, a 14 px da borda esquerda do visual, um a cada 43 px. Os quatro primeiros não mudam de lugar; só o quinto é novo. O analítico não tem item no menu: ele abre pelo botão Baixar CSV da barra.</div></div></body></html>';
   jobs.push({
     file: arq('botoes', pag), out: path.join(out, '11-menu-posicao-dos-botoes.png'), w: 560, h: 720, scale: 2,
     before: async (p) => {
@@ -305,7 +386,7 @@ print('10-AT-do-backlog-nao-bate', ATNB);
         const cortado = [...e.querySelectorAll('.lb, .lb b, .lb small')].some((l) => l.scrollWidth > l.clientWidth + 1);
         return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height), cortado];
       }));
-      const ok = r.every((x, i) => x[0] === 14 && x[1] === 109 + 43 * i && x[2] === 172 && x[3] === 36 && !x[4]);
+      const ok = r.length === PAGINAS.length && r.every((x, i) => x[0] === 14 && x[1] === 109 + 43 * i && x[2] === 172 && x[3] === 36 && !x[4]);
       console.log('menu 200x700                  : ' + r.map((x) => x[1]).join(' / ') + ' px | 172x36 a 14 px da borda | nomes cortados = ' + r.filter((x) => x[4]).length);
       if (!ok) throw new Error('menu: itens fora da geometria dos botoes nativos ' + JSON.stringify(r));
     },
@@ -313,7 +394,8 @@ print('10-AT-do-backlog-nao-bate', ATNB);
 }
 
 // tamanho de referencia e visual estreito: tudo cabe, nada cortado, botoes levam para a visao certa
-const SEL_CORTE = '.kv b,.chip,.ks,.kc,.kp small,.kp b,.kd,.cr>*,.st small,.st b,.st em,.dk>*,.ins,.rl,.c,.ac,.xl,.vhh>b,.vg small,.vg b,.qr>*,.seg .o,.oh span,.on,.op,.oa,.od';
+const SEL_CORTE = '.kv b,.chip,.ks,.kc,.kp small,.kp b,.kd,.cr>*,.st small,.st b,.st em,.dk>*,.ins,.rl,.c,.ac,.xl,.qr>*,.seg .o,' +
+  '.bkh>b,.bkh span,.bvh span,.bvh b,.br span,.br b,.bhh,.bhc b,.bhc small,.bch,.bl b,.bc .bl span';
 async function medir(p, rotulo) {
   const o = await p.evaluate((sel) => {
     const vis = (e) => getComputedStyle(e).display !== 'none';
@@ -322,22 +404,34 @@ async function medir(p, rotulo) {
     const visivel = (e) => e.offsetParent && vis(e);
     const cut = [...document.querySelectorAll(sel)].filter((e) => visivel(e) && e.scrollWidth > e.clientWidth + 1);
     const cabCut = [...document.querySelectorAll('.qh0 span')].filter((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1);
-    const lv = [...document.querySelectorAll('.lv')].find(vis);
-    const chips = [...lv.querySelectorAll('.os')];
-    const proj = document.querySelector('.vhh span');
+    const card = document.querySelector('.bk');
+    const tab = document.querySelector('.d0');
+    const qt = document.querySelector('.qt');
+    const status = [...document.querySelectorAll('.bo .bl span')];
+    const proj = document.querySelector('.bkp');
+    // idade: rotulos e numeros vizinhos nao podem se encostar (folga minima de 0,5 px)
+    const encosta = [];
+    for (const q of ['.bhc small', '.bhc b']) {
+      const el = [...document.querySelectorAll(q)];
+      const rr = el.map((e) => e.getBoundingClientRect());
+      for (let k = 1; k < rr.length; k++) if (rr[k].width && rr[k - 1].width && rr[k].left - rr[k - 1].right < 0.5) encosta.push(el[k - 1].textContent + '|' + el[k].textContent);
+    }
     return {
+      encosta,
       linhas: view.querySelectorAll('.rw').length, semRolagem: mx.scrollHeight <= mx.clientHeight,
       grafico: Math.round(view.querySelector('.plot').getBoundingClientRect().height),
       cortados: cut.length + cabCut.length, exemplo: cut.concat(cabCut).slice(0, 4).map((e) => e.className + ':' + e.textContent.slice(0, 22)),
-      ordens: (() => { const b = lv.getBoundingClientRect(); return [...lv.querySelectorAll('.or')].filter((r) => r.getBoundingClientRect().bottom <= b.bottom).length; })(),
-      chips: chips.length, chipsCortados: chips.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent),
+      card: card ? Math.round(card.getBoundingClientRect().height) : 0, cardCabe: card ? card.scrollHeight <= card.clientHeight + 1 : false,
+      quadro: Math.round(tab.getBoundingClientRect().height), linhasQuadro: qt ? Math.floor(qt.clientHeight / 15) : 0,
+      fundo: Math.round(Math.max(card.getBoundingClientRect().bottom, tab.getBoundingClientRect().bottom)), altura: window.innerHeight,
+      status: status.length, statusCortados: status.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent),
       projecao: proj ? (proj.scrollWidth > proj.clientWidth + 1 ? 'cortada' : 'inteira') : '-',
     };
   }, SEL_CORTE);
-  console.log(rotulo.padEnd(30) + ': ' + o.linhas + ' linhas sem rolagem = ' + o.semRolagem + ' | gráfico ' + o.grafico + 'px | ordens visíveis ' + o.ordens +
-    ' | textos cortados = ' + o.cortados + (o.cortados ? ' ' + JSON.stringify(o.exemplo) : '') + ' | projeção ' + o.projecao +
-    ' | situações cortadas ' + o.chipsCortados.length + '/' + o.chips + (o.chipsCortados.length ? ' ' + JSON.stringify([...new Set(o.chipsCortados)].slice(0, 3)) : ''));
-  if (!o.semRolagem || o.cortados) throw new Error('layout fora do tamanho de referencia (' + rotulo + ')');
+  console.log(rotulo.padEnd(30) + ': ' + o.linhas + ' linhas sem rolagem = ' + o.semRolagem + ' | gráfico ' + o.grafico + 'px | card ' + o.card + 'px cabe = ' + o.cardCabe +
+    ' | quadro ' + o.quadro + 'px (~' + o.linhasQuadro + ' linhas) | textos cortados = ' + o.cortados + (o.cortados ? ' ' + JSON.stringify(o.exemplo) : '') +
+    ' | projeção ' + o.projecao + ' | idade encostada ' + o.encosta.length + (o.encosta.length ? ' ' + JSON.stringify(o.encosta) : '') + ' | status oficiais com reticências ' + o.statusCortados.length + '/' + o.status + (o.statusCortados.length ? ' ' + JSON.stringify(o.statusCortados.slice(0, 3)) : ''));
+  if (!o.semRolagem || o.cortados || o.encosta.length || !o.cardCabe || o.projecao === 'cortada' || o.fundo > o.altura || o.linhasQuadro < 5) throw new Error('layout fora do tamanho de referencia (' + rotulo + ')');
   return o;
 }
 for (const [w, h] of [[1264, 638], [1032, 630]]) {
@@ -349,21 +443,10 @@ for (const [w, h] of [[1264, 638], [1032, 630]]) {
         if (clique) { await p.click(clique); await p.waitForTimeout(200); }
         await medir(p, 'painel ' + w + 'x' + h + ' · ' + nome);
       }
-      // abas da lista: clica na posicao do botao (0 = Perdidas, 2 = Amanha), como o usuario
-      for (const [nome, pos] of [['Amanhã', 2], ['Perdidas', 0]]) {
-        await p.evaluate(([s, a]) => {
-          const box = document.querySelector(s).getBoundingClientRect();
-          const wd = (box.width - 4) / 3;
-          const el = document.elementFromPoint(box.left + 2 + wd * (a + 0.5), box.top + box.height / 2);
-          if (el && el.tagName === 'SUMMARY') el.click();
-        }, ['.sl', pos]);
-        await p.waitForTimeout(200);
-        await medir(p, 'painel ' + w + 'x' + h + ' · lista ' + nome);
-      }
       if (w !== 1264) return;
       await p.reload(); await p.waitForTimeout(500);
       // Botoes: de qualquer estado, o clique em cada botao tem que mostrar a visao daquele botao.
-      for (const [seg, views] of [['.sg', ['.v-mes', '.v-sem', '.v-dia']], ['.sl', ['.l-p', '.l-h', '.l-a']]]) {
+      for (const [seg, views] of [['.sg', ['.v-mes', '.v-sem', '.v-dia']]]) {
         let n = 0;
         for (const alvo of [1, 2, 0, 2, 1, 0, 1, 0, 2, 0, 1, 2, 1, 2, 0, 2, 0, 1, 0, 2, 2, 1, 1, 0]) {
           const r = await p.evaluate(([s, vs, a]) => {
@@ -440,16 +523,18 @@ const pagina = fs.readFileSync(path.join(__dirname, 'pagina-1agenda.html'), 'utf
   .replace('%%LINHAS%%', () => String(linhasPrincipal))
   .replace('%%PILLS%%', () => CEN.map((c, i) => '<button data-i="' + i + '" aria-pressed="' + (i === 0) + '">' + c.rotulo + '</button>').join(''))
   .replace('%%PRINTS%%', () => PRINTS.map((n, i) => '<a href="' + encodeURI(n) + '.png" target="_blank" rel="noopener">' + (i + 1) + '</a>').join(''))
+  .replace('%%IMG_CARD%%', () => img('2-card-backlog', 'Card Backlog'))
   .replace('%%IMG_MENU%%', () => img('7-com-o-menu-lateral', 'Painel ao lado do menu lateral'))
+  .replace('%%IMG_BARRA%%', () => img('10-barra-posicao-dos-botoes', 'Posição das segmentações e do botão sobre a barra'))
   .replace('%%IMG_BOTOES%%', () => img('11-menu-posicao-dos-botoes', 'Posição dos botões nativos sobre o menu'))
   .replace('%%IMG_ANALITICO%%', () => img('8-analitico-tabela-para-baixar', 'Página do analítico com a tabela nativa'))
   .replace('%%TB_ANALITICO%%', () => tbAnalitico)
   .replace('%%CODIGO%%', () => [
     ...apoio.map((m, i) => bloco('m' + i, (i + 1) + ' · ' + m.nome, i === 0 ? 'medida de apoio · numerador da sua % 1_AGENDA' : i === 1 ? 'medida de apoio · denominador da sua % 1_AGENDA' : 'opcional · a sua medida reescrita com DIVIDE', (m.nota ? m.nota + '\n' : '') + m.corpo + '\n', true)),
     bloco('mp', '4 · Painel Efetividade 1 Agenda HTML', 'medida principal · ' + linhasPrincipal + ' linhas · vai no visual HTML Content', principalTxt, false),
-    bloco('mn', '5 · Menu Lateral Instalacao HTML (v2)', 'cole nas 6 páginas e troque só _paginaAtual · substitui o v1', ler('menu'), false),
-    bloco('bf', '6 · Barra Filtros 1 Agenda HTML', 'página do painel · 62 px de altura, por baixo das segmentações nativas', ler('barra'), false),
-    bloco('ba', '7 · Barra Filtros Analitico 1 Agenda HTML', 'página do analítico · mesma barra, com a dica de como baixar', ler('barraAn'), false),
+    bloco('mn', '5 · Menu Lateral Instalacao HTML (v2)', 'cole nas 5 páginas do menu (e no analítico) e troque só _paginaAtual · substitui o v1', ler('menu'), false),
+    bloco('bf', '6 · Barra Filtros 1 Agenda HTML', 'página do painel · 62 px · filtros, atualização e Baixar CSV', ler('barra'), false),
+    bloco('ba', '7 · Barra Filtros Analitico 1 Agenda HTML', 'página do analítico · 62 px · filtros, atualização e Voltar', ler('barraAn'), false),
     bloco('an', '8 · Analítico: tabela do seletor + medidas 1AG', 'uma tabela e ' + (analitico.length - 1) + ' medidas · cole cada uma separadamente', ler('analitico'), false),
   ].join('\n  '))
   .replace('%%CENARIOS%%', () => json(CEN.map((c) => ({ nota: c.nota, html: c.pagina }))));
@@ -472,7 +557,7 @@ jobs.push({
     const imgs = await p.evaluate(() => [...document.images].map((i) => decodeURI(i.getAttribute('src'))));
     const faltam = imgs.filter((n) => !fs.existsSync(path.join(out, n)));
     console.log('index.html                    : prévia carregada = ' + a + ' | troca de cenário = ' + b + ' | ' + k + ' | erros de script = ' + erros.length + ' | imagens ' + (imgs.length - faltam.length) + '/' + imgs.length + ' na pasta');
-    if (!a || !b || erros.length || faltam.length) throw new Error('index.html nao abriu como esperado ' + erros.join(' | '));
+    if (!a || !b || erros.length || faltam.length) throw new Error('index.html nao abriu como esperado ' + erros.join(' | ') + ' ' + faltam.join(' '));
   },
 });
 

@@ -70,7 +70,13 @@ const BAIXADAS = gerarBaixadas();
 // ----------------------------------------------------------------- BACKLOG
 // Uma linha por ordem aberta. Dif = dias da 1a agenda ate hoje (negativo = ja
 // passou). Quem tem taxa pior carrega mais ordem perdida e menos agendamento.
-const PENDENCIAS = [['PENDENTE CLIENTE', 0.34], ['PENDENTE TÉCNICA', 0.26], ['AGUARDANDO AGENDAMENTO', 0.22], ['REAGENDAR', 0.14], ['', 0.04]];
+// STATUS_OFICIAL no formato do print do backlog ("Agendada", "Pendente
+// agendamento"...), em maiusculas como a medida le.
+const PENDENCIAS = [['PENDENTE AGENDAMENTO', 0.45], ['PENDENTE RETENCAO', 0.15], ['PENDENTE TECNICA', 0.15], ['PENDENTE ENRIQUECIMENTO', 0.08],
+  ['NÃO CONCLUIDA', 0.07], ['PENDENTE AUTENTICACAO PORTABILIDADE', 0.05], ['', 0.05]];
+const PERDIDA_STATUS = [['PENDENTE AGENDAMENTO', 0.44], ['PENDENTE RETENCAO', 0.12], ['AGENDADA', 0.12], ['PENDENTE TECNICA', 0.10], ['NÃO CONCLUIDA', 0.08],
+  ['CANCELADA CLIENTE', 0.04], ['PENDENTE CANCELAMENTO VIVO', 0.03], ['CANCELADA', 0.02], ['CANCELADA OUTROS', 0.01], ['CANCELADA TECNICA', 0.01],
+  ['ENCERRADA', 0.01], ['PENDENTE ENRIQUECIMENTO', 0.005], ['BLOQUEADA FRAUDE', 0.003], ['AGUARDANDO DOCUMENTACAO', 0.002]];
 const CAMPO_HOJE = [['CONCLUÍDA', 0.30], ['NÃO INICIADA', 0.27], ['EM ROTA', 0.14], ['INICIADA', 0.12], ['NÃO CONCLUÍDA', 0.09], ['SUSPENSA', 0.05], ['CANCELADA', 0.03]];
 const CAMPO_PERDIDA = [['NÃO INICIADA', 0.40], ['EM ROTA', 0.16], ['INICIADA', 0.14], ['CONCLUÍDA', 0.20], ['NÃO CONCLUÍDA', 0.10]];
 function gerarBacklog() {
@@ -90,19 +96,25 @@ function gerarBacklog() {
     // algumas antigas sem hora (00:00), como aparece na coluna DATA_PRIMEIRA_AGENDA
     const hora = pick(r, [[8.5, 0.48], [14, 0.38], [12, 0.06], [18, 0.04], [0, 0.04]]);
     const agenda = dif === null ? null : HOJE + dif + hora / 24;
+    // abertura (venda): de 1 a 6 dias antes da 1a agenda; parte das perdidas e bem antiga
+    let idade;
+    if (dif === null) idade = Math.floor(r() * 40);
+    else if (dif < 0 && r() < 0.42) idade = 31 + Math.floor(r() * 75);
+    else idade = Math.max(0, -dif + 1 + Math.floor(r() * 6));
+    const abertura = r() < 0.01 ? null : HOJE - idade + (9 + Math.floor(r() * 9)) / 24;
     let campo = '';
     if (dif === 0) { if (r() > 0.22 + (1 - taxa) * 0.28) campo = pick(r, CAMPO_HOJE); }
     else if (dif !== null && dif < 0) { if (r() < 0.30) campo = pick(r, CAMPO_PERDIDA); }
     else if (dif === 1) { if (r() < 0.04) campo = 'NÃO INICIADA'; }
-    // de manha a ordem ja andou mais que a da tarde
     if (dif === 0 && hora === 14 && campo === 'CONCLUÍDA' && r() < 0.6) campo = 'NÃO INICIADA';
     let stof;
-    if (dif === 1) stof = r() < 0.82 - (1 - taxa) * 0.45 ? 'AGENDADO' : pick(r, PENDENCIAS);
-    else if (dif === 0) stof = r() < 0.9 ? 'AGENDADO' : 'PENDENTE TÉCNICA';
-    else if (dif !== null && dif < 0) stof = r() < 0.2 ? 'AGENDADO' : pick(r, [['REAGENDAR', 0.4], ['PENDENTE CLIENTE', 0.32], ['PENDENTE TÉCNICA', 0.28]]);
-    else stof = r() < 0.74 ? 'AGENDADO' : pick(r, PENDENCIAS);
+    if (dif === 1) stof = r() < 0.82 - (1 - taxa) * 0.45 ? 'AGENDADA' : pick(r, PENDENCIAS);
+    else if (dif === 0) stof = r() < 0.9 ? 'AGENDADA' : 'PENDENTE TECNICA';
+    else if (dif !== null && dif < 0) stof = pick(r, PERDIDA_STATUS);
+    else if (dif === null) stof = r() < 0.8 ? 'PENDENTE AGENDAMENTO' : pick(r, PENDENCIAS);
+    else stof = r() < 0.74 ? 'AGENDADA' : pick(r, PENDENCIAS);
     seq += 1 + Math.floor(r() * 23);
-    out.push(Object.assign({ Ordem: 'SA-' + seq, PON: 'PON' + String(810000 + (seq % 97553)), AT: at, Agenda: agenda, Campo: campo, StOf: stof }, extra || {}));
+    out.push(Object.assign({ Ordem: 'SA-' + seq, PON: 'PON' + String(810000 + (seq % 97553)), AT: at, Agenda: agenda, Abertura: abertura, Campo: campo, StOf: stof }, extra || {}));
   };
   ATS.forEach(([at, , vol, taxa]) => {
     const qtd = Math.round(vol * (1.55 + (1 - taxa) * 1.9));
@@ -134,7 +146,6 @@ function janela(fimSel, qtdMeses, qtdSemanas) {
  *   fimSel      ultima data do filtro de mes (serial) | null = sem filtro
  *   ats         siglas das ATs no filtro | null = todas
  *   carga       data da carga do backlog (serial) | padrao: hoje 07:10 | null = coluna nao ligada
- *   semNumero   true = Ordem e PON nao ligados (como a medida vem ao colar)
  *   semAgenda   true = DATA_PRIMEIRA_AGENDA vazia
  *   atNaoBate   true = a coluna AT do backlog tem outros nomes (nao bate com a dAT)
  *   semBacklog  true = backlog vazio
@@ -154,10 +165,9 @@ function cenario(o) {
     _calModelo: CALENDARIO.filter((d) => d >= j.mesIni && d <= j.mesFim).map((d) => ({ Data: d })),
     // o backlog nao tem relacionamento com a dAT: vem inteiro e a medida filtra pela coluna AT
     _backlogModelo: opt.semBacklog ? [] : BACKLOG.map((b) => ({
-      Ordem: opt.semNumero ? null : b.Ordem,
-      PON: opt.semNumero ? null : b.PON,
       AT: opt.atNaoBate ? 'SPO-' + b.AT : b.AT,
       Agenda: opt.semAgenda ? null : b.Agenda,
+      Abertura: b.Abertura,
       Campo: b.Campo,
       StOf: b.StOf,
     })),
@@ -167,4 +177,7 @@ function cenario(o) {
 
 const daCor = (cor) => ATS.filter((a) => a[1] === cor).map((a) => a[0]);
 
-module.exports = { HOJE, UTC_NOW, ATS, CALENDARIO, BAIXADAS, BACKLOG, cenario, daCor };
+// barras de filtro: data/hora da ultima atualizacao (Zeus)
+const barra = { hoje: { _atualizacao: HOJE + (7 * 60 + 12) / 1440 }, ontem: { _atualizacao: HOJE - 1 + (14 * 60 + 28) / 1440 }, semData: { _atualizacao: null } };
+
+module.exports = { HOJE, UTC_NOW, ATS, CALENDARIO, BAIXADAS, BACKLOG, cenario, daCor, barra };

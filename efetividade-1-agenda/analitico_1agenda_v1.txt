@@ -15,6 +15,9 @@
 //   - _statusAgendado em "1AG Agendamento" e a lista de status em
 //     "1AG Situação em Campo" sao os mesmos do painel: mudou la, mude aqui.
 //
+// A pagina NAO entra no menu: o botao Baixar CSV da barra do painel leva ate
+// ela (pagina oculta). Para voltar: botao Voltar da barra ou o menu.
+//
 // A TABELA PRECISA TER A COLUNA DO NUMERO DA ORDEM: e ela que faz cada linha
 // ser uma ordem. Sem ela, ordens com os mesmos valores viram uma linha so.
 // Desligue os totais da tabela (Formatar > Totais > desativado).
@@ -103,14 +106,27 @@ RETURN
 
 // ----------------------------------------------------------------------------
 // 5) AGENDAMENTO (coluna [STATUS_OFICIAL])
-//    Agendada = STATUS_OFICIAL igual a _statusAgendado | Sem agendar = o resto
+//    Agendada = STATUS_OFICIAL comeca com _statusAgendado ("AGENDAD" pega
+//    AGENDADA e AGENDADO) | Sem agendar = o resto (inclusive vazio)
 // ----------------------------------------------------------------------------
 1AG Agendamento =
-VAR _statusAgendado = "AGENDADO"
+VAR _statusAgendado = "AGENDAD"
 VAR _umaOrdem = HASONEVALUE( 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA] )
 VAR _st = UPPER( TRIM( SELECTEDVALUE( 'BACKLOG_INSTALACAO'[STATUS_OFICIAL] ) ) )
 RETURN
-    IF( _umaOrdem, IF( _st = _statusAgendado, "Agendada", "Sem agendar" ) )
+    IF( _umaOrdem, IF( LEFT( _st, LEN( _statusAgendado ) ) = _statusAgendado, "Agendada", "Sem agendar" ) )
+
+
+// ----------------------------------------------------------------------------
+// 5b) IDADE: dias corridos desde a DATA_ABERTURA (a mesma do grafico de
+//     idade do card Backlog). Formato sugerido: Numero inteiro.
+// ----------------------------------------------------------------------------
+1AG Idade =
+VAR _fuso = -3
+VAR _hoje = INT( UTCNOW() + _fuso / 24 )
+VAR _abertura = SELECTEDVALUE( 'BACKLOG_INSTALACAO'[DATA_ABERTURA] )
+RETURN
+    IF( ISBLANK( _abertura ), BLANK(), MAX( 0, _hoje - INT( _abertura ) ) )
 
 
 // ----------------------------------------------------------------------------

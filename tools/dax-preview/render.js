@@ -161,7 +161,8 @@ function composeMenuBarra(menu, barra, corpo, opts) {
   const frame = (r, h, id) => '<iframe name="' + id + '" title="' + id + '" style="' + box(r) + '" srcdoc="' + esc(wrap(h)) + '"></iframe>';
   const vals = o.valores || ['Novembro/2026', 'Todos', 'Todos'];
   const sl = frame(L.barra, barra, 'barra') +
-    vals.map((v, k) => '<div class="sl" style="left:' + (L.barra.x + L.barra.w - [536, 358, 180][k]) + 'px;top:' + (L.barra.y + 24) + 'px">' + v + '</div>').join('');
+    // borda esquerda de cada segmentacao, contando da borda direita da barra (padrao: barra da Instalacao 3D)
+    vals.map((v, k) => '<div class="sl" style="left:' + (L.barra.x + L.barra.w - (o.caixas || [536, 358, 180])[k]) + 'px;top:' + (L.barra.y + 24) + 'px">' + v + '</div>').join('');
   const meio = corpo.html !== undefined ? frame(L.vis, corpo.html, o.nome || 'corpo') : '<div class="nat" style="' + box(L.vis) + '">' + corpo.nativo + '</div>';
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + (o.title || 'Prévia') + '</title><style>' +
     'html,body{margin:0;background:#C9D3E3;font-family:"Segoe UI",system-ui,Arial,sans-serif}' +

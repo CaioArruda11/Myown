@@ -22,26 +22,27 @@ Painel Efetividade 1 Agenda HTML =
 //   do 'BACKLOG_INSTALACAO':
 //     4. o que ainda da para salvar e o que ja perdemos (1a agenda vencida),
 //        quantas vencem hoje e quantas vencem amanha;
-//     5. VENCEM HOJE x EM CAMPO: pela coluna [ETA DIRECT D-0.Status]
-//        (em branco = a ordem nao esta em campo hoje), e quanto o mes fica
-//        se salvar ou se perder as que faltam;
-//     6. a mesma conta por COR e por AT, com as de amanha sem STATUS_OFICIAL
-//        AGENDADO;
-//     7. lista das ORDENS, com abas Perdidas | Vencem hoje | Amanha.
+//     5. a mesma conta por COR e por AT: hoje fora de campo (coluna
+//        [ETA DIRECT D-0.Status] em branco) e amanha sem agendar;
+//     6. card BACKLOG: vence hoje (em campo x fora de campo), vence amanha
+//        (agendada x sem agendar), idade desde a abertura, em campo por status
+//        da ETA DIRECT D-0, fora de campo por STATUS_OFICIAL, e quanto o mes
+//        fica se salvar ou se perder as pendentes de hoje.
+//   As ordens, uma a uma, ficam na pagina do analitico (botao Baixar CSV).
 //   As duas metades respeitam os filtros de COR e de AT.
 //
 // O QUE AJUSTAR
-//   - bloco 1 (CONFIGURACAO): meta, valor do status agendado, grupos do
+//   - bloco 1 (CONFIGURACAO): meta, comeco do status agendado, grupos do
 //     status de campo, fuso, quantos meses/semanas;
 //   - VARs marcadas com "<<< MODELO": sao as UNICAS que leem tabelas, colunas
 //     e medidas. Todo o resto usa so o que essas VARs devolvem;
-//   - em _backlogModelo, as 3 linhas marcadas com "<<< TROQUE / CONFIRME"
-//     (numero da ordem, PON e a coluna com a AT do backlog);
+//   - em _backlogModelo, a linha marcada com "<<< CONFIRME" (coluna com a AT
+//     do backlog);
 //   - medidas usadas: [1_AGENDA NO PRAZO] e [1_AGENDA TOTAL]
 //     (arquivo medidas_de_apoio_1agenda_v1.txt).
 //
 // COMPATIBILIDADE COM O VISUAL HTML (nao executa JavaScript)
-//   - so HTML + CSS; botoes com details + :has(), como nas paginas IFI/IRR;
+//   - so HTML + CSS; botoes Mes | Semana | Dia com details + :has(), como nas paginas IFI/IRR;
 //   - o bloco de estilo fica dentro da div principal e o CSS nao tem o sinal
 //     de menor: sem isso, visuais que filtram o HTML descartam o CSS todo;
 //   - atributo style so carrega variaveis CSS e fica em um div class='v'
@@ -74,10 +75,12 @@ VAR _fuso = -3                // fuso de Brasilia (UTC-3)
 VAR _qtdMeses = 12            // meses na curva mensal
 VAR _qtdSemanas = 12          // semanas na curva semanal (segunda a domingo)
 VAR _visaoInicial = "Mês"     // curva que abre primeiro: "Mês" | "Semana" | "Dia"
-VAR _maxLinhas = 60           // ordens listadas em cada aba (as mais urgentes)
-// Valor do 'BACKLOG_INSTALACAO'[STATUS_OFICIAL] que conta como agendada. As de
-// amanha com qualquer outro valor (ou vazio) aparecem como "sem agendar".
-VAR _statusAgendado = "AGENDADO"
+// Comeco do 'BACKLOG_INSTALACAO'[STATUS_OFICIAL] que conta como agendada: com
+// "AGENDAD" valem AGENDADA e AGENDADO (no print do backlog aparece "Agendada").
+// As de amanha com qualquer outro valor (ou vazio) aparecem como "sem agendar".
+VAR _statusAgendado = "AGENDAD"
+VAR _maxStatus = 14           // status oficiais listados no card (o resto vira "Outros")
+VAR _maxCampo = 7             // status da ETA listados em "Em campo" (o resto vira "Outros")
 // Status da 'ETA DIRECT D-0' (coluna [ETA DIRECT D-0.Status] do backlog) e o
 // grupo de cada um. Em branco = fora de campo (a ordem nao esta na carga de
 // hoje). Status que nao estiver na lista conta como "Q" (em campo, nao iniciada).
@@ -175,15 +178,12 @@ VAR _calModelo =
 //     O filtro de cor/AT e aplicado mais abaixo pela coluna AT, entao nao
 //     precisa de relacionamento com a dAT (os nomes das ATs tem que ser os
 //     mesmos da dAT[AREA ]).
-//         "Ordem"  = numero da ordem (so para a lista)          <<< TROQUE
-//         "PON"    = PON (so para a lista)                       <<< TROQUE
-//                    as duas vem como BLANK() para a medida ja funcionar
-//                    ao colar; troque pela coluna, no formato
-//                    "" & 'BACKLOG_INSTALACAO'[nome da coluna]
-//         "AT"     = coluna com a sigla da AT                    <<< CONFIRME
-//         "Agenda" = [DATA_PRIMEIRA_AGENDA]: data e hora da 1a agenda
-//         "Campo"  = [ETA DIRECT D-0.Status]: em branco = fora de campo hoje
-//         "StOf"   = [STATUS_OFICIAL]: AGENDADO ou nao
+//         "AT"       = coluna com a sigla da AT                  <<< CONFIRME
+//         "Agenda"   = [DATA_PRIMEIRA_AGENDA]: data e hora da 1a agenda
+//         "Abertura" = [DATA_ABERTURA]: idade da ordem no card Backlog
+//         "Campo"    = [ETA DIRECT D-0.Status]: em branco = fora de campo hoje
+//         "StOf"     = [STATUS_OFICIAL]: agendada ou nao, e o motivo de quem
+//                      esta fora de campo
 //     >>> Se o backlog trouxer ordens canceladas, troque a linha
 //         'BACKLOG_INSTALACAO',  por:
 //         FILTER( 'BACKLOG_INSTALACAO', ISBLANK( 'BACKLOG_INSTALACAO'[DATA_CANCELAMENTO] ) ),
@@ -191,10 +191,9 @@ VAR _backlogModelo =
     CALCULATETABLE(
         SELECTCOLUMNS(
             'BACKLOG_INSTALACAO',
-            "Ordem", BLANK(),                                            // <<< TROQUE: "" & 'BACKLOG_INSTALACAO'[coluna do numero da ordem]
-            "PON", BLANK(),                                              // <<< TROQUE: "" & 'BACKLOG_INSTALACAO'[coluna do PON]
             "AT", TRIM( 'BACKLOG_INSTALACAO'[CENTRAL_OFFICE] ),         // <<< CONFIRME: coluna com a sigla da AT
             "Agenda", 'BACKLOG_INSTALACAO'[DATA_PRIMEIRA_AGENDA],
+            "Abertura", 'BACKLOG_INSTALACAO'[DATA_ABERTURA],
             "Campo", UPPER( TRIM( 'BACKLOG_INSTALACAO'[ETA DIRECT D-0.Status] ) ),
             "StOf", UPPER( TRIM( 'BACKLOG_INSTALACAO'[STATUS_OFICIAL] ) )
         ),
@@ -803,9 +802,8 @@ VAR _views =
 //   F = fora de campo (em branco)   X = insucesso (nao concluida, suspensa, cancelada)
 //   Q = nao iniciada                E = em execucao (em rota, iniciada)
 //   C = concluida (salva)
-// Sem agendar = STATUS_OFICIAL diferente de _statusAgendado.
-// O prazo conta pela DATA da 1a agenda (vale o dia todo); a hora so ordena a
-// lista e marca em vermelho quando o horario de hoje ja passou.
+// Agendada = STATUS_OFICIAL comeca com _statusAgendado (AGENDADA ou AGENDADO).
+// O prazo conta pela DATA da 1a agenda (vale o dia todo).
 // ============================================================================
 VAR _qCarga = COUNTROWS( _backlogModelo ) + 0
 // so as ordens das ATs do filtro (vale mesmo sem relacionamento com a dAT)
@@ -817,12 +815,13 @@ VAR _bk1 =
             VAR _a0 = [AT]
             RETURN COALESCE( MAXX( FILTER( _atsTodas, [AT] = _a0 ), [Cor] ), "" ),
         "AgN", IF( ISBLANK( [Agenda] ), BLANK(), INT( [Agenda] ) ),
+        "AbN", IF( ISBLANK( [Abertura] ), BLANK(), INT( [Abertura] ) ),
         "Grp",
             VAR _st0 = [Campo]
             RETURN IF( _st0 = "", "F", COALESCE( MAXX( FILTER( _campoCfg, [StCampo] = _st0 ), [GrpCampo] ), "Q" ) ),
-        "Agd", IF( [StOf] = _statusAgendado, 1, 0 )
+        "Agd", IF( LEFT( [StOf], LEN( _statusAgendado ) ) = _statusAgendado, 1, 0 )
     )
-VAR _bk2 =
+VAR _bk =
     ADDCOLUMNS(
         _bk1,
         "Sit",
@@ -833,30 +832,7 @@ VAR _bk2 =
                 [AgN] = _hojeN, "H",
                 [AgN] = _hojeN + 1, "A",
                 "N"
-            ),
-        // hora da 1a agenda em fracao do dia (08:30 = 0,354); 0 = sem hora
-        "Hora", IF( ISBLANK( [Agenda] ), 0, ( HOUR( [Agenda] ) * 60 + MINUTE( [Agenda] ) ) / 1440 ),
-        "ClsC",
-            VAR _c8 = [CorN]
-            RETURN COALESCE( MAXX( FILTER( _coresCfg, [CorCfg] = _c8 ), [ClsCor] ), "c-outra" )
-    )
-VAR _bk =
-    ADDCOLUMNS(
-        _bk2,
-        // ordem dentro de cada lista (menor primeiro):
-        //   vencem hoje: fora de campo, insucesso, nao iniciada, em execucao,
-        //                concluida; dentro do grupo, o horario da agenda (sem hora no fim)
-        //   amanha: sem agendar primeiro; depois o horario
-        //   perdidas: a 1a agenda mais antiga primeiro
-        "OrdL",
-            SWITCH(
-                [Sit],
-                "H", SWITCH( [Grp], "F", 0, "X", 1, "Q", 2, "E", 3, 4 ) + IF( [Hora] > 0, [Hora], 0.999 ),
-                "A", [Agd] + IF( [Hora] > 0, [Hora], 0.999 ),
-                IF( ISBLANK( [AgN] ), 999999, [AgN] + [Hora] )
-            ),
-        // vence hoje, o horario da agenda ja passou e ainda nao foi concluida
-        "Atr", IF( [Sit] = "H" && [Hora] > 0 && [Grp] <> "C" && [Agenda] < _agora, 1, 0 )
+            )
     )
 VAR _bkAgg = GROUPBY( _bk, [AT], [CorN], [Sit], [Grp], [Agd], "Q", SUMX( CURRENTGROUP(), 1 ) )
 
@@ -873,7 +849,6 @@ VAR _qHpend = _qH - _qHC
 VAR _qAsem = SUMX( FILTER( _bkAgg, [Sit] = "A" && [Agd] = 0 ), [Q] ) + 0
 VAR _qPcampo = SUMX( FILTER( _bkAgg, [Sit] = "P" && [Grp] <> "F" ), [Q] ) + 0
 VAR _semAgenda = _qBk > 0 && _qS = _qBk
-VAR _semNumero = _qBk > 0 && COUNTROWS( FILTER( _bk, [Ordem] <> "" ) ) + 0 = 0
 VAR _txtPctSalv = IF( _qBk = 0, "", FORMAT( DIVIDE( _qSalv, _qBk ), "0%", _loc ) )
 VAR _txtPctPerd = IF( _qBk = 0, "", FORMAT( DIVIDE( _qP, _qBk ), "0%", _loc ) )
 
@@ -896,7 +871,7 @@ VAR _chipCarga =
         TRUE(),
         ISBLANK( _defasagemCarga ), "",
         _defasagemCarga <= 0, "<span class='cg' title='O backlog já recebeu a carga de hoje.'><i></i>carga de hoje</span>",
-        "<span class='cg late' title='A última carga do backlog não é de hoje. As ordens abaixo podem estar desatualizadas.'><i></i>carga D-" &
+        "<span class='cg late' title='A última carga do backlog não é de hoje. Os números podem estar desatualizados.'><i></i>carga D-" &
             _defasagemCarga & " · " & FORMAT( _dataCarga, "dd/MM", _loc ) & "</span>"
     )
 
@@ -933,71 +908,12 @@ VAR _heroHoje =
                     FORMAT( _qP, "#,0", _loc ) & "</b><em>" & _txtPctPerd & " da carteira</em></div>" &
                 "<div class='st tO' title='1ª agenda hoje. Fora de campo = não está na ETA DIRECT D-0 de hoje.'><small><i></i>Vencem hoje</small><b>" &
                     FORMAT( _qH, "#,0", _loc ) & "</b><em>" & FORMAT( _qHF, "#,0", _loc ) & " fora de campo</em></div>" &
-                "<div class='st tY' title='1ª agenda amanhã. Sem agendar = STATUS_OFICIAL diferente de AGENDADO.'><small><i></i>Amanhã</small><b>" &
+                "<div class='st tY' title='1ª agenda amanhã. Sem agendar = STATUS_OFICIAL diferente de agendada.'><small><i></i>Amanhã</small><b>" &
                     FORMAT( _qA, "#,0", _loc ) & "</b><em>" & FORMAT( _qAsem, "#,0", _loc ) & " sem agendar</em></div>"
             ) &
         "</div>" &
         "<div class='cb' title='Composição da carteira: perdidas, vencem hoje, vencem amanhã, no prazo e sem 1ª agenda.'>" & _barraCarteira & "</div>" &
     "</section>"
-
-// ---- vencem hoje x situacao em campo ----
-VAR _segCampo =
-    DATATABLE(
-        "GrpS", STRING,
-        "OrdS", INTEGER,
-        "RotS", STRING,
-        "ClsS", STRING,
-        "DicaS", STRING,
-        {
-            { "F", 1, "Fora de campo", "tR", "Não está na ETA DIRECT D-0 de hoje: precisa entrar em campo hoje." },
-            { "X", 2, "Insucesso", "tO", "Não concluída, suspensa ou cancelada hoje: precisa de nova tentativa hoje." },
-            { "Q", 3, "Não iniciada", "tY", "Em campo hoje, ainda não começou." },
-            { "E", 4, "Em execução", "tB", "Em rota ou iniciada." },
-            { "C", 5, "Concluída", "tG", "Concluída hoje: salva." }
-        }
-    )
-VAR _qPorGrp =
-    ADDCOLUMNS(
-        _segCampo,
-        "Qg",
-            VAR _g0 = [GrpS]
-            RETURN SUMX( FILTER( _bkAgg, [Sit] = "H" && [Grp] = _g0 ), [Q] ) + 0
-    )
-VAR _barraHoje =
-    CONCATENATEX(
-        FILTER( _qPorGrp, [Qg] > 0 ),
-        "<div class='v' style='--w:" & FORMAT( [Qg], "0", "en-US" ) & "'><i class='" & [ClsS] & "'></i></div>",
-        "",
-        [OrdS], ASC
-    )
-VAR _colsHoje =
-    CONCATENATEX(
-        _qPorGrp,
-        "<div class='vg " & [ClsS] & IF( [Qg] = 0, " z", "" ) & "' title='" & [DicaS] & "'>" &
-            "<small><i></i>" & [RotS] & "</small>" &
-            "<b>" & FORMAT( [Qg], "#,0", _loc ) & "</b>" &
-            "<em>" & IF( _qH = 0, "", FORMAT( DIVIDE( [Qg], _qH ), "0%", _loc ) ) & "</em>" &
-        "</div>",
-        "",
-        [OrdS], ASC
-    )
-VAR _qAtr = COUNTROWS( FILTER( _bk, [Atr] = 1 ) ) + 0
-VAR _txtProj =
-    SWITCH(
-        TRUE(),
-        _qH = 0, "Nenhuma ordem com 1ª agenda hoje.",
-        _qHpend = 0, "Todas as de hoje já foram concluídas.",
-        ISBLANK( _pSalvar ), "",
-        "Salvando as <b>" & FORMAT( _qHpend, "#,0", _loc ) & "</b> pendentes, " & _rotMesAtual & " vai a <b class='pg'>" & FORMAT( _pSalvar, "0.0%", _loc ) &
-            "</b>; perdendo, fica em <b class='pr'>" & FORMAT( _pPerder, "0.0%", _loc ) & "</b>."
-    )
-VAR _blocoHoje =
-    "<div class='vh'>" &
-        "<div class='vhh'><b>Vencem hoje · em campo</b><span" & IF( _qAtr > 0, " class='atr'>" & FORMAT( _qAtr, "#,0", _loc ) & " com o horário já passado", ">" ) & "</span></div>" &
-        "<div class='vb'>" & _barraHoje & "</div>" &
-        "<div class='vgs'>" & _colsHoje & "</div>" &
-        "<p class='vp' title='" & _rotMesAtual & " até agora: " & IF( ISBLANK( _pAtual ), "sem baixas", FORMAT( _pAtual, "0.0%", _loc ) ) & ". Pendentes = vencem hoje e ainda não foram concluídas. Estimativa: baixas fora da carteira não entram.'>" & _txtProj & "</p>" &
-    "</div>"
 
 // ---- por cor e AT: carteira, perdidas, hoje (fora de campo), amanha (sem agendar) ----
 VAR _atsHoje =
@@ -1055,94 +971,161 @@ VAR _tabHoje =
         [Nome], ASC
     )
 
-// ---- lista de ordens: uma aba por situacao ----
-// Posicao das abas: 0 = Perdidas | 1 = Vencem hoje | 2 = Amanha.
-// Abre na primeira que tiver ordem, nesta prioridade: hoje, amanha, perdidas.
-VAR _lA = SWITCH( TRUE(), _qH > 0, 1, _qA > 0, 2, _qP > 0, 0, 1 )
-VAR _lB = IF( _lA = 0, 1, 0 )
-VAR _lC = IF( _lA = 2, 1, 2 )
-VAR _abas =
+// ---- card BACKLOG: o retrato da carteira de hoje ----
+//   cabecalho: ordens e quantas ja estao fora do indicador (perdidas)
+//   vence hoje: em campo x fora de campo | vence amanha: agendada x sem agendar
+//   idade: dias desde a abertura | em campo: status da ETA DIRECT D-0 |
+//   fora de campo: STATUS_OFICIAL (o motivo de nao estar em campo)
+VAR _qCampo = SUMX( FILTER( _bkAgg, [Grp] <> "F" ), [Q] ) + 0
+VAR _qFora = _qBk - _qCampo
+VAR _qHcampo = _qH - _qHF
+VAR _qAagd = _qA - _qAsem
+VAR _pctCampo = IF( _qBk = 0, "", FORMAT( DIVIDE( _qCampo, _qBk ), "0%", _loc ) )
+VAR _pctFora = IF( _qBk = 0, "", FORMAT( DIVIDE( _qFora, _qBk ), "0%", _loc ) )
+
+// idade = dias corridos desde a DATA_ABERTURA, nas mesmas faixas do painel da 3D
+VAR _faixas =
     DATATABLE(
-        "SitA", STRING,
-        "PosA", INTEGER,
-        "SufA", STRING,
-        "TierA", STRING,
-        "VazioA", STRING,
+        "Fx", STRING,
+        "OrdF", INTEGER,
+        "De", INTEGER,
+        "Ate", INTEGER,
         {
-            { "P", 0, "p", "tR", "Nenhuma ordem com a 1ª agenda vencida." },
-            { "H", 1, "h", "tO", "Nenhuma ordem com 1ª agenda hoje." },
-            { "A", 2, "a", "tY", "Nenhuma ordem com 1ª agenda amanhã." }
+            { "D0", 1, 0, 0 },
+            { "D1", 2, 1, 1 },
+            { "D2", 3, 2, 2 },
+            { "D3", 4, 3, 3 },
+            { "4-7", 5, 4, 7 },
+            { "8-15", 6, 8, 15 },
+            { "16-30", 7, 16, 30 },
+            { "+30", 8, 31, 99999 }
         }
     )
-VAR _listas =
-    CONCATENATEX(
-        _abas,
-        VAR _sA = [SitA]
-        VAR _todasA = FILTER( _bk, [Sit] = _sA )
-        VAR _qTodasA = COUNTROWS( _todasA ) + 0
-        VAR _topA = TOPN( _maxLinhas, _todasA, [OrdL], ASC, [Ordem], ASC )
-        VAR _linhasA =
-            CONCATENATEX(
-                _topA,
-                // 1a agenda: perdidas mostram o dia; hoje e amanha, o horario
-                VAR _agTxt =
-                    IF(
-                        _sA = "P",
-                        FORMAT( [Agenda], "dd/MM", _loc ),
-                        IF( [Hora] > 0, FORMAT( [Agenda], "hh:nn", _loc ), "sem hora" )
-                    )
-                // situacao: hoje = status em campo | amanha = agendamento | perdidas = dias desde a 1a agenda
-                VAR _sitTxt =
-                    SWITCH(
-                        _sA,
-                        "H", SWITCH( [Grp], "F", "fora de campo", "C", "concluída", LOWER( [Campo] ) ),
-                        "A", IF( [Agd] = 1, "agendada", IF( [StOf] = "", "sem status", LOWER( [StOf] ) ) ),
-                        "D+" & FORMAT( _hojeN - [AgN], "0", _loc ) & SWITCH( [Grp], "F", "", "C", " · concluída", " · em campo" )
-                    )
-                VAR _sitCls =
-                    SWITCH(
-                        _sA,
-                        "H", SWITCH( [Grp], "F", "tR", "X", "tO", "Q", "tY", "E", "tB", "tG" ),
-                        "A", IF( [Agd] = 1, "tN", "tO" ),
-                        SWITCH( [Grp], "F", "tR", "C", "tN", "tB" )
-                    )
-                RETURN
-                    "<div class='or'>" &
-                        "<b class='on'>" & IF( [Ordem] = "", "—", [Ordem] ) & "</b>" &
-                        "<span class='op' title='Clique para selecionar o PON inteiro e copie com Ctrl+C'>" & IF( [PON] = "", "—", [PON] ) & "</span>" &
-                        "<span class='oa " & [ClsC] & "'><i class='cd'></i>" & [AT] & "</span>" &
-                        "<span class='od" & IF( [Atr] = 1, " late", "" ) & "'>" & _agTxt & "</span>" &
-                        "<span class='os " & _sitCls & "'>" & _sitTxt & "</span>" &
-                    "</div>",
-                "",
-                [OrdL], ASC,
-                [Ordem], ASC
-            )
-        RETURN
-            "<div class='lv l-" & [SufA] & " " & [TierA] & IF( [PosA] = _lA, " ini", "" ) & "'>" &
-                IF( _semNumero && _qTodasA > 0, "<p class='nt'>Ligue as colunas Ordem e PON na VAR _backlogModelo para ver o número de cada ordem.</p>", "" ) &
-                IF(
-                    _qTodasA = 0,
-                    "<div class='empty'><b>" & IF( _semAgenda, "Sem a data da 1ª agenda não dá para separar", [VazioA] ) & "</b>" &
-                        IF( _semAgenda, "A coluna DATA_PRIMEIRA_AGENDA está vazia em todas as ordens do filtro.", "Carteira de hoje, no filtro de cor e AT atual." ) & "</div>",
-                    _linhasA &
-                        IF(
-                            _qTodasA > _maxLinhas,
-                            "<p class='more'>Mostrando as " & _maxLinhas & " mais urgentes de " & FORMAT( _qTodasA, "#,0", _loc ) & ". A lista completa está na página ANALÍTICO 1 AGENDA.</p>",
-                            ""
-                        )
-                ) &
-            "</div>",
-        "",
-        [PosA], ASC
+VAR _idades = SELECTCOLUMNS( FILTER( _bk, NOT ISBLANK( [AbN] ) ), "Id", MAX( 0, _hojeN - [AbN] ) )
+VAR _qSemAbertura = _qBk - ( COUNTROWS( _idades ) + 0 )
+VAR _hist =
+    ADDCOLUMNS(
+        _faixas,
+        "Qf",
+            VAR _de = [De]
+            VAR _ate = [Ate]
+            RETURN COUNTROWS( FILTER( _idades, [Id] >= _de && [Id] <= _ate ) ) + 0
     )
+VAR _maxF = MAXX( _hist, [Qf] )
+VAR _barrasIdade =
+    CONCATENATEX(
+        _hist,
+        "<div class='v' style='--h:" & FORMAT( DIVIDE( [Qf], _maxF, 0 ), "0.000", "en-US" ) & "'>" &
+            "<div class='bhc" & IF( [Qf] > 0 && [Qf] = _maxF, " mx", "" ) & "'>" &
+                "<b>" & IF( [Qf] = 0, "", FORMAT( [Qf], "#,0", _loc ) ) & "</b><i></i><small>" & [Fx] & "</small>" &
+            "</div></div>",
+        "",
+        [OrdF], ASC
+    )
+
+VAR _boxHoje =
+    "<div class='bv'>" &
+        "<div class='bvh'><span>Vence hoje</span><b>" & FORMAT( _qH, "#,0", _loc ) & "</b></div>" &
+        "<div class='br ok' title='Estão na ETA DIRECT D-0 de hoje.'><span><i></i>em campo</span><b>" & FORMAT( _qHcampo, "#,0", _loc ) & "</b></div>" &
+        "<div class='br wn' title='Não estão na ETA DIRECT D-0 de hoje: precisam entrar em campo hoje.'><span>⚠ fora de campo</span><b>" & FORMAT( _qHF, "#,0", _loc ) & "</b></div>" &
+    "</div>"
+VAR _boxAmanha =
+    "<div class='bv'>" &
+        "<div class='bvh'><span>Vence amanhã</span><b>" & FORMAT( _qA, "#,0", _loc ) & "</b></div>" &
+        "<div class='br ok' title='STATUS_OFICIAL agendada.'><span><i></i>agendada</span><b>" & FORMAT( _qAagd, "#,0", _loc ) & "</b></div>" &
+        "<div class='br wn' title='STATUS_OFICIAL diferente de agendada: agendar ainda hoje.'><span>⚠ sem agendar</span><b>" & FORMAT( _qAsem, "#,0", _loc ) & "</b></div>" &
+    "</div>"
+VAR _boxIdade =
+    "<div class='bh' title='Dias corridos desde a DATA_ABERTURA." & IF( _qSemAbertura > 0, " Ordens sem abertura (fora do gráfico): " & FORMAT( _qSemAbertura, "#,0", _loc ) & ".", "" ) & "'>" &
+        "<div class='bhh'>Idade · dias desde a abertura</div>" &
+        "<div class='bhs'>" & _barrasIdade & "</div>" &
+    "</div>"
+
+// em campo: status da ETA DIRECT D-0, do maior para o menor.
+// Mais de _maxCampo status: os menores viram "Outros N status".
+VAR _campoLista = GROUPBY( FILTER( _bk, [Grp] <> "F" ), [Campo], "Qc", SUMX( CURRENTGROUP(), 1 ) )
+VAR _nCampo = COUNTROWS( _campoLista ) + 0
+VAR _campoRank =
+    ADDCOLUMNS(
+        _campoLista,
+        "Rk",
+            VAR _q0 = [Qc]
+            VAR _c0 = [Campo]
+            RETURN COUNTROWS( FILTER( _campoLista, [Qc] > _q0 || ( [Qc] = _q0 && [Campo] < _c0 ) ) ) + 1
+    )
+VAR _corteCampo = IF( _nCampo > _maxCampo, _maxCampo - 1, _maxCampo )
+VAR _campoTop = FILTER( _campoRank, [Rk] <= _corteCampo )
+VAR _nCampoOutros = _nCampo - ( COUNTROWS( _campoTop ) + 0 )
+VAR _qCampoOutros = _qCampo - ( SUMX( _campoTop, [Qc] ) + 0 )
+VAR _linhasCampo =
+    CONCATENATEX(
+        _campoTop,
+        "<div class='bl'><span>" & UPPER( LEFT( [Campo], 1 ) ) & LOWER( MID( [Campo], 2, 200 ) ) & "</span><b>" & FORMAT( [Qc], "#,0", _loc ) & "</b></div>",
+        "",
+        [Rk], ASC
+    ) &
+    IF( _nCampoOutros > 0, "<div class='bl ot'><span>Outros " & _nCampoOutros & " status</span><b>" & FORMAT( _qCampoOutros, "#,0", _loc ) & "</b></div>", "" )
+// fora de campo: STATUS_OFICIAL, do maior para o menor; o maior fica destacado.
+// Mais de _maxStatus status: os menores viram "Outros N status".
+VAR _foraLista = GROUPBY( FILTER( _bk, [Grp] = "F" ), [StOf], "Qs", SUMX( CURRENTGROUP(), 1 ) )
+VAR _nStatus = COUNTROWS( _foraLista ) + 0
+VAR _foraRank =
+    ADDCOLUMNS(
+        _foraLista,
+        "Rk",
+            VAR _q0 = [Qs]
+            VAR _s0 = [StOf]
+            RETURN COUNTROWS( FILTER( _foraLista, [Qs] > _q0 || ( [Qs] = _q0 && [StOf] < _s0 ) ) ) + 1
+    )
+VAR _corte = IF( _nStatus > _maxStatus, _maxStatus - 1, _maxStatus )
+VAR _foraTop = FILTER( _foraRank, [Rk] <= _corte )
+VAR _nOutros = _nStatus - ( COUNTROWS( _foraTop ) + 0 )
+VAR _qOutros = _qFora - ( SUMX( _foraTop, [Qs] ) + 0 )
+VAR _linhasFora =
+    CONCATENATEX(
+        _foraTop,
+        "<div class='bl" & IF( [Rk] = 1, " hi", "" ) & "'><span>" &
+            IF( [StOf] = "", "(sem status)", UPPER( LEFT( [StOf], 1 ) ) & LOWER( MID( [StOf], 2, 200 ) ) ) &
+            "</span><b>" & FORMAT( [Qs], "#,0", _loc ) & "</b></div>",
+        "",
+        [Rk], ASC
+    ) &
+    IF( _nOutros > 0, "<div class='bl ot'><span>Outros " & _nOutros & " status</span><b>" & FORMAT( _qOutros, "#,0", _loc ) & "</b></div>", "" )
+VAR _linhasForaQtd = COUNTROWS( _foraTop ) + 0 + IF( _nOutros > 0, 1, 0 )
+
+VAR _txtProj =
+    SWITCH(
+        TRUE(),
+        _qH = 0, "Nenhuma ordem com 1ª agenda hoje.",
+        _qHpend = 0, "Todas as de hoje já foram concluídas.",
+        ISBLANK( _pSalvar ), "",
+        "Salvando as <b>" & FORMAT( _qHpend, "#,0", _loc ) & "</b> pendentes de hoje, " & _rotMesAtual & " vai a <b class='pg'>" & FORMAT( _pSalvar, "0.0%", _loc ) &
+            "</b>; perdendo, <b class='pr'>" & FORMAT( _pPerder, "0.0%", _loc ) & "</b>."
+    )
+VAR _cardBacklog =
+    "<article class='panel bk'>" &
+        "<div class='bkh'><b>Backlog</b><span><b>" & FORMAT( _qBk, "#,0", _loc ) & "</b> ordens · <b class='x'>" & FORMAT( _qP, "#,0", _loc ) & "</b> fora do indicador</span></div>" &
+        "<div class='bka'>" & _boxHoje & _boxAmanha & _boxIdade & "</div>" &
+        "<div class='bkb'>" &
+            "<div class='bc'><div class='bch'><i></i>Em campo<b>" & FORMAT( _qCampo, "#,0", _loc ) & "</b><small>" & _pctCampo & "</small></div>" &
+                IF( _qCampo = 0, "<p class='b0'>Nenhuma ordem na ETA DIRECT D-0 de hoje.</p>", _linhasCampo ) & "</div>" &
+            "<div class='bo'><div class='bch'>⚠ Fora de campo<b>" & FORMAT( _qFora, "#,0", _loc ) & "</b><small>" & _pctFora & "</small></div>" &
+                "<div class='v' style='--r:" & MAX( 1, ROUNDUP( _linhasForaQtd / 2, 0 ) ) & "'><div class='bft'>" & _linhasFora & "</div></div></div>" &
+        "</div>" &
+        IF(
+            _txtProj = "",
+            "",
+            "<p class='bkp' title='" & _rotMesAtual & " até agora: " & IF( ISBLANK( _pAtual ), "sem baixas", FORMAT( _pAtual, "0.0%", _loc ) ) &
+                ". Pendentes = vencem hoje e ainda não foram concluídas. Estimativa: baixas fora da carteira não entram.'>" & _txtProj & "</p>"
+        ) &
+    "</article>"
 
 // ============================================================================
 // 9. BOTOES CLICAVEIS (sem JavaScript)
-// Cada grupo de 3 botoes usa 3 details invisiveis. As 8 combinacoes de
-// aberto/fechado sao mapeadas para as 3 visoes, e a camada clicavel de cada
-// details e posicionada sobre o botao da visao para onde aquele clique
-// leva. Assim qualquer visao fica sempre a 1 clique. Tabela:
+// Os 3 botoes da curva (Mes | Semana | Dia) usam 3 details invisiveis. As 8
+// combinacoes de aberto/fechado sao mapeadas para as 3 visoes, e a camada
+// clicavel de cada details e posicionada sobre o botao da visao para onde
+// aquele clique leva. Assim qualquer visao fica sempre a 1 clique. Tabela:
 //   E1 E2 E3 = estado dos 3 details | Va = visao mostrada
 //   T1 T2 T3 = visao para onde o clique em cada details leva (9 = escondido)
 // A "visao 0" e a que aparece com tudo fechado (estado inicial).
@@ -1166,10 +1149,7 @@ VAR _estados =
 // Pre = prefixo da classe dos details | Suf = sufixo das variaveis CSS
 // PA / PB / PC = posicao (0 a 2) do botao das visoes 0, 1 e 2
 VAR _grupos =
-    UNION(
-        ROW( "Pre", "b", "Suf", "g", "PA", _gA, "PB", _gB, "PC", _gC ),
-        ROW( "Pre", "c", "Suf", "l", "PA", _lA, "PB", _lB, "PC", _lC )
-    )
+    ROW( "Pre", "b", "Suf", "g", "PA", _gA, "PB", _gB, "PC", _gC )
 VAR _cssBotoes =
     CONCATENATEX(
         CROSSJOIN( _grupos, _estados ),
@@ -1194,16 +1174,6 @@ VAR _botoesGran =
         "<details class='b2'><summary aria-label='Trocar a granularidade'></summary></details>" &
         "<details class='b3'><summary aria-label='Trocar a granularidade'></summary></details>" &
     "</div>"
-VAR _botoesLista =
-    "<div class='seg sl' role='group' aria-label='Situação das ordens'>" &
-        "<i class='thumb'></i>" &
-        "<span class='o tR'><i></i>Perdidas<b>" & FORMAT( _qP, "#,0", _loc ) & "</b></span>" &
-        "<span class='o tO'><i></i>Vencem hoje<b>" & FORMAT( _qH, "#,0", _loc ) & "</b></span>" &
-        "<span class='o tY'><i></i>Amanhã<b>" & FORMAT( _qA, "#,0", _loc ) & "</b></span>" &
-        "<details class='c1'><summary aria-label='Trocar a lista'></summary></details>" &
-        "<details class='c2'><summary aria-label='Trocar a lista'></summary></details>" &
-        "<details class='c3'><summary aria-label='Trocar a lista'></summary></details>" &
-    "</div>"
 
 // Texto do botao de ajuda (?)
 VAR _ajuda =
@@ -1212,7 +1182,7 @@ VAR _ajuda =
             "<b>Como ler</b>" &
             "<p><i class='k'>Indicador</i>instalações baixadas até a data da 1ª agenda pedida pelo cliente ÷ todas as instalações baixadas. Meta: " & FORMAT( _meta, "0.0%", _loc ) & " ou mais.</p>" &
             "<p><i class='k'>Lado esquerdo</i>segue o filtro de mês. Os botões Mês, Semana e Dia trocam a curva e as colunas da tabela. Cada linha é uma cor ou uma AT; passe o mouse em uma célula para ver os volumes.</p>" &
-            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: a carteira do backlog. Perdida = a 1ª agenda já passou; vence hoje = 1ª agenda hoje. Em campo = está na ETA DIRECT D-0 de hoje. Sem agendar = vence amanhã e o status oficial não é " & _statusAgendado & ".</p>" &
+            "<p><i class='k'>Lado direito</i>é sempre o dia de hoje: a carteira do backlog. Perdida = a 1ª agenda já passou (fora do indicador); vence hoje = 1ª agenda hoje. Em campo = está na ETA DIRECT D-0 de hoje. Sem agendar = vence amanhã e o status oficial não é agendada. As ordens, uma a uma, estão em Baixar CSV.</p>" &
             "<p class='help-esc'><i class='e tG'>na meta</i><i class='e tY'>até −10%</i><i class='e tO'>até −20%</i><i class='e tR'>abaixo</i></p>" &
         "</div>" &
     "</div>"
@@ -1341,7 +1311,6 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 /* ---------- BOTOES (3 posicoes, com a tag details) ---------- */
 .seg{position:relative;flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:26px;padding:2px;overflow:hidden;border-radius:9px;background:var(--sf2);box-shadow:inset 0 0 0 1px var(--ln);--n:3}
 .sg{width:186px}
-.sl{flex:1 1 auto}
 .seg .o{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:0 6px;font-size:10.5px;font-weight:650;color:var(--mut);white-space:nowrap;pointer-events:none;transition:color .15s ease}
 .seg .o i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
 .seg .o b{font-weight:700;color:var(--ink2)}
@@ -1351,18 +1320,15 @@ box-shadow:0 10px 26px rgba(5,14,38,.22),inset 0 0 0 1px rgba(255,255,255,.08)}
 .seg summary::marker{content:''}
 .seg summary:hover{background:rgba(11,21,51,.05)}
 .seg summary:focus-visible{outline:2px solid var(--pri);outline-offset:-2px}
-.sg .thumb{--a:var(--ag)}.sl .thumb{--a:var(--al)}
+.sg .thumb{--a:var(--ag)}
 .b1 summary{--p:var(--pg1)}.b2 summary{--p:var(--pg2)}.b3 summary{--p:var(--pg3)}
-.c1 summary{--p:var(--pl1)}.c2 summary{--p:var(--pl2)}.c3 summary{--p:var(--pl3)}
 .sg .o:nth-of-type(1){color:var(--kg0,var(--mut))}.sg .o:nth-of-type(2){color:var(--kg1,var(--mut))}.sg .o:nth-of-type(3){color:var(--kg2,var(--mut))}
-.sl .o:nth-of-type(1){color:var(--kl0,var(--mut))}.sl .o:nth-of-type(2){color:var(--kl1,var(--mut))}.sl .o:nth-of-type(3){color:var(--kl2,var(--mut))}
 /* 8 combinacoes de cada grupo -> visao, botao ativo e posicao das camadas (gerado pela medida) */
 " & _cssBotoes & "
 .v-mes{display:var(--vg0,none)}.v-sem{display:var(--vg1,none)}.v-dia{display:var(--vg2,none)}
 .i-mes{display:var(--ig0,none)}.i-sem{display:var(--ig1,none)}.i-dia{display:var(--ig2,none)}
-.l-p{display:var(--vl0,none)}.l-h{display:var(--vl1,none)}.l-a{display:var(--vl2,none)}
 /* navegador sem :has(): mostra a visao inicial e esconde os botoes */
-@supports not selector(:has(a)){.view.ini,.lv.ini{display:flex}.ins.ini{display:block}.seg{display:none}}
+@supports not selector(:has(a)){.view.ini{display:flex}.ins.ini{display:block}.seg{display:none}}
 
 /* ajuda (?): abre com o mouse em cima ou com um clique (foco) */
 .help{position:relative;flex:none;outline:none}
@@ -1444,35 +1410,16 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 .e1:has(.hc .c-ouro:hover) :is(.r-c,.r-a):not(.c-ouro),.e1:has(.hc .c-prata1:hover) :is(.r-c,.r-a):not(.c-prata1),.e1:has(.hc .c-prata2:hover) :is(.r-c,.r-a):not(.c-prata2),.e1:has(.hc .c-bronze:hover) :is(.r-c,.r-a):not(.c-bronze){opacity:.28}
 
 /* =====================================================================
-   HOJE: VENCEM HOJE EM CAMPO, POR COR E AT, LISTA DE ORDENS
+   HOJE: POR COR E AT + CARD BACKLOG
    ===================================================================== */
-.d0{padding:0}
-/* ---- vencem hoje x situacao em campo ---- */
-.vh{flex:none;padding:8px 12px 8px 14px;border-bottom:1px solid var(--ln2)}
-.vhh{display:flex;align-items:baseline;gap:8px;min-width:0;white-space:nowrap}
-.vhh>b{flex:none;font-size:8px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
-.vhh span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;font-size:9.5px;color:var(--mut)}
-.vhh span.atr{color:#A3161A;font-weight:700}
-.vp{margin:7px 0 0;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;line-height:12px;color:var(--mut);white-space:nowrap}
-.vp b{font-weight:700;color:var(--ink)}
-.vp .pg{color:#04704B}
-.vp .pr{color:#A3161A}
-.vb{display:flex;gap:2px;height:6px;margin:6px 0 7px;border-radius:3px;background:var(--sf2)}
-.vb i{flex:var(--w,0) 1 0%;min-width:3px;border-radius:3px;background:var(--s)}
-.vgs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:8px}
-.vg{min-width:0;white-space:nowrap}
-.vg small{display:flex;align-items:center;gap:4px;overflow:hidden;font-size:7.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--mut);white-space:nowrap}
-.vg small i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--s)}
-.vg b{display:inline-block;margin-top:3px;font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1;color:var(--ink)}
-.vg em{margin-left:4px;font-size:9px;font-weight:700;color:var(--st)}
-.vg.tR b{color:#A3161A}
-.vg.z b,.vg.z em{color:#B0B8C8}
+.rc{min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
+.d0{flex:1 1 auto;min-height:90px;padding:0}
 /* ---- quadro por cor e AT ---- */
 .qh0,.qr{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(6,minmax(0,1fr));align-items:center;column-gap:4px;padding:0 12px 0 14px;text-align:center;white-space:nowrap}
 .qh0{flex:none;height:26px;background:var(--sf2);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.02em;line-height:9px;text-transform:uppercase}
 .qh0 span{overflow:hidden;white-space:normal}
 .qh0 span:first-child,.qn{text-align:left}
-.qt{flex:0 1 auto;min-height:60px;padding:2px 0 4px;overflow-y:auto;overflow-x:hidden;border-bottom:1px solid var(--ln2);scrollbar-width:thin;scrollbar-color:#C5CCDA transparent}
+.qt{flex:1 1 auto;min-height:40px;padding:2px 0 4px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA transparent}
 .qt::-webkit-scrollbar{width:6px}
 .qt::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
 .qr{height:15px;font-size:9.5px;color:var(--ink2)}
@@ -1488,28 +1435,55 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 .qk{justify-self:center;min-width:26px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 4px;border-radius:3px;background:var(--sb);color:var(--st)!important;font-size:9.5px;font-weight:700}
 .qk.z{background:transparent;color:#B0B8C8!important;font-weight:500}
 
-/* ---- lista de ordens ---- */
-.lh{flex:none;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px 0 14px}
-.lh h2{flex:none;margin:0;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
-.oh,.or{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.9fr) 40px 48px minmax(0,1.45fr);align-items:center;column-gap:8px;padding:0 12px 0 14px}
-.oh{flex:none;height:22px;background:var(--sf2);border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);color:var(--mut);font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
-.oh span{overflow:hidden;text-overflow:ellipsis}
-.lv{flex:1 1 120px;min-height:96px;flex-direction:column;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#C5CCDA var(--sf2)}
-.lv::-webkit-scrollbar{width:7px}
-.lv::-webkit-scrollbar-track{background:var(--sf2)}
-.lv::-webkit-scrollbar-thumb{background:#C5CCDA;border-radius:99px}
-.or{flex:none;height:24px;border-bottom:1px solid var(--ln2);font-size:10.5px;white-space:nowrap;transition:background .15s ease}
-.or:hover{background:var(--sf2)}
-.or,.or *{-webkit-user-select:text;user-select:text}
-/* PON: um clique seleciona o valor inteiro, pronto para Ctrl+C */
-.op{overflow:hidden;text-overflow:ellipsis;color:var(--ink2);cursor:copy;-webkit-user-select:all;user-select:all}
-.on{overflow:hidden;text-overflow:ellipsis;font-weight:650;color:var(--ink)}
-.oa{display:flex;align-items:center;gap:5px;overflow:hidden;font-weight:700;color:var(--ink)}
-.od{overflow:hidden;color:var(--ink2)}
-.od.late{color:#A3161A;font-weight:700}
-.os{justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:2px 6px;border-radius:5px;background:var(--sb);color:var(--st);font-size:9.5px;font-weight:700;line-height:1.1}
-.nt{flex:none;margin:0;padding:6px 14px;border-bottom:1px solid var(--ln2);background:#FFF8E1;color:#7A5600;font-size:9.5px;line-height:1.35}
-.more{flex:none;margin:0;padding:9px 14px 10px;color:var(--mut);font-size:9.5px;line-height:1.35}
+/* ---- card Backlog ---- */
+.bk{flex:none;padding:10px 12px 9px}
+.bk::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,#3B82F6 0 17%,#8B5CF6 17% 34%,#EC4899 34% 50%,#F97316 50% 67%,#EAB308 67% 84%,#10B981 84% 100%)}
+.bkh{display:flex;align-items:baseline;gap:8px;margin:1px 0 7px;white-space:nowrap}
+.bkh>b{flex:none;font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.bkh span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;font-size:10.5px;color:var(--mut)}
+.bkh span b{font-weight:700;color:var(--ink)}
+.bkh span .x{color:#A3161A}
+/* GEOMETRIA: a caixa da idade tem largura fixa para os 8 rotulos (D0 ... +30) caberem sem encavalar */
+.bka{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 180px;gap:6px;align-items:stretch}
+.bv{min-width:0;padding:6px 6px 6px;border:1px solid var(--ln);border-radius:10px;background:var(--sf)}
+.bvh{display:flex;align-items:baseline;justify-content:space-between;gap:4px;white-space:nowrap}
+.bvh span{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:7.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink2)}
+.bvh b{flex:none;font-size:16px;font-weight:700;line-height:1;color:var(--ink)}
+.br{display:flex;align-items:center;justify-content:space-between;gap:4px;height:17px;margin-top:4px;padding:0 5px;border-radius:5px;font-size:9px;white-space:nowrap}
+.br span{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}
+.br b{flex:none;font-weight:700}
+.br.ok{background:#E6F6EE;color:#04704B}
+.br.ok i{flex:none;width:6px;height:6px;border-radius:50%;background:#0E9F6E}
+.br.wn{background:#FFF1D6;color:#8A4B00}
+.bh{min-width:0;display:flex;flex-direction:column;padding:6px 5px 4px;border:1px solid var(--ln);border-radius:10px}
+.bhh{overflow:hidden;text-overflow:ellipsis;font-size:7px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);white-space:nowrap}
+.bhs{flex:1 1 auto;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);column-gap:1px;margin-top:2px}
+.bhc{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.bhc b{font-size:7.5px;font-weight:700;line-height:10px;color:var(--ink2);white-space:nowrap}
+.bhc i{display:block;width:100%;height:calc(var(--h,0) * 30px);min-height:1px;margin-top:1px;border-radius:2px 2px 0 0;background:#FBD9A6}
+.bhc.mx b{color:#B45309}
+.bhc.mx i{background:#F59E0B}
+.bhc small{margin-top:2px;font-size:7px;font-weight:600;letter-spacing:-.02em;line-height:9px;color:var(--mut);white-space:nowrap}
+.bkb{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:6px;margin-top:6px}
+.bc,.bo{min-width:0;padding:6px 7px 6px;border-radius:10px}
+.bc{background:#F0FAF4;border:1px solid #CDEBD9}
+.bo{background:#FFF8EC;border:1px solid #F6DDB0}
+.bch{display:flex;align-items:baseline;gap:4px;margin:0 0 3px 2px;font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#04704B;white-space:nowrap}
+.bch i{flex:none;align-self:center;width:6px;height:6px;border-radius:50%;background:#0E9F6E}
+.bch b{font-size:12px;letter-spacing:0;color:var(--ink)}
+.bch small{font-size:8.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--mut)}
+.bo .bch{color:#8A4B00}
+.bl{display:flex;align-items:center;justify-content:space-between;gap:6px;height:14px;padding:0 4px;border-radius:3px;font-size:9.5px;color:var(--ink2);white-space:nowrap}
+.bl span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bl b{flex:none;font-weight:700;color:var(--ink)}
+.bl.hi{background:#FCDFA8}
+.bl.ot span{font-style:italic;color:var(--mut)}
+.bft{display:grid;grid-auto-flow:column;grid-template-rows:repeat(var(--r,7),auto);grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:10px}
+.b0{margin:2px 0 0 3px;color:var(--mut);font-size:9px}
+.bkp{margin:6px 0 0;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;line-height:12px;color:var(--mut);white-space:nowrap}
+.bkp b{font-weight:700;color:var(--ink)}
+.bkp .pg{color:#04704B}
+.bkp .pr{color:#A3161A}
 .empty{margin:auto;padding:24px 16px;text-align:center;color:var(--mut);font-size:10.5px;line-height:1.4}
 .empty b{display:block;margin-bottom:4px;color:var(--ink);font-size:12px;font-weight:700}
 /* ---------- ANIMACOES (so na entrada) ---------- */
@@ -1517,9 +1491,9 @@ clip-path:polygon(var(--l) calc(var(--a) - var(--p)),50% calc(var(--y) - var(--p
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(52,211,153,.22)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.06)}}
 
 /* ---------- OUTROS TAMANHOS / ACESSIBILIDADE ---------- */
-@media (max-width:1120px){.e1{grid-template-columns:minmax(0,1fr) 404px;--gl:92px;--gr:46px}.hp{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}.hv{display:none}.ins{display:none!important}.lg{visibility:hidden}.dk small{display:none}.sg{margin-left:auto}.ds{grid-template-columns:repeat(4,minmax(0,1fr))}.ds .st:first-child{display:none}.ds .st:nth-child(2){padding-left:0;border-left:none}.dc{display:inline-flex}.st small{gap:3px}.vgs{column-gap:5px}.vg small{align-items:flex-start;height:17px;line-height:8.5px;white-space:normal}.vg small i{margin-top:1px}}
-@media (max-width:900px){.e1{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.hd,.d0{display:none}}
-@media (max-height:560px){.hero{padding-top:8px;padding-bottom:8px}.kv b{font-size:30px}.vgs{display:none}.rw{height:13px}}
+@media (max-width:1120px){.e1{grid-template-columns:minmax(0,1fr) 420px;--gl:92px;--gr:46px}.hp{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}.hv{display:none}.ins{display:none!important}.lg{visibility:hidden}.dk small{display:none}.sg{margin-left:auto}.ds{grid-template-columns:repeat(4,minmax(0,1fr))}.ds .st:first-child{display:none}.ds .st:nth-child(2){padding-left:0;border-left:none}.dc{display:inline-flex}.st small{gap:3px}.bk{padding:9px 8px 8px}.bka{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 180px;gap:5px}.bh{padding:6px 4px 4px}.bv{padding:6px 5px 6px}.bvh span{font-size:7px;letter-spacing:.02em}.bvh b{font-size:14px}.br{padding:0 4px;font-size:8.5px}.bkb{gap:5px}.bft{column-gap:8px}.bl{font-size:9px}.bkp{font-size:9px}}
+@media (max-width:900px){.e1{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.hd,.rc{display:none}}
+@media (max-height:560px){.hero{padding-top:8px;padding-bottom:8px}.kv b{font-size:30px}.bkb,.bkp{display:none}.rw{height:13px}}
 @media (prefers-reduced-motion:reduce){.e1 *,.e1 *::before,.e1 *::after{animation:none!important;transition:none!important}}
 </style>"
 
@@ -1549,23 +1523,22 @@ VAR _avisoHoje =
             " ordens, mas nenhuma com a AT igual às da dAT no filtro. Confira a coluna AT na VAR _backlogModelo: os valores têm que ser os mesmos da dAT[AREA ]."
     )
 
+// Coluna da direita, embaixo da faixa de hoje: quadro por cor e AT em cima e,
+// embaixo, o card Backlog.
 VAR _painelHoje =
-    "<article class='panel d0'>" &
-        IF(
-            _qBk = 0,
-            "<div class='empty'>" & _avisoHoje & "</div>",
-            _blocoHoje &
-            "<div class='qh0'><span>Cor / AT</span><span title='Ordens do backlog'>Carteira</span><span title='1ª agenda já passou'>Perdidas</span>" &
-                "<span title='1ª agenda hoje'>Hoje</span><span title='Vencem hoje e não estão na ETA DIRECT D-0 de hoje'>Fora de campo</span>" &
-                "<span title='1ª agenda amanhã'>Amanhã</span><span title='Vencem amanhã com o STATUS_OFICIAL diferente de " & _statusAgendado & "'>Sem agendar</span></div>" &
-            "<div class='qt'>" & _tabHoje & "</div>" &
-            "<div class='lh'><h2>Ordens</h2>" & _botoesLista & "</div>" &
-            "<div class='oh'><span>Ordem</span><span title='Clique no PON para selecionar e copie com Ctrl+C'>PON · copiar</span><span>AT</span>" &
-                "<span title='Perdidas: dia da 1ª agenda. Hoje e amanhã: horário (vermelho = já passou)'>1ª agenda</span>" &
-                "<span title='Hoje: status na ETA DIRECT D-0. Amanhã: status oficial. Perdidas: dias desde a 1ª agenda'>Situação</span></div>" &
-            _listas
-        ) &
-    "</article>"
+    "<div class='rc'>" &
+        "<article class='panel d0'>" &
+            IF(
+                _qBk = 0,
+                "<div class='empty'>" & _avisoHoje & "</div>",
+                "<div class='qh0'><span>Cor / AT</span><span title='Ordens do backlog'>Carteira</span><span title='1ª agenda já passou'>Perdidas</span>" &
+                    "<span title='1ª agenda hoje'>Hoje</span><span title='Vencem hoje e não estão na ETA DIRECT D-0 de hoje'>Fora de campo</span>" &
+                    "<span title='1ª agenda amanhã'>Amanhã</span><span title='Vencem amanhã com o STATUS_OFICIAL diferente de agendada'>Sem agendar</span></div>" &
+                "<div class='qt'>" & _tabHoje & "</div>"
+            ) &
+        "</article>" &
+        IF( _qBk = 0, "", _cardBacklog ) &
+    "</div>"
 
 // O bloco de CSS vai DENTRO da div principal, nunca na frente dela: visuais
 // HTML que filtram o conteudo jogam fora um bloco de estilo que seja a

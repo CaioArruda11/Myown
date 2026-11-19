@@ -1,20 +1,30 @@
 Barra Filtros 1 Agenda HTML =
 // ============================================================================
-// BARRA DE FILTROS - PAGINA "EFETIVIDADE 1 AGENDA"  (v1)
-// Fica POR BAIXO das segmentacoes nativas. O visual HTML nao filtra nada: ele
-// so desenha a faixa escura, o titulo da pagina e uma "caixa" com rotulo para
-// cada filtro. Mesma barra da pagina da Instalacao 3D, com outro titulo.
+// BARRA DE FILTROS - PAGINA "EFETIVIDADE 1 AGENDA"  (v1.1)
+// Fica POR BAIXO das segmentacoes nativas e de um botao nativo. O visual HTML
+// nao filtra nem navega: ele so desenha a faixa escura, o titulo, uma "caixa"
+// com rotulo para cada filtro, a data da ultima atualizacao e o botao
+// BAIXAR CSV. Mesma barra da pagina da Instalacao 3D, com dois blocos a mais.
 //
-// COMO MONTAR
-//   1. Visual HTML com esta medida: altura 62 px, largura = a do painel.
+// COMO MONTAR (barra com 1032 x 62 px, a mesma largura do painel)
+//   1. Visual HTML com esta medida: altura 62 px, sem titulo, fundo transparente.
 //   2. Uma segmentacao nativa (estilo Lista suspensa) em cima de cada caixa:
-//        tamanho 160 x 26 px. As caixas ficam encostadas a direita: a
-//        segmentacao da ultima comeca a 180 px da borda direita da barra, a
-//        do meio a 358 px e a primeira a 536 px; todas a 24 px do topo.
+//        160 x 26 px, todas a 24 px do topo da barra. A borda esquerda de cada
+//        uma fica, contando da borda DIREITA da barra: AT 432 px, Cor 610 px,
+//        Mes 788 px.
 //   3. Formato de cada segmentacao: Cabecalho da segmentacao DESLIGADO;
 //        Valores com fonte Segoe UI 10, cor BRANCA, Tela de fundo desligada;
 //        em Geral > Efeitos: Tela de fundo, Borda e Sombra DESLIGADAS.
-//   4. Traga as segmentacoes para a frente (Formato > Trazer para a frente).
+//   4. Botao nativo (Inserir > Botoes > Em branco) em cima do BAIXAR CSV:
+//        116 x 32 px, a 132 px da borda direita da barra e 15 px do topo.
+//        Acao > Tipo: Navegacao de pagina > Destino: ANALÍTICO 1 AGENDA.
+//        Preenchimento 100% transparente; em Estilo > "Ao passar o mouse",
+//        preenchimento branco com 85% de transparencia.
+//   5. Traga as segmentacoes e o botao para a frente.
+//
+// O Power BI nao tem acao de botao que baixe um arquivo: o BAIXAR CSV abre a
+// pagina do analitico (oculta), com uma tabela so. La: ... da tabela >
+// Exportar dados > CSV.
 //
 // Para mudar os rotulos ou a quantidade de caixas, edite a tabela _filtros
 // (cada caixa ocupa 178 px, contando o intervalo).
@@ -36,6 +46,16 @@ VAR _titulo = "Efetividade 1ª agenda"
 VAR _subtitulo = "Perus / Butantã"
 // Linha de dica abaixo do titulo (deixe "" para nao mostrar).
 VAR _dica = ""
+// Botao da direita: "baixar" (BAIXAR CSV) | "voltar" (VOLTAR) | "" (sem botao)
+VAR _botao = "baixar"
+
+// Ultima atualizacao (deixe _rotAtualizacao = "" para nao mostrar o bloco).
+VAR _rotAtualizacao = "Atualização Zeus"
+// <<< MODELO: data (ou data e hora) da ultima carga. Se tiver uma coluna com a
+//     hora da carga da Zeus, troque aqui. Sem hora, mostra so a data.
+VAR _atualizacao =
+    CALCULATE( MAX( 'BACKLOG_INSTALACAO'[DATA_CARGA] ), REMOVEFILTERS() )
+VAR _fuso = -3
 
 // Um rotulo por segmentacao, da esquerda para a direita.
 VAR _filtros =
@@ -56,6 +76,28 @@ VAR _caixas =
         [Ordem], ASC
     )
 
+// verde = carga de hoje | amarelo = carga de outro dia
+VAR _hojeN = INT( UTCNOW() + _fuso / 24 )
+VAR _temHora = NOT ISBLANK( _atualizacao ) && _atualizacao - INT( _atualizacao ) > 0
+VAR _blocoAtualizacao =
+    IF(
+        _rotAtualizacao = "",
+        "",
+        "<div class='up'><small>" & _rotAtualizacao & "</small>" &
+            "<b class='" & IF( NOT ISBLANK( _atualizacao ) && INT( _atualizacao ) = _hojeN, "ok", "late" ) & "'><i></i>" &
+                IF( ISBLANK( _atualizacao ), "sem data", FORMAT( _atualizacao, IF( _temHora, "dd/MM/yyyy hh:nn", "dd/MM/yyyy" ), "pt-BR" ) ) &
+            "</b></div>"
+    )
+VAR _iconeBaixar = "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 4v11M7 10.5l5 5 5-5M5 19.5h14'></path></svg>"
+VAR _iconeVoltar = "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M19 12H6M11 6.5 5.5 12l5.5 5.5'></path></svg>"
+VAR _blocoBotao =
+    SWITCH(
+        _botao,
+        "baixar", "<div class='bt'>" & _iconeBaixar & "<span>Baixar CSV</span></div>",
+        "voltar", "<div class='bt'>" & _iconeVoltar & "<span>Voltar</span></div>",
+        ""
+    )
+
 VAR _css =
 "<style>
 html,body{margin:0;padding:0;width:100%;height:100vh;overflow:hidden;background:transparent}
@@ -68,13 +110,22 @@ background:radial-gradient(60% 200% at 0% 0%,var(--g2),transparent 62%),radial-g
 box-shadow:0 8px 20px rgba(5,14,38,.20),inset 0 0 0 1px rgba(255,255,255,.08)}
 .tt{flex:1 1 auto;min-width:0}
 .tt b{display:block;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:20px;white-space:nowrap}
-.tt small{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;font-weight:700;letter-spacing:.14em;line-height:11px;text-transform:uppercase;color:var(--a1);white-space:nowrap}
+.tt small{display:block;margin-top:0;overflow:hidden;text-overflow:ellipsis;font-size:8.5px;font-weight:700;letter-spacing:.14em;line-height:13px;text-transform:uppercase;color:var(--a1);white-space:nowrap}
 .tt em{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;line-height:12px;color:rgba(255,255,255,.66);white-space:nowrap}
 .tt em b{display:inline;font-size:9.5px;line-height:12px;letter-spacing:0;color:#FFFFFF}
 /* GEOMETRIA: caixa de 168 px, intervalo de 10 px; rotulo com 15 px e area da segmentacao com 28 px */
 .fx{flex:none;width:168px;height:46px}
 .fx small{display:block;height:15px;padding-left:2px;font-size:8px;font-weight:700;letter-spacing:.12em;line-height:13px;text-transform:uppercase;color:rgba(255,255,255,.62)}
 .fx i{display:block;height:28px;border-radius:9px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+/* GEOMETRIA: atualizacao e botao com 116 px cada; botao com 32 px de altura */
+.up{flex:none;width:116px;min-width:0;padding-left:10px;border-left:1px solid rgba(255,255,255,.12)}
+.up small{display:block;overflow:hidden;text-overflow:ellipsis;font-size:7.5px;font-weight:700;letter-spacing:.1em;line-height:11px;text-transform:uppercase;color:rgba(255,255,255,.58);white-space:nowrap}
+.up b{display:flex;align-items:center;gap:6px;margin-top:3px;overflow:hidden;font-size:11px;font-weight:700;line-height:14px;white-space:nowrap}
+.up b i{flex:none;width:7px;height:7px;border-radius:50%;background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.18)}
+.up b.late i{background:#FBBF24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+.bt{flex:none;width:116px;height:32px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
+.bt svg{flex:none;width:15px;height:15px;fill:none;stroke:var(--a1);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.bt span{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
 @media (max-width:760px){.tt{display:none}.bx{justify-content:flex-end}}
 </style>"
 
@@ -84,6 +135,8 @@ VAR _html =
     "<div class='bx'>" &
         "<div class='tt'><b>" & _titulo & "</b><small>" & _subtitulo & "</small>" & IF( _dica = "", "", "<em>" & _dica & "</em>" ) & "</div>" &
         _caixas &
+        _blocoAtualizacao &
+        _blocoBotao &
     "</div>" &
 "</div>"
 
